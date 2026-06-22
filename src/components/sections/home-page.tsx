@@ -158,7 +158,7 @@ export function HomePage() {
                 </div>
                 {/* Floating badge */}
                 <div className="absolute -bottom-5 -right-5 md:-right-8 bg-primary text-white p-5 md:p-6 rounded-2xl shadow-2xl shadow-primary/30 max-w-[200px]">
-                  <div className="font-heading text-3xl md:text-4xl font-extrabold">2024</div>
+                  <div className="font-heading text-3xl md:text-4xl font-extrabold">2016</div>
                   <div className="text-xs md:text-sm text-white/90 mt-1">Berdiri sejak, melayani rakyat</div>
                 </div>
               </div>

@@ -119,7 +119,7 @@ const organizationSchema = {
   logo: `${siteUrl}/pbr.png`,
   description:
     "Gerakan masyarakat sipil independen untuk memperjuangkan kepentingan rakyat melalui advokasi, partisipasi publik, dan aksi nyata.",
-  foundingDate: "2024",
+  foundingDate: "2016",
   areaServed: "ID",
   sameAs: [
     "https://facebook.com/petisibelarakyat",
