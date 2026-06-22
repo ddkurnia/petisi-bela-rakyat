@@ -2,8 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Users, PenLine, Megaphone, Activity, Eye, HandHeart, Flag, Heart, Shield, Building2, GraduationCap, TrendingUp, HeartHandshake, Scale, ChevronLeft, ChevronRight, Quote } from "lucide-react";
-import { AnimatedCounter, Reveal } from "@/components/animation";
+import {
+  ArrowRight, Users, PenLine, Megaphone, Activity, Eye, HandHeart, Flag, Heart,
+  Shield, Building2, GraduationCap, TrendingUp, HeartHandshake, Scale,
+  ChevronLeft, ChevronRight, Quote, Crown, Briefcase, Camera, Wallet,
+  Target, Sparkles,
+} from "lucide-react";
+import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
 import { useStore } from "@/lib/store";
 import { useNav } from "@/lib/nav";
@@ -12,13 +17,26 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/store";
 
-const statIcons = [PenLine, Users, Shield, Megaphone];
 const nilaiIcons: Record<string, React.ElementType> = {
   Eye, HandHeart, Shield, Flag, Heart, Building2, TrendingUp, Scale,
 };
 
 const workIcons: Record<string, React.ElementType> = {
   Building2, GraduationCap, TrendingUp, HeartHandshake, Scale,
+};
+
+// Org structure position icons
+const positionIcons: Record<string, React.ElementType> = {
+  ketua: Crown,
+  wakil_ketua: Users,
+  sekretaris: Briefcase,
+  bidang_hukum: Scale,
+  bidang_advokasi: Megaphone,
+  bidang_media: Camera,
+  bidang_hubungan_pemerintah: Building2,
+  bidang_penggalangan_dukungan: Users,
+  bidang_riset_data: Target,
+  bidang_keuangan: Wallet,
 };
 
 // ============ SUPPORTER CAROUSEL ============
@@ -111,67 +129,92 @@ export function HomePage() {
   const { navigate } = useNav();
   const settings = useStore((s) => s.settings);
   const work = useStore((s) => s.work);
-  const campaigns = useStore((s) => s.campaigns);
   const supporters = useStore((s) => s.supporters);
   const news = useStore((s) => s.news);
   const pengurus = useStore((s) => s.pengurus);
-  const activePengurus = pengurus.filter((p) => p.status === "active").slice(0, 4);
+  const orgStructure = useStore((s) => s.orgStructure);
+
+  // Top positions for org preview (Ketua + Wakil + Sekretaris + Bidang heads)
+  const topPositions = orgStructure.slice(0, 4);
+  const getPengurusByPosition = (key: string) =>
+    pengurus.find((p) => p.jabatanKey === key && p.status === "active");
 
   return (
     <div>
-      {/* Stats section */}
-      <section className="py-16 md:py-24 bg-background relative overflow-hidden">
-        <div className="absolute inset-0 pattern-dots opacity-50" />
-        <div className="container-x relative">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-            {settings.homepage.stats.map((stat, i) => {
-              const Icon = statIcons[i % statIcons.length];
-              return (
-                <Reveal key={i} delay={i * 0.1}>
-                  <Card className="p-6 md:p-8 text-center h-full border-0 shadow-xl shadow-foreground/5 bg-gradient-to-b from-card to-card/50 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
-                    <div className="h-12 w-12 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-                      <Icon className="h-6 w-6 text-primary" />
-                    </div>
-                    <div className="font-heading text-3xl md:text-5xl font-extrabold text-foreground tracking-tight">
-                      <AnimatedCounter end={stat.value} suffix={stat.suffix} />
-                    </div>
-                    <div className="mt-1 text-sm md:text-base text-muted-foreground font-medium">
-                      {stat.label}
-                    </div>
-                  </Card>
-                </Reveal>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* About preview */}
-      <section className="py-16 md:py-28 bg-secondary/40">
+      {/* ===== SECTION 1: TENTANG PETISI BELA RAKYAT (2-column) ===== */}
+      <section className="py-16 md:py-28 bg-background">
         <div className="container-x">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+            {/* Left: Photo */}
+            <Reveal>
+              <div className="relative">
+                <div className="relative aspect-[4/5] sm:aspect-[5/4] rounded-3xl overflow-hidden shadow-2xl">
+                  <img
+                    src={settings.homepage.about.image}
+                    alt="Kegiatan Petisi Bela Rakyat"
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-primary/20 to-transparent" />
+                </div>
+                {/* Floating badge */}
+                <div className="absolute -bottom-5 -right-5 md:-right-8 bg-primary text-white p-5 md:p-6 rounded-2xl shadow-2xl shadow-primary/30 max-w-[200px]">
+                  <div className="font-heading text-3xl md:text-4xl font-extrabold">2024</div>
+                  <div className="text-xs md:text-sm text-white/90 mt-1">Berdiri sejak, melayani rakyat</div>
+                </div>
+              </div>
+            </Reveal>
+
+            {/* Right: About + Visi + Misi */}
             <div>
               <Reveal>
                 <div className="inline-flex items-center gap-2 mb-4">
                   <span className="h-px w-8 bg-primary" />
                   <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
-                    Tentang Kami
+                    Tentang Petisi Bela Rakyat
                   </span>
                 </div>
                 <h2 className="font-heading text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-tight">
                   {settings.homepage.about.title}
                 </h2>
                 <p className="mt-5 text-muted-foreground text-base md:text-lg leading-relaxed">
-                  {settings.about.visi}
+                  {settings.homepage.about.description}
                 </p>
-                <div className="mt-6 space-y-3">
-                  {settings.about.misi.slice(0, 3).map((m, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                      <span className="text-sm md:text-base text-foreground/80">{m}</span>
+              </Reveal>
+
+              <Reveal delay={0.15}>
+                <div className="mt-8 p-5 md:p-6 rounded-2xl bg-secondary/40 border border-border">
+                  <div className="flex items-center gap-2.5 mb-2.5">
+                    <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <Eye className="h-4 w-4 text-primary" />
                     </div>
-                  ))}
+                    <h3 className="font-heading text-base md:text-lg font-bold">Visi</h3>
+                  </div>
+                  <p className="text-sm md:text-base text-foreground/80 leading-relaxed">
+                    {settings.about.visi}
+                  </p>
                 </div>
+              </Reveal>
+
+              <Reveal delay={0.25}>
+                <div className="mt-4">
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <Target className="h-4 w-4 text-primary" />
+                    </div>
+                    <h3 className="font-heading text-base md:text-lg font-bold">Misi</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {settings.about.misi.slice(0, 3).map((m, i) => (
+                      <div key={i} className="flex items-start gap-2.5">
+                        <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                        <span className="text-sm md:text-base text-foreground/80">{m}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Reveal>
+
+              <Reveal delay={0.35}>
                 <Button
                   className="mt-8 rounded-full bg-primary hover:bg-primary/90 text-white"
                   onClick={() => navigate("about", { aboutSection: "sejarah" })}
@@ -181,33 +224,17 @@ export function HomePage() {
                 </Button>
               </Reveal>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              {settings.about.nilai.map((n, i) => {
-                const Icon = nilaiIcons[n.icon] || Shield;
-                return (
-                  <Reveal key={i} delay={i * 0.1}>
-                    <Card className="p-5 md:p-6 h-full bg-card hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-0 shadow-lg shadow-foreground/5">
-                      <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
-                        <Icon className="h-5 w-5 text-primary" />
-                      </div>
-                      <h3 className="font-heading text-base md:text-lg font-bold">{n.title}</h3>
-                      <p className="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{n.description}</p>
-                    </Card>
-                  </Reveal>
-                );
-              })}
-            </div>
           </div>
         </div>
       </section>
 
-      {/* Work preview */}
-      <section className="py-16 md:py-28 bg-background">
+      {/* ===== SECTION 2: FOKUS PERJUANGAN KAMI (Work) ===== */}
+      <section className="py-16 md:py-28 bg-secondary/40">
         <div className="container-x">
           <SectionHeading
-            eyebrow="Kerja Kami"
-            title={settings.homepage.work.title}
-            description={settings.homepage.work.description}
+            eyebrow="Fokus Perjuangan"
+            title="Fokus Perjuangan Kami"
+            description="Kami fokus pada isu-isu strategis yang berdampak langsung pada kehidupan rakyat — dari infrastruktur hingga advokasi hukum."
           />
           <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
             {work.map((w, i) => {
@@ -257,55 +284,56 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Campaigns preview */}
-      <section className="py-16 md:py-28 bg-foreground text-background">
+      {/* ===== SECTION 3: STRUKTUR PENGURUS ===== */}
+      <section className="py-16 md:py-28 bg-background">
         <div className="container-x">
-          <SectionHeading
-            eyebrow="Kampanye Aktif"
-            title={<span className="text-white">{settings.homepage.campaigns.title}</span>}
-            description={<span className="text-white/70">{settings.homepage.campaigns.description}</span>}
-            dark
-          />
-          <div className="mt-12 grid md:grid-cols-2 gap-6">
-            {campaigns.map((c, i) => {
-              const pct = Math.min(100, Math.round((c.supporters / c.goal) * 100));
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
+            <SectionHeading
+              eyebrow="Organisasi"
+              title="Struktur Pengurus"
+              description="Tim pengurus yang menjalankan operasional Petisi Bela Rakyat setiap hari."
+              align="left"
+            />
+            <Button variant="outline" className="rounded-full self-start md:self-auto" onClick={() => navigate("about", { aboutSection: "struktur" })}>
+              Lihat Struktur Lengkap
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+
+          {/* Top positions preview */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            {topPositions.map((node, i) => {
+              const person = getPengurusByPosition(node.key);
+              const Icon = positionIcons[node.key] || Briefcase;
               return (
-                <Reveal key={c.id} delay={i * 0.1}>
+                <Reveal key={node.key} delay={i * 0.08}>
                   <button
-                    onClick={() => navigate("campaigns", { campaignSlug: c.slug })}
+                    onClick={() => person && navigate("pengurus", { pengurusSlug: person.slug })}
                     className="group text-left w-full"
                   >
-                    <Card className="overflow-hidden h-full bg-white/5 border-white/10 hover:bg-white/10 hover:-translate-y-1 transition-all duration-300">
-                      <div className="grid sm:grid-cols-2 gap-0">
-                        <div className="relative h-56 sm:h-full min-h-[220px] overflow-hidden">
-                          <img src={c.coverImage} alt={c.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                          <Badge className="absolute top-3 left-3 bg-primary text-white border-0">
-                            {c.status === "active" ? "Aktif" : c.status}
-                          </Badge>
-                        </div>
-                        <div className="p-5 md:p-6 flex flex-col">
-                          <h3 className="font-heading text-lg md:text-xl font-bold text-white">{c.title}</h3>
-                          <p className="mt-2 text-sm text-white/70 line-clamp-3 leading-relaxed">{c.description}</p>
-                          <div className="mt-auto pt-5">
-                            <div className="flex justify-between text-xs text-white/60 mb-2">
-                              <span>{c.supporters} pendukung</span>
-                              <span>Target {c.goal}</span>
-                            </div>
-                            <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-                              <motion.div
-                                initial={{ width: 0 }}
-                                whileInView={{ width: `${pct}%` }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 1, ease: "easeOut" }}
-                                className="h-full bg-gradient-to-r from-primary to-red-400 rounded-full"
-                              />
-                            </div>
-                            <div className="mt-4 inline-flex items-center text-sm font-semibold text-primary group-hover:gap-2 transition-all gap-1">
-                              Lihat Detail
-                              <ArrowRight className="h-3.5 w-3.5" />
-                            </div>
+                    <Card className="overflow-hidden h-full border-0 shadow-lg shadow-foreground/5 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+                      <div className="relative aspect-square overflow-hidden">
+                        {person?.photo ? (
+                          <img src={person.photo} alt={person.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                        ) : (
+                          <div className="h-full w-full bg-secondary flex items-center justify-center">
+                            <Icon className="h-12 w-12 text-muted-foreground/50" />
                           </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                        <div className="absolute top-3 left-3 h-9 w-9 rounded-xl bg-primary/95 backdrop-blur flex items-center justify-center shadow-lg">
+                          <Icon className="h-4 w-4 text-white" />
+                        </div>
+                        <div className="absolute bottom-3 left-3 right-3">
+                          <div className="text-[10px] font-bold uppercase tracking-wide text-primary/90 mb-0.5">
+                            {node.label}
+                          </div>
+                          <h3 className="font-heading font-bold text-white text-sm line-clamp-1">
+                            {person?.name || "Belum diisi"}
+                          </h3>
+                          {person?.gelar && (
+                            <p className="text-white/70 text-[10px] line-clamp-1">{person.gelar}</p>
+                          )}
                         </div>
                       </div>
                     </Card>
@@ -314,25 +342,56 @@ export function HomePage() {
               );
             })}
           </div>
-          <div className="mt-10 text-center">
-            <Button
-              size="lg"
-              variant="outline"
-              className="rounded-full border-white/30 text-white hover:bg-white/10 bg-transparent"
-              onClick={() => navigate("campaigns")}
-            >
-              Lihat Semua Kampanye
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
+
+          {/* Quick stats line */}
+          <Reveal delay={0.4}>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-4 md:gap-8 text-center">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">
+                  <strong className="font-heading">{pengurus.filter((p) => p.status === "active").length} pengurus aktif</strong>
+                </span>
+              </div>
+              <div className="hidden md:block h-4 w-px bg-border" />
+              <div className="flex items-center gap-2">
+                <Briefcase className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">
+                  <strong className="font-heading">{orgStructure.length} posisi</strong> dalam struktur
+                </span>
+              </div>
+              <div className="hidden md:block h-4 w-px bg-border" />
+              <Button
+                variant="link"
+                className="text-primary p-0 h-auto"
+                onClick={() => navigate("about", { aboutSection: "pengurus" })}
+              >
+                Lihat semua pengurus →
+              </Button>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ===== SECTION 4: DUKUNGAN TOKOH (Carousel) ===== */}
+      <section className="py-16 md:py-28 bg-foreground text-background">
+        <div className="container-x">
+          <SectionHeading
+            eyebrow="Dukungan Tokoh"
+            title={<span className="text-white">{settings.homepage.supporters.title}</span>}
+            description={<span className="text-white/70">{settings.homepage.supporters.description}</span>}
+            dark
+          />
+          <div className="mt-12">
+            <SupporterCarousel />
           </div>
         </div>
       </section>
 
-      {/* News preview */}
+      {/* ===== SECTION 5: BERITA TERBARU (News) ===== */}
       <section className="py-16 md:py-28 bg-background">
         <div className="container-x">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
-            <SectionHeading eyebrow="News" title="Kabar Terbaru" align="left" />
+            <SectionHeading eyebrow="News" title="Berita Terbaru" align="left" />
             <Button variant="outline" className="rounded-full self-start md:self-auto" onClick={() => navigate("news")}>
               Lihat Semua
               <ArrowRight className="h-4 w-4 ml-2" />
@@ -367,64 +426,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Supporters carousel */}
-      <section className="py-16 md:py-28 bg-secondary/40">
-        <div className="container-x">
-          <SectionHeading
-            eyebrow="Dukungan Tokoh"
-            title={settings.homepage.supporters.title}
-            description={settings.homepage.supporters.description}
-          />
-          <div className="mt-12">
-            <SupporterCarousel />
-          </div>
-          <div className="mt-10 text-center">
-            <Button variant="outline" className="rounded-full" onClick={() => navigate("media")}>
-              Lihat Semua Pendukung
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Team preview */}
-      {activePengurus.length > 0 && (
-        <section className="py-16 md:py-28 bg-background">
-          <div className="container-x">
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
-              <SectionHeading eyebrow="Tim Kami" title="Para Pengurus" align="left" />
-              <Button variant="outline" className="rounded-full self-start md:self-auto" onClick={() => navigate("about", { aboutSection: "pengurus" })}>
-                Lihat Semua
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {activePengurus.map((m, i) => (
-                <Reveal key={m.id} delay={i * 0.08}>
-                  <button
-                    onClick={() => navigate("pengurus", { pengurusSlug: m.slug })}
-                    className="group text-left w-full"
-                  >
-                    <Card className="overflow-hidden h-full border-0 shadow-lg shadow-foreground/5 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
-                      <div className="relative aspect-[4/5] overflow-hidden">
-                        <img src={m.photo} alt={m.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                        <Badge className="absolute top-3 left-3 bg-primary text-white border-0 text-xs">{m.jabatan}</Badge>
-                        <div className="absolute bottom-3 left-3 right-3">
-                          <h3 className="font-heading font-bold text-white text-sm">{m.name}</h3>
-                          <p className="text-white/70 text-[10px]">{m.gelar}</p>
-                        </div>
-                      </div>
-                    </Card>
-                  </button>
-                </Reveal>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Final CTA */}
+      {/* ===== FINAL CTA ===== */}
       <section className="py-16 md:py-28 bg-background relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-secondary/40" />
         <div className="container-x relative">
