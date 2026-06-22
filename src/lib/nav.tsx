@@ -1,14 +1,27 @@
 "use client";
 
-import { useCallback } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { createContext, useContext, useCallback, ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
-type LegacyRoute =
-  | "home" | "about" | "struktur" | "pengurus" | "penasehat" | "relawan"
-  | "work" | "campaigns" | "news" | "blog" | "media" | "transparency"
-  | "contact" | "admin";
+export type PublicRoute =
+  | "home"
+  | "about"
+  | "struktur"
+  | "pengurus"
+  | "penasehat"
+  | "relawan"
+  | "work"
+  | "campaigns"
+  | "news"
+  | "blog"
+  | "media"
+  | "transparency"
+  | "contact"
+  | "admin"
+  | "app";
 
-interface LegacyNavParams {
+export interface NavState {
+  route: PublicRoute;
   aboutSection?: "sejarah" | "visi-misi" | "struktur" | "pengurus" | "penasehat" | "relawan";
   pengurusSlug?: string;
   teamSlug?: string;
@@ -18,7 +31,14 @@ interface LegacyNavParams {
   workSlug?: string;
 }
 
-const routeMap: Record<LegacyRoute, string> = {
+interface NavContextValue extends NavState {
+  navigate: (route: PublicRoute, params?: Partial<Omit<NavState, "route">>) => void;
+}
+
+const NavContext = createContext<NavContextValue | null>(null);
+
+// ============ URL <-> STATE MAPPING ============
+const routeToPath: Record<PublicRoute, string> = {
   home: "/",
   about: "/tentang-kami",
   struktur: "/struktur-organisasi",
@@ -33,114 +53,82 @@ const routeMap: Record<LegacyRoute, string> = {
   transparency: "/transparansi",
   contact: "/kontak",
   admin: "/admin",
+  app: "/aplikasi",
 };
 
-const aboutSectionMap: Record<string, string> = {
-  sejarah: "/sejarah",
-  "visi-misi": "/visi-misi",
-  struktur: "/struktur-organisasi",
-  pengurus: "/pengurus",
-  penasehat: "/dewan-penasehat",
-  relawan: "/relawan",
-};
+// Convert NavState to URL path
+function stateToUrl(state: NavState): string {
+  if (state.pengurusSlug) return `/pengurus/${state.pengurusSlug}`;
+  if (state.blogSlug) return `/blog/${state.blogSlug}`;
+  if (state.newsSlug) return `/news/${state.newsSlug}`;
+  if (state.campaignSlug) return `/kampanye/${state.campaignSlug}`;
+  if (state.workSlug) return `/kerja-kami/${state.workSlug}`;
 
-/**
- * Parse current pathname to extract legacy nav state (route, slugs, aboutSection)
- * This allows section components to keep their existing prop-based logic.
- */
-function parsePathname(pathname: string) {
-  // Strip trailing slash (except root)
-  const path = pathname === "/" ? "/" : pathname.replace(/\/$/, "");
-  const segments = path.split("/").filter(Boolean);
-
-  const result: {
-    route: LegacyRoute;
-    aboutSection?: string;
-    pengurusSlug?: string;
-    blogSlug?: string;
-    newsSlug?: string;
-    campaignSlug?: string;
-    workSlug?: string;
-  } = { route: "home" };
-
-  if (segments.length === 0) {
-    return result;
+  if (state.route === "about") {
+    if (state.aboutSection === "sejarah") return "/sejarah";
+    if (state.aboutSection === "visi-misi") return "/visi-misi";
+    if (state.aboutSection === "struktur") return "/struktur-organisasi";
+    if (state.aboutSection === "pengurus") return "/pengurus";
+    if (state.aboutSection === "penasehat") return "/dewan-penasehat";
+    if (state.aboutSection === "relawan") return "/relawan";
+    return "/tentang-kami";
   }
 
-  const first = segments[0];
-
-  // Map first segment to legacy route
-  const reverseMap: Record<string, LegacyRoute> = {
-    "tentang-kami": "about",
-    sejarah: "about",
-    "visi-misi": "about",
-    "struktur-organisasi": "struktur",
-    pengurus: "pengurus",
-    "dewan-penasehat": "penasehat",
-    relawan: "relawan",
-    "kerja-kami": "work",
-    kampanye: "campaigns",
-    news: "news",
-    blog: "blog",
-    galeri: "media",
-    transparansi: "transparency",
-    kontak: "contact",
-    admin: "admin",
-  };
-
-  result.route = reverseMap[first] || "home";
-
-  // Extract aboutSection
-  if (first === "sejarah") result.aboutSection = "sejarah";
-  else if (first === "visi-misi") result.aboutSection = "visi-misi";
-  else if (first === "struktur-organisasi") result.aboutSection = "struktur";
-  else if (first === "pengurus") result.aboutSection = "pengurus";
-  else if (first === "dewan-penasehat") result.aboutSection = "penasehat";
-  else if (first === "relawan") result.aboutSection = "relawan";
-
-  // Extract slugs from second segment
-  if (segments[1]) {
-    if (first === "pengurus") result.pengurusSlug = segments[1];
-    if (first === "kerja-kami") result.workSlug = segments[1];
-    if (first === "kampanye") result.campaignSlug = segments[1];
-    if (first === "news") result.newsSlug = segments[1];
-    if (first === "blog") result.blogSlug = segments[1];
-  }
-
-  return result;
+  return routeToPath[state.route] || "/";
 }
 
-export function useNav() {
-  const router = useRouter();
+// Parse current pathname into NavState
+function parsePathname(pathname: string): NavState {
+  const segments = pathname.split("/").filter(Boolean);
+
+  if (segments.length === 0) return { route: "home" };
+
+  if (segments.length === 1) {
+    const seg = segments[0];
+    if (seg === "sejarah") return { route: "about", aboutSection: "sejarah" };
+    if (seg === "visi-misi") return { route: "about", aboutSection: "visi-misi" };
+    if (seg === "struktur-organisasi") return { route: "about", aboutSection: "struktur" };
+    if (seg === "tentang-kami") return { route: "about", aboutSection: "sejarah" };
+    if (seg === "pengurus") return { route: "about", aboutSection: "pengurus" };
+    if (seg === "dewan-penasehat") return { route: "about", aboutSection: "penasehat" };
+    if (seg === "relawan") return { route: "about", aboutSection: "relawan" };
+    if (seg === "kerja-kami") return { route: "work" };
+    if (seg === "kampanye") return { route: "campaigns" };
+    if (seg === "news") return { route: "news" };
+    if (seg === "blog") return { route: "blog" };
+    if (seg === "galeri") return { route: "media" };
+    if (seg === "transparansi") return { route: "transparency" };
+    if (seg === "kontak") return { route: "contact" };
+    if (seg === "admin") return { route: "admin" };
+    if (seg === "aplikasi") return { route: "app" };
+  }
+
+  if (segments.length === 2) {
+    const [base, slug] = segments;
+    if (base === "pengurus") return { route: "about", aboutSection: "pengurus", pengurusSlug: slug };
+    if (base === "blog") return { route: "blog", blogSlug: slug };
+    if (base === "news") return { route: "news", newsSlug: slug };
+    if (base === "kampanye") return { route: "campaigns", campaignSlug: slug };
+    if (base === "kerja-kami") return { route: "work", workSlug: slug };
+  }
+
+  return { route: "home" };
+}
+
+export function NavProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const parsed = parsePathname(pathname);
+  const router = useRouter();
+
+  const state = parsePathname(pathname);
 
   const navigate = useCallback(
-    (route: LegacyRoute, params?: LegacyNavParams) => {
-      let url = routeMap[route] || "/";
-
-      if (route === "about" && params?.aboutSection) {
-        url = aboutSectionMap[params.aboutSection] || "/tentang-kami";
-      }
-
-      if (route === "pengurus" && params?.pengurusSlug) {
-        url = `/pengurus/${params.pengurusSlug}`;
-      }
-      if (route === "work" && params?.workSlug) {
-        url = `/kerja-kami/${params.workSlug}`;
-      }
-      if (route === "campaigns" && params?.campaignSlug) {
-        url = `/kampanye/${params.campaignSlug}`;
-      }
-      if (route === "news" && params?.newsSlug) {
-        url = `/news/${params.newsSlug}`;
-      }
-      if (route === "blog" && params?.blogSlug) {
-        url = `/blog/${params.blogSlug}`;
-      }
-
+    (route: PublicRoute, params?: Partial<Omit<NavState, "route">>) => {
+      const newState = { route, ...params };
+      const url = stateToUrl(newState);
+      // Use Next.js router for real URL routing
+      // This enables: Android back button, deep links, SEO, share-friendly URLs
       router.push(url);
-
+      // Scroll to top on navigation
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
@@ -148,14 +136,15 @@ export function useNav() {
     [router]
   );
 
-  return {
-    navigate,
-    route: parsed.route,
-    aboutSection: parsed.aboutSection as LegacyNavParams["aboutSection"],
-    pengurusSlug: parsed.pengurusSlug,
-    blogSlug: parsed.blogSlug,
-    newsSlug: parsed.newsSlug,
-    campaignSlug: parsed.campaignSlug,
-    workSlug: parsed.workSlug,
-  };
+  return (
+    <NavContext.Provider value={{ ...state, navigate }}>
+      {children}
+    </NavContext.Provider>
+  );
+}
+
+export function useNav() {
+  const ctx = useContext(NavContext);
+  if (!ctx) throw new Error("useNav must be used inside NavProvider");
+  return ctx;
 }

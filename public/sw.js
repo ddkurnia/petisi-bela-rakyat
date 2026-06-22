@@ -5,7 +5,7 @@
 // - Pages: network-first, fallback to cache (with offline page)
 // - Images: stale-while-revalidate
 
-const SW_VERSION = "pbr-sw-v1";
+const SW_VERSION = "pbr-sw-v2";
 const STATIC_CACHE = `${SW_VERSION}-static`;
 const PAGE_CACHE = `${SW_VERSION}-pages`;
 const IMAGE_CACHE = `${SW_VERSION}-images`;
@@ -14,16 +14,26 @@ const STATIC_ASSETS = [
   "/",
   "/manifest.webmanifest",
   "/pbr.png",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/apple-touch-icon.png",
+  "/favicon.png",
   "/offline.html",
   "/tentang-kami",
   "/sejarah",
+  "/visi-misi",
   "/struktur-organisasi",
   "/pengurus",
+  "/dewan-penasehat",
+  "/relawan",
+  "/kerja-kami",
+  "/kampanye",
   "/blog",
   "/news",
-  "/kampanye",
+  "/galeri",
   "/transparansi",
   "/kontak",
+  "/aplikasi",
 ];
 
 // Install: pre-cache critical assets

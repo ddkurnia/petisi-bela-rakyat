@@ -9,7 +9,7 @@ import {
   ShieldCheck, Briefcase, UserCog, Smartphone,
 } from "lucide-react";
 import { useStore, canAccess, type Role } from "@/lib/store";
-import { useNav } from "@/lib/nav";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -61,7 +61,7 @@ const menuItems: { id: AdminSection; label: string; icon: React.ElementType; rol
 ];
 
 export function AdminPanel() {
-  const { navigate } = useNav();
+  const router = useRouter();
   const { currentUser, login, logout } = useStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -139,7 +139,7 @@ export function AdminPanel() {
                 <li>• <code>editor@petisibelarakyat.id</code> (hanya blog & news)</li>
               </ul>
             </div>
-            <Button variant="ghost" className="w-full mt-4" onClick={() => navigate("home")}>
+            <Button variant="ghost" className="w-full mt-4" onClick={() => router.push("/")}>
               ← Kembali ke Website
             </Button>
           </Card>
@@ -206,7 +206,7 @@ export function AdminPanel() {
           <Button
             variant="ghost"
             className="w-full text-white/70 hover:bg-white/10 hover:text-white justify-start rounded-xl"
-            onClick={() => { logout(); navigate("home"); toast.success("Logout berhasil"); }}
+            onClick={() => { logout(); router.push("/"); toast.success("Logout berhasil"); }}
           >
             <LogOut className="h-4 w-4 mr-2" />
             Keluar
@@ -243,7 +243,7 @@ export function AdminPanel() {
               variant="outline"
               size="sm"
               className="rounded-full"
-              onClick={() => navigate("home")}
+              onClick={() => router.push("/")}
             >
               <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
               Lihat Website

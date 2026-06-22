@@ -5,7 +5,8 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
   "background_color": "#F8FAFC",
   "theme_color": "#D62828",
   "categories": ["news", "politics", "social"],
@@ -13,39 +14,63 @@
   "dir": "ltr",
   "icons": [
     {
-      "src": "/pbr.png",
-      "sizes": "any",
+      "src": "/icon-192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/pbr.png",
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     },
     {
-      "src": "/pbr.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/pbr.png",
+      "sizes": "971x938",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Petisi Bela Rakyat"
     }
   ],
   "shortcuts": [
     {
       "name": "Kampanye Aktif",
-      "url": "/#/campaigns",
-      "description": "Lihat semua kampanye aktif"
+      "url": "/kampanye",
+      "description": "Lihat semua kampanye aktif",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Tandatangani Petisi",
-      "url": "/#/campaigns",
-      "description": "Bergabung dengan petisi terbaru"
+      "url": "/kampanye",
+      "description": "Bergabung dengan petisi terbaru",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Transparansi",
-      "url": "/#/transparency",
-      "description": "Lihat laporan keuangan"
+      "url": "/transparansi",
+      "description": "Lihat laporan keuangan",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Berita Terbaru",
+      "url": "/news",
+      "description": "Baca berita terbaru organisasi",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
