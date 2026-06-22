@@ -17,7 +17,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/store";
 import { Avatar } from "@/components/avatar";
-import { DownloadAppSection } from "./download-app-section";
 
 const nilaiIcons: Record<string, React.ElementType> = {
   Eye, HandHeart, Shield, Flag, Heart, Building2, TrendingUp, Scale,
@@ -422,9 +421,6 @@ export function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* ===== DOWNLOAD APP SECTION ===== */}
-      <DownloadAppSection />
 
       {/* ===== FINAL CTA ===== */}
       <section className="py-16 md:py-28 bg-background relative overflow-hidden">
