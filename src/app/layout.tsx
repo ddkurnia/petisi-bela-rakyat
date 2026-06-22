@@ -67,9 +67,9 @@ export const metadata: Metadata = {
       "Gerakan masyarakat sipil independen untuk memperjuangkan kepentingan rakyat melalui advokasi, partisipasi publik, dan aksi nyata.",
     images: [
       {
-        url: "/og-image.jpg",
-        width: 1200,
-        height: 630,
+        url: "/pbr.png",
+        width: 971,
+        height: 938,
         alt: "Petisi Bela Rakyat",
       },
     ],
@@ -79,7 +79,7 @@ export const metadata: Metadata = {
     title: "Petisi Bela Rakyat",
     description:
       "Gerakan masyarakat sipil independen untuk memperjuangkan kepentingan rakyat.",
-    images: ["/og-image.jpg"],
+    images: ["/pbr.png"],
   },
   robots: {
     index: true,
@@ -94,8 +94,9 @@ export const metadata: Metadata = {
   },
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/icon.svg",
-    apple: "/icon-apple.png",
+    icon: "/pbr.png",
+    apple: "/pbr.png",
+    shortcut: "/pbr.png",
   },
 };
 
@@ -115,7 +116,7 @@ const organizationSchema = {
   name: "Petisi Bela Rakyat",
   alternateName: "PBR",
   url: siteUrl,
-  logo: `${siteUrl}/icon.svg`,
+  logo: `${siteUrl}/pbr.png`,
   description:
     "Gerakan masyarakat sipil independen untuk memperjuangkan kepentingan rakyat melalui advokasi, partisipasi publik, dan aksi nyata.",
   foundingDate: "2024",
