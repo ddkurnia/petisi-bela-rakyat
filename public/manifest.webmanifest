@@ -1,0 +1,51 @@
+{
+  "name": "Petisi Bela Rakyat",
+  "short_name": "PBR",
+  "description": "Gerakan masyarakat sipil independen untuk memperjuangkan kepentingan rakyat melalui advokasi, partisipasi publik, dan aksi nyata.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F8FAFC",
+  "theme_color": "#D62828",
+  "categories": ["news", "politics", "social"],
+  "lang": "id-ID",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Kampanye Aktif",
+      "url": "/#/campaigns",
+      "description": "Lihat semua kampanye aktif"
+    },
+    {
+      "name": "Tandatangani Petisi",
+      "url": "/#/campaigns",
+      "description": "Bergabung dengan petisi terbaru"
+    },
+    {
+      "name": "Transparansi",
+      "url": "/#/transparency",
+      "description": "Lihat laporan keuangan"
+    }
+  ]
+}

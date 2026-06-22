@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://petisibelarakyat.id/sitemap.xml
+
+# Block admin
+Disallow: /admin
+Disallow: /api/admin
