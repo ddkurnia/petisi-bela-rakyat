@@ -1,28 +1,15 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { useCallback } from "react";
+import { useRouter, usePathname } from "next/navigation";
 
-export type PublicRoute =
-  | "home"
-  | "about"
-  | "struktur"
-  | "pengurus"
-  | "penasehat"
-  | "relawan"
-  | "work"
-  | "campaigns"
-  | "news"
-  | "blog"
-  | "media"
-  | "transparency"
-  | "contact"
-  | "admin";
+type LegacyRoute =
+  | "home" | "about" | "struktur" | "pengurus" | "penasehat" | "relawan"
+  | "work" | "campaigns" | "news" | "blog" | "media" | "transparency"
+  | "contact" | "admin";
 
-export interface NavState {
-  route: PublicRoute;
-  // about sub-section
+interface LegacyNavParams {
   aboutSection?: "sejarah" | "visi-misi" | "struktur" | "pengurus" | "penasehat" | "relawan";
-  // sub-route params
   pengurusSlug?: string;
   teamSlug?: string;
   blogSlug?: string;
@@ -31,66 +18,144 @@ export interface NavState {
   workSlug?: string;
 }
 
-interface NavContextValue extends NavState {
-  navigate: (route: PublicRoute, params?: Partial<Omit<NavState, "route">>) => void;
+const routeMap: Record<LegacyRoute, string> = {
+  home: "/",
+  about: "/tentang-kami",
+  struktur: "/struktur-organisasi",
+  pengurus: "/pengurus",
+  penasehat: "/dewan-penasehat",
+  relawan: "/relawan",
+  work: "/kerja-kami",
+  campaigns: "/kampanye",
+  news: "/news",
+  blog: "/blog",
+  media: "/galeri",
+  transparency: "/transparansi",
+  contact: "/kontak",
+  admin: "/admin",
+};
+
+const aboutSectionMap: Record<string, string> = {
+  sejarah: "/sejarah",
+  "visi-misi": "/visi-misi",
+  struktur: "/struktur-organisasi",
+  pengurus: "/pengurus",
+  penasehat: "/dewan-penasehat",
+  relawan: "/relawan",
+};
+
+/**
+ * Parse current pathname to extract legacy nav state (route, slugs, aboutSection)
+ * This allows section components to keep their existing prop-based logic.
+ */
+function parsePathname(pathname: string) {
+  // Strip trailing slash (except root)
+  const path = pathname === "/" ? "/" : pathname.replace(/\/$/, "");
+  const segments = path.split("/").filter(Boolean);
+
+  const result: {
+    route: LegacyRoute;
+    aboutSection?: string;
+    pengurusSlug?: string;
+    blogSlug?: string;
+    newsSlug?: string;
+    campaignSlug?: string;
+    workSlug?: string;
+  } = { route: "home" };
+
+  if (segments.length === 0) {
+    return result;
+  }
+
+  const first = segments[0];
+
+  // Map first segment to legacy route
+  const reverseMap: Record<string, LegacyRoute> = {
+    "tentang-kami": "about",
+    sejarah: "about",
+    "visi-misi": "about",
+    "struktur-organisasi": "struktur",
+    pengurus: "pengurus",
+    "dewan-penasehat": "penasehat",
+    relawan: "relawan",
+    "kerja-kami": "work",
+    kampanye: "campaigns",
+    news: "news",
+    blog: "blog",
+    galeri: "media",
+    transparansi: "transparency",
+    kontak: "contact",
+    admin: "admin",
+  };
+
+  result.route = reverseMap[first] || "home";
+
+  // Extract aboutSection
+  if (first === "sejarah") result.aboutSection = "sejarah";
+  else if (first === "visi-misi") result.aboutSection = "visi-misi";
+  else if (first === "struktur-organisasi") result.aboutSection = "struktur";
+  else if (first === "pengurus") result.aboutSection = "pengurus";
+  else if (first === "dewan-penasehat") result.aboutSection = "penasehat";
+  else if (first === "relawan") result.aboutSection = "relawan";
+
+  // Extract slugs from second segment
+  if (segments[1]) {
+    if (first === "pengurus") result.pengurusSlug = segments[1];
+    if (first === "kerja-kami") result.workSlug = segments[1];
+    if (first === "kampanye") result.campaignSlug = segments[1];
+    if (first === "news") result.newsSlug = segments[1];
+    if (first === "blog") result.blogSlug = segments[1];
+  }
+
+  return result;
 }
 
-const NavContext = createContext<NavContextValue | null>(null);
-
-export function NavProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<NavState>({ route: "home" });
+export function useNav() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const parsed = parsePathname(pathname);
 
   const navigate = useCallback(
-    (route: PublicRoute, params?: Partial<Omit<NavState, "route">>) => {
-      setState({ route, ...params });
+    (route: LegacyRoute, params?: LegacyNavParams) => {
+      let url = routeMap[route] || "/";
+
+      if (route === "about" && params?.aboutSection) {
+        url = aboutSectionMap[params.aboutSection] || "/tentang-kami";
+      }
+
+      if (route === "pengurus" && params?.pengurusSlug) {
+        url = `/pengurus/${params.pengurusSlug}`;
+      }
+      if (route === "work" && params?.workSlug) {
+        url = `/kerja-kami/${params.workSlug}`;
+      }
+      if (route === "campaigns" && params?.campaignSlug) {
+        url = `/kampanye/${params.campaignSlug}`;
+      }
+      if (route === "news" && params?.newsSlug) {
+        url = `/news/${params.newsSlug}`;
+      }
+      if (route === "blog" && params?.blogSlug) {
+        url = `/blog/${params.blogSlug}`;
+      }
+
+      router.push(url);
+
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
     },
-    []
+    [router]
   );
 
-  // Sync with hash for shareable URLs (best-effort)
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const hash = window.location.hash.replace(/^#\/?/, "");
-    if (!hash) return;
-    const parts = hash.split("/");
-    const valid: PublicRoute[] = ["home","about","struktur","pengurus","penasehat","relawan","work","campaigns","news","blog","media","transparency","contact","admin"];
-    if (valid.includes(parts[0] as PublicRoute)) {
-      const route = parts[0] as PublicRoute;
-      const extra: Partial<NavState> = {};
-      if (parts[1] === "sejarah" || parts[1] === "visi-misi" || parts[1] === "struktur" || parts[1] === "pengurus" || parts[1] === "penasehat" || parts[1] === "relawan") {
-        if (route === "about") extra.aboutSection = parts[1];
-      }
-      if (parts[1] && route === "pengurus") extra.pengurusSlug = parts[1];
-      if (parts[1] && route === "blog") extra.blogSlug = parts[1];
-      if (parts[1] && route === "news") extra.newsSlug = parts[1];
-      if (parts[1] && route === "campaigns") extra.campaignSlug = parts[1];
-      if (parts[1] && route === "work") extra.workSlug = parts[1];
-      const id = requestAnimationFrame(() => setState({ route, ...extra }));
-      return () => cancelAnimationFrame(id);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    let hash = `#/${state.route}`;
-    if (state.route === "about" && state.aboutSection) hash = `#/about/${state.aboutSection}`;
-    if (window.location.hash !== hash) {
-      window.history.replaceState(null, "", hash);
-    }
-  }, [state.route, state.aboutSection]);
-
-  return (
-    <NavContext.Provider value={{ ...state, navigate }}>
-      {children}
-    </NavContext.Provider>
-  );
-}
-
-export function useNav() {
-  const ctx = useContext(NavContext);
-  if (!ctx) throw new Error("useNav must be used inside NavProvider");
-  return ctx;
+  return {
+    navigate,
+    route: parsed.route,
+    aboutSection: parsed.aboutSection as LegacyNavParams["aboutSection"],
+    pengurusSlug: parsed.pengurusSlug,
+    blogSlug: parsed.blogSlug,
+    newsSlug: parsed.newsSlug,
+    campaignSlug: parsed.campaignSlug,
+    workSlug: parsed.workSlug,
+  };
 }

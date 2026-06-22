@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Mail, Phone, MessageCircle, Award, Briefcase, User } from "lucide-react";
 import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
-import { useStore } from "@/lib/store";
+import { useStore, getInitials } from "@/lib/store";
 import { useNav } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -46,8 +46,14 @@ export function PengurusPage() {
             {/* Photo */}
             <Reveal className="lg:col-span-2">
               <div className="lg:sticky lg:top-28">
-                <div className="relative aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl">
-                  <img src={member.photo} alt={member.name} className="h-full w-full object-cover" />
+                <div className="relative aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                  {member.photo ? (
+                    <img src={member.photo} alt={member.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-32 w-32 rounded-full bg-gradient-to-br from-primary to-red-700 text-white flex items-center justify-center font-heading font-bold text-5xl">
+                      {getInitials(member.name)}
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                   <Badge className="absolute top-4 left-4 bg-primary text-white border-0">
                     {member.jabatan}
@@ -178,8 +184,14 @@ export function PengurusPage() {
                   className="group text-left"
                 >
                   <Card className="overflow-hidden border-0 shadow-lg shadow-foreground/5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                    <div className="aspect-square overflow-hidden">
-                      <img src={m.photo} alt={m.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                    <div className="aspect-square overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                      {m.photo ? (
+                        <img src={m.photo} alt={m.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                      ) : (
+                        <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary to-red-700 text-white flex items-center justify-center font-heading font-bold text-xl">
+                          {getInitials(m.name)}
+                        </div>
+                      )}
                     </div>
                     <div className="p-4">
                       <h3 className="font-heading font-bold text-sm">{m.name}</h3>
@@ -220,8 +232,14 @@ export function PengurusPage() {
                   className="group text-left w-full"
                 >
                   <Card className="overflow-hidden h-full border-0 shadow-lg shadow-foreground/5 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
-                    <div className="relative aspect-[4/5] overflow-hidden">
-                      <img src={m.photo} alt={m.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                    <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                      {m.photo ? (
+                        <img src={m.photo} alt={m.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                      ) : (
+                        <div className="h-24 w-24 rounded-full bg-gradient-to-br from-primary to-red-700 text-white flex items-center justify-center font-heading font-bold text-3xl">
+                          {getInitials(m.name)}
+                        </div>
+                      )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                       <Badge className="absolute top-3 left-3 bg-primary text-white border-0">
                         {m.jabatan}

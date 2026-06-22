@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offline — Petisi Bela Rakyat</title>
+  <link rel="icon" href="/pbr.png" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #F8FAFC;
+      color: #111827;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .container {
+      max-width: 480px;
+      text-align: center;
+      padding: 2rem;
+    }
+    .logo {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 1.5rem;
+      background: linear-gradient(135deg, #D62828, #991B1B);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 25px rgba(214, 40, 40, 0.3);
+    }
+    .logo svg { width: 40px; height: 40px; color: white; }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+    p {
+      color: #64748B;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.9rem;
+      background: #FEF2F2;
+      color: #D62828;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      background: #D62828;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    button {
+      background: #D62828;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 999px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: #B91C1C; }
+    .note {
+      margin-top: 2rem;
+      font-size: 0.8rem;
+      color: #94A3B8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+      </svg>
+    </div>
+    <div class="status">
+      <span class="dot"></span>
+      Anda sedang offline
+    </div>
+    <h1>Tidak ada koneksi internet</h1>
+    <p>
+      Beberapa halaman mungkin tidak dapat diakses saat ini.
+      Halaman yang pernah Anda kunjungi tetap tersedia secara offline.
+    </p>
+    <button onclick="window.location.reload()">Coba Lagi</button>
+    <p class="note">
+      Petisi Bela Rakyat — Bersama membela rakyat, tanpa kompromi.
+    </p>
+  </div>
+</body>
+</html>

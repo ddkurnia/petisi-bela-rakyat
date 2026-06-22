@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Save, Phone, Mail } from "lucide-react";
-import { useStore, type Pengurus, type OrgPositionKey } from "@/lib/store";
+import { Plus, Pencil, Trash2, Save, Phone, Mail, ArrowUp, ArrowDown } from "lucide-react";
+import { useStore, type Pengurus } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,19 +17,7 @@ import {
 } from "@/components/ui/select";
 import { ImageUpload } from "../image-upload";
 import { toast } from "sonner";
-
-const jabatanOptions: { key: OrgPositionKey; label: string }[] = [
-  { key: "ketua", label: "Ketua" },
-  { key: "wakil_ketua", label: "Wakil Ketua" },
-  { key: "sekretaris", label: "Sekretaris" },
-  { key: "bidang_hukum", label: "Bidang Hukum" },
-  { key: "bidang_advokasi", label: "Bidang Advokasi" },
-  { key: "bidang_media", label: "Bidang Media" },
-  { key: "bidang_hubungan_pemerintah", label: "Bidang Hubungan Pemerintah" },
-  { key: "bidang_penggalangan_dukungan", label: "Bidang Penggalangan Dukungan" },
-  { key: "bidang_riset_data", label: "Bidang Riset dan Data" },
-  { key: "bidang_keuangan", label: "Bidang Keuangan" },
-];
+import { Avatar } from "@/components/avatar";
 
 export function PengurusManager() {
   const pengurus = useStore((s) => s.pengurus);
@@ -40,8 +28,8 @@ export function PengurusManager() {
   const [open, setOpen] = useState(false);
 
   const blank: Pengurus = {
-    id: "", slug: "", name: "", gelar: "", jabatan: "Bidang Advokasi",
-    jabatanKey: "bidang_advokasi", bio: "", experience: "",
+    id: "", slug: "", name: "", gelar: "", jabatan: "",
+    parentId: null, bio: "", experience: "",
     whatsapp: "", email: "", photo: "", order: pengurus.length + 1, status: "active",
   };
 
@@ -51,26 +39,118 @@ export function PengurusManager() {
   const save = () => {
     if (!editing) return;
     if (!editing.name) { toast.error("Nama wajib diisi"); return; }
-    // Sync jabatan label from key
-    const jab = jabatanOptions.find((j) => j.key === editing.jabatanKey);
-    const finalData = { ...editing, jabatan: jab?.label || editing.jabatan };
+    if (!editing.jabatan) { toast.error("Jabatan wajib diisi"); return; }
+    // Prevent circular reference: parent cannot be self or own descendant
+    if (editing.parentId && editing.parentId === editing.id) {
+      toast.error("Atasan tidak boleh diri sendiri");
+      return;
+    }
     if (editing.id) {
-      updatePengurus(editing.id, finalData);
+      updatePengurus(editing.id, editing);
       toast.success("Pengurus diperbarui");
     } else {
-      addPengurus(finalData);
+      addPengurus(editing);
       toast.success("Pengurus ditambahkan");
     }
     setOpen(false);
   };
 
-  const sorted = [...pengurus].sort((a, b) => a.order - b.order);
+  // Move pengurus up/down within same parent (reorder)
+  const movePengurus = (id: string, direction: "up" | "down") => {
+    const item = pengurus.find((p) => p.id === id);
+    if (!item) return;
+    const siblings = pengurus
+      .filter((p) => p.parentId === item.parentId)
+      .sort((a, b) => a.order - b.order);
+    const idx = siblings.findIndex((p) => p.id === id);
+    if (direction === "up" && idx > 0) {
+      const prev = siblings[idx - 1];
+      updatePengurus(item.id, { order: prev.order });
+      updatePengurus(prev.id, { order: item.order });
+    } else if (direction === "down" && idx < siblings.length - 1) {
+      const next = siblings[idx + 1];
+      updatePengurus(item.id, { order: next.order });
+      updatePengurus(next.id, { order: item.order });
+    }
+  };
+
+  // Render pengurus as indented tree in admin list
+  const renderPengurusList = () => {
+    const result: React.ReactNode[] = [];
+    const renderNode = (parentId: string | null, depth: number) => {
+      const items = pengurus
+        .filter((p) => p.parentId === parentId)
+        .sort((a, b) => a.order - b.order);
+      items.forEach((m) => {
+        result.push(
+          <div
+            key={m.id}
+            className="flex items-center gap-3 p-3 rounded-xl bg-secondary/40 hover:bg-secondary/60 transition-colors"
+            style={{ marginLeft: depth * 20 }}
+          >
+            <Avatar src={m.photo} name={m.name} size={40} shape="circle" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-sm truncate">{m.name}</span>
+                <Badge className="bg-primary/10 text-primary border-0 text-xs">{m.jabatan}</Badge>
+                <Badge variant="outline" className={m.status === "active" ? "border-green-500/30 text-green-600 text-xs" : "text-xs"}>
+                  {m.status === "active" ? "Aktif" : "Nonaktif"}
+                </Badge>
+              </div>
+              <div className="text-xs text-muted-foreground truncate">
+                {m.gelar}{m.whatsapp && ` • ${m.whatsapp}`}
+              </div>
+            </div>
+            <div className="flex gap-1">
+              <Button size="icon" variant="ghost" className="rounded-full h-8 w-8" onClick={() => movePengurus(m.id, "up")} title="Pindah ke atas">
+                <ArrowUp className="h-3.5 w-3.5" />
+              </Button>
+              <Button size="icon" variant="ghost" className="rounded-full h-8 w-8" onClick={() => movePengurus(m.id, "down")} title="Pindah ke bawah">
+                <ArrowDown className="h-3.5 w-3.5" />
+              </Button>
+              <Button size="sm" variant="outline" className="rounded-full" onClick={() => openEdit(m)}>
+                <Pencil className="h-3 w-3 mr-1" /> Edit
+              </Button>
+              <Button size="sm" variant="ghost" className="rounded-full text-red-600 hover:bg-red-500/10" onClick={() => {
+                if (confirm(`Hapus ${m.name}?`)) {
+                  deletePengurus(m.id);
+                  toast.success("Pengurus dihapus");
+                }
+              }}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        );
+        renderNode(m.id, depth + 1);
+      });
+    };
+    renderNode(null, 0);
+    return result;
+  };
+
+  // Options for parent selector (exclude self and own descendants to prevent circular)
+  const getParentOptions = () => {
+    if (!editing) return [];
+    // Get all pengurus except self
+    let candidates = pengurus.filter((p) => p.id !== editing.id);
+    // If editing existing, also exclude own descendants
+    if (editing.id) {
+      const getDescendantIds = (id: string): string[] => {
+        const children = pengurus.filter((p) => p.parentId === id);
+        return [...children.map((c) => c.id), ...children.flatMap((c) => getDescendantIds(c.id))];
+      };
+      const descendantIds = getDescendantIds(editing.id);
+      candidates = candidates.filter((p) => !descendantIds.includes(p.id));
+    }
+    return candidates.sort((a, b) => a.name.localeCompare(b.name));
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <p className="text-sm text-muted-foreground">
-          {pengurus.filter((p) => p.status === "active").length} aktif dari {pengurus.length} pengurus
+          {pengurus.filter((p) => p.status === "active").length} aktif dari {pengurus.length} pengurus total
         </p>
         <Button onClick={openNew} className="bg-primary hover:bg-primary/90 text-white rounded-full">
           <Plus className="h-4 w-4 mr-1.5" />
@@ -78,45 +158,17 @@ export function PengurusManager() {
         </Button>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sorted.map((m) => (
-          <Card key={m.id} className="overflow-hidden border-0 shadow-lg shadow-foreground/5">
-            <div className="aspect-square overflow-hidden relative">
-              <img src={m.photo} alt={m.name} className="h-full w-full object-cover" />
-              <Badge className={`absolute top-2 left-2 border-0 ${m.status === "active" ? "bg-green-600 text-white" : "bg-gray-500 text-white"}`}>
-                {m.status === "active" ? "Aktif" : "Nonaktif"}
-              </Badge>
-              <Badge className="absolute bottom-2 left-2 bg-primary text-white border-0">{m.jabatan}</Badge>
-            </div>
-            <div className="p-4">
-              <h3 className="font-heading font-bold text-sm truncate">{m.name}</h3>
-              <p className="text-xs text-muted-foreground truncate">{m.gelar}</p>
-              <div className="mt-2 space-y-1 text-[10px] text-muted-foreground">
-                {m.whatsapp && (
-                  <div className="flex items-center gap-1">
-                    <Phone className="h-2.5 w-2.5" /> {m.whatsapp}
-                  </div>
-                )}
-                {m.email && (
-                  <div className="flex items-center gap-1 truncate">
-                    <Mail className="h-2.5 w-2.5" /> {m.email}
-                  </div>
-                )}
-              </div>
-              <div className="flex gap-2 mt-3">
-                <Button size="sm" variant="outline" className="rounded-full flex-1" onClick={() => openEdit(m)}>
-                  <Pencil className="h-3 w-3 mr-1" /> Edit
-                </Button>
-                <Button size="sm" variant="ghost" className="rounded-full text-red-600 hover:bg-red-500/10" onClick={() => {
-                  if (confirm(`Hapus ${m.name}?`)) { deletePengurus(m.id); toast.success("Pengurus dihapus"); }
-                }}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+      <Card className="p-4 md:p-6 border-0 shadow-lg shadow-foreground/5">
+        <h3 className="font-heading font-bold text-sm mb-3 flex items-center gap-2">
+          📊 Struktur Hierarki Pengurus
+        </h3>
+        <p className="text-xs text-muted-foreground mb-4">
+          Susunan berikut otomatis terbentuk berdasarkan <strong>Atasan Langsung</strong> setiap pengurus. Gunakan tombol ↑↓ untuk mengatur urutan tampil.
+        </p>
+        <div className="space-y-2">
+          {renderPengurusList()}
+        </div>
+      </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -126,11 +178,12 @@ export function PengurusManager() {
           {editing && (
             <div className="space-y-4">
               <ImageUpload
-                label="Foto Pengurus"
+                label="Foto Pengurus (kosongkan untuk pakai inisial)"
                 value={editing.photo}
                 onChange={(url) => setEditing({ ...editing, photo: url })}
                 aspectRatio="portrait"
               />
+
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Nama *</Label>
@@ -141,20 +194,61 @@ export function PengurusManager() {
                   <Input value={editing.gelar} onChange={(e) => setEditing({ ...editing, gelar: e.target.value })} placeholder="S.H., M.H" className="rounded-xl" />
                 </div>
               </div>
+
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label>Jabatan</Label>
+                  <Label>Jabatan * <span className="text-xs text-muted-foreground">(bebas, mis. "Wakil Ketua 1", "Bidang Relawan")</span></Label>
+                  <Input
+                    value={editing.jabatan}
+                    onChange={(e) => setEditing({ ...editing, jabatan: e.target.value })}
+                    placeholder="Ketua / Wakil Ketua / Sekretaris / Bidang..."
+                    className="rounded-xl"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Atasan Langsung <span className="text-xs text-muted-foreground">(kosong = top-level/Ketua)</span></Label>
                   <Select
-                    value={editing.jabatanKey}
-                    onValueChange={(v) => setEditing({ ...editing, jabatanKey: v as OrgPositionKey })}
+                    value={editing.parentId || "__none__"}
+                    onValueChange={(v) => setEditing({ ...editing, parentId: v === "__none__" ? null : v })}
                   >
-                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="— Tidak ada (top-level) —" /></SelectTrigger>
                     <SelectContent>
-                      {jabatanOptions.map((j) => (
-                        <SelectItem key={j.key} value={j.key}>{j.label}</SelectItem>
+                      <SelectItem value="__none__">— Tidak ada (top-level/Ketua) —</SelectItem>
+                      {getParentOptions().map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} ({p.jabatan})
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Nomor WhatsApp</Label>
+                  <Input value={editing.whatsapp} onChange={(e) => setEditing({ ...editing, whatsapp: e.target.value })} placeholder="+62 812-xxxx-xxxx" className="rounded-xl" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Email</Label>
+                  <Input type="email" value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} className="rounded-xl" />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Biografi</Label>
+                <Textarea value={editing.bio} onChange={(e) => setEditing({ ...editing, bio: e.target.value })} rows={3} className="rounded-xl resize-none" />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Pengalaman (pisahkan dengan titik)</Label>
+                <Textarea value={editing.experience} onChange={(e) => setEditing({ ...editing, experience: e.target.value })} rows={3} className="rounded-xl resize-none" />
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Urutan Tampil <span className="text-xs text-muted-foreground">(di level yang sama)</span></Label>
+                  <Input type="number" value={editing.order} onChange={(e) => setEditing({ ...editing, order: parseInt(e.target.value) || 1 })} className="rounded-xl" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Status</Label>
@@ -169,28 +263,6 @@ export function PengurusManager() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Nomor WhatsApp</Label>
-                  <Input value={editing.whatsapp} onChange={(e) => setEditing({ ...editing, whatsapp: e.target.value })} placeholder="+62 812-xxxx-xxxx" className="rounded-xl" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Email</Label>
-                  <Input type="email" value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} className="rounded-xl" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Biografi</Label>
-                <Textarea value={editing.bio} onChange={(e) => setEditing({ ...editing, bio: e.target.value })} rows={3} className="rounded-xl resize-none" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Pengalaman (pisahkan dengan titik)</Label>
-                <Textarea value={editing.experience} onChange={(e) => setEditing({ ...editing, experience: e.target.value })} rows={3} className="rounded-xl resize-none" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Urutan Tampil</Label>
-                <Input type="number" value={editing.order} onChange={(e) => setEditing({ ...editing, order: parseInt(e.target.value) || 1 })} className="rounded-xl" />
               </div>
             </div>
           )}

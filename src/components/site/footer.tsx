@@ -1,9 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { Facebook, Instagram, Twitter, Youtube, Mail, Phone, MapPin, ArrowRight, Clock, MessageCircle } from "lucide-react";
+import { Facebook, Instagram, Twitter, Youtube, Mail, MapPin, ArrowRight, Clock, MessageCircle } from "lucide-react";
 import { Logo } from "@/components/logo";
-import { useNav, PublicRoute } from "@/lib/nav";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,22 +13,21 @@ const socialIcon: Record<string, React.ElementType> = {
   instagram: Instagram,
   twitter: Twitter,
   youtube: Youtube,
-  tiktok: Youtube, // fallback — TikTok icon not in lucide
+  tiktok: Youtube,
 };
 
-const footerMenu: { label: string; route: PublicRoute }[] = [
-  { label: "Tentang Kami", route: "about" },
-  { label: "Kerja Kami", route: "work" },
-  { label: "Kampanye", route: "campaigns" },
-  { label: "News", route: "news" },
-  { label: "Blog", route: "blog" },
-  { label: "Media", route: "media" },
-  { label: "Transparansi", route: "transparency" },
-  { label: "Kontak", route: "contact" },
+const footerMenu: { label: string; href: string }[] = [
+  { label: "Tentang Kami", href: "/tentang-kami" },
+  { label: "Kerja Kami", href: "/kerja-kami" },
+  { label: "Kampanye", href: "/kampanye" },
+  { label: "News", href: "/news" },
+  { label: "Blog", href: "/blog" },
+  { label: "Galeri", href: "/galeri" },
+  { label: "Transparansi", href: "/transparansi" },
+  { label: "Kontak", href: "/kontak" },
 ];
 
 export function Footer() {
-  const { navigate } = useNav();
   const settings = useStore((s) => s.settings);
   const year = new Date().getFullYear();
   const copyright = settings.footer.copyrightText.replace("{year}", String(year));
@@ -53,22 +52,17 @@ export function Footer() {
               </p>
             </motion.div>
             <div className="flex flex-col sm:flex-row gap-3 md:justify-end">
-              <Button
-                size="lg"
-                className="bg-primary hover:bg-primary/90 text-white rounded-full"
-                onClick={() => navigate("campaigns")}
-              >
-                Tandatangani Petisi
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-white/30 text-white hover:bg-white/10 rounded-full bg-transparent"
-                onClick={() => navigate("contact")}
-              >
-                Hubungi Kami
-              </Button>
+              <Link href="/kampanye">
+                <Button size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full w-full sm:w-auto">
+                  Tandatangani Petisi
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </Link>
+              <Link href="/kontak">
+                <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 rounded-full bg-transparent w-full sm:w-auto">
+                  Hubungi Kami
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -109,13 +103,10 @@ export function Footer() {
             </h4>
             <ul className="space-y-2.5">
               {footerMenu.map((item) => (
-                <li key={item.route}>
-                  <button
-                    onClick={() => navigate(item.route)}
-                    className="text-white/70 hover:text-primary text-sm transition-colors"
-                  >
+                <li key={item.href}>
+                  <Link href={item.href} className="text-white/70 hover:text-primary text-sm transition-colors">
                     {item.label}
-                  </button>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -181,12 +172,9 @@ export function Footer() {
               </span>
             ))}
             <span className="opacity-30">•</span>
-            <button
-              onClick={() => navigate("admin")}
-              className="hover:text-primary transition-colors"
-            >
+            <Link href="/admin" className="hover:text-primary transition-colors">
               Admin
-            </button>
+            </Link>
           </div>
         </div>
       </div>

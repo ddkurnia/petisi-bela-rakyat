@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, PenLine, Sun, Moon, ChevronDown, Users, Building2, Crown, Heart, History } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
+import { Menu, X, PenLine, Sun, Moon, ChevronDown, Users, Building2, Crown, Heart, History, Target } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Logo } from "@/components/logo";
-import { useNav, PublicRoute } from "@/lib/nav";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,28 +18,37 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
-const mainMenu: { label: string; route: PublicRoute }[] = [
-  { label: "Home", route: "home" },
-  { label: "Kerja Kami", route: "work" },
-  { label: "Kampanye", route: "campaigns" },
-  { label: "News", route: "news" },
-  { label: "Blog", route: "blog" },
-  { label: "Media", route: "media" },
-  { label: "Transparansi", route: "transparency" },
-  { label: "Kontak", route: "contact" },
+const mainMenu: { label: string; href: string }[] = [
+  { label: "Home", href: "/" },
+  { label: "Kerja Kami", href: "/kerja-kami" },
+  { label: "Kampanye", href: "/kampanye" },
+  { label: "News", href: "/news" },
+  { label: "Blog", href: "/blog" },
+  { label: "Galeri", href: "/galeri" },
+  { label: "Transparansi", href: "/transparansi" },
+  { label: "Kontak", href: "/kontak" },
 ];
 
 const aboutSubmenu = [
-  { label: "Sejarah", section: "sejarah" as const, icon: History },
-  { label: "Visi & Misi", section: "visi-misi" as const, icon: Building2 },
-  { label: "Struktur Organisasi", section: "struktur" as const, icon: Building2 },
-  { label: "Pengurus", section: "pengurus" as const, icon: Users },
-  { label: "Dewan Penasehat", section: "penasehat" as const, icon: Crown },
-  { label: "Relawan", section: "relawan" as const, icon: Heart },
+  { label: "Sejarah", href: "/sejarah", icon: History },
+  { label: "Visi & Misi", href: "/visi-misi", icon: Target },
+  { label: "Struktur Organisasi", href: "/struktur-organisasi", icon: Building2 },
+  { label: "Pengurus", href: "/pengurus", icon: Users },
+  { label: "Dewan Penasehat", href: "/dewan-penasehat", icon: Crown },
+  { label: "Relawan", href: "/relawan", icon: Heart },
 ];
 
+function isPathActive(pathname: string, href: string): boolean {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
+function isAboutActive(pathname: string): boolean {
+  return ["/tentang-kami", "/sejarah", "/visi-misi", "/struktur-organisasi", "/pengurus", "/dewan-penasehat", "/relawan"].some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
 export function Header() {
-  const { route, aboutSection, navigate } = useNav();
+  const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, setTheme } = useTheme();
@@ -56,23 +66,25 @@ export function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMobileOpen(false));
+    return () => cancelAnimationFrame(id);
+  }, [pathname]);
+
   return (
     <motion.header
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? "glass border-b border-border/60 shadow-sm" : "bg-transparent"
+        scrolled || pathname !== "/" ? "glass border-b border-border/60 shadow-sm" : "bg-transparent"
       }`}
     >
       <div className="container-x flex items-center justify-between h-16 md:h-18">
-        <button
-          onClick={() => navigate("home")}
-          className="flex items-center"
-          aria-label="Petisi Bela Rakyat Home"
-        >
+        <Link href="/" className="flex items-center" aria-label="Petisi Bela Rakyat Home">
           <Logo />
-        </button>
+        </Link>
 
         {/* Desktop nav */}
         <nav className="hidden xl:flex items-center gap-1">
@@ -80,7 +92,7 @@ export function Header() {
             <DropdownMenuTrigger asChild>
               <button
                 className={`px-3.5 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-1 ${
-                  route === "about"
+                  isAboutActive(pathname)
                     ? "text-primary bg-primary/10"
                     : "text-foreground/80 hover:text-primary hover:bg-primary/5"
                 }`}
@@ -97,13 +109,11 @@ export function Header() {
               {aboutSubmenu.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <DropdownMenuItem
-                    key={item.section}
-                    onClick={() => navigate("about", { aboutSection: item.section })}
-                    className="cursor-pointer p-2"
-                  >
-                    <Icon className="h-4 w-4 text-primary mr-2" />
-                    <span>{item.label}</span>
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link href={item.href} className="cursor-pointer p-2 flex items-center">
+                      <Icon className="h-4 w-4 text-primary mr-2" />
+                      <span>{item.label}</span>
+                    </Link>
                   </DropdownMenuItem>
                 );
               })}
@@ -111,17 +121,17 @@ export function Header() {
           </DropdownMenu>
 
           {mainMenu.map((item) => (
-            <button
-              key={item.route}
-              onClick={() => navigate(item.route)}
+            <Link
+              key={item.href}
+              href={item.href}
               className={`px-3.5 py-2 text-sm font-medium rounded-lg transition-all ${
-                route === item.route
+                isPathActive(pathname, item.href)
                   ? "text-primary bg-primary/10"
                   : "text-foreground/80 hover:text-primary hover:bg-primary/5"
               }`}
             >
               {item.label}
-            </button>
+            </Link>
           ))}
         </nav>
 
@@ -140,13 +150,12 @@ export function Header() {
             )}
           </Button>
 
-          <Button
-            onClick={() => navigate("campaigns")}
-            className="hidden sm:inline-flex bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/30 rounded-full"
-          >
-            <PenLine className="h-4 w-4 mr-1.5" />
-            Tandatangani Petisi
-          </Button>
+          <Link href="/kampanye">
+            <Button className="hidden sm:inline-flex bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/30 rounded-full">
+              <PenLine className="h-4 w-4 mr-1.5" />
+              Tandatangani Petisi
+            </Button>
+          </Link>
 
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
@@ -173,7 +182,6 @@ export function Header() {
                   </Button>
                 </div>
                 <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-                  {/* About with submenu */}
                   <div className="space-y-1">
                     <div className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                       Tentang Kami
@@ -181,53 +189,43 @@ export function Header() {
                     {aboutSubmenu.map((item) => {
                       const Icon = item.icon;
                       return (
-                        <button
-                          key={item.section}
-                          onClick={() => {
-                            navigate("about", { aboutSection: item.section });
-                            setMobileOpen(false);
-                          }}
+                        <Link
+                          key={item.href}
+                          href={item.href}
                           className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
-                            route === "about" && aboutSection === item.section
+                            isPathActive(pathname, item.href)
                               ? "bg-primary text-white"
                               : "hover:bg-primary/10 text-foreground"
                           }`}
                         >
                           <Icon className="h-4 w-4" />
                           {item.label}
-                        </button>
+                        </Link>
                       );
                     })}
                   </div>
                   <div className="my-2 border-t border-border" />
                   {mainMenu.map((item) => (
-                    <button
-                      key={item.route}
-                      onClick={() => {
-                        navigate(item.route);
-                        setMobileOpen(false);
-                      }}
+                    <Link
+                      key={item.href}
+                      href={item.href}
                       className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                        route === item.route
+                        isPathActive(pathname, item.href)
                           ? "bg-primary text-white"
                           : "hover:bg-primary/10 text-foreground"
                       }`}
                     >
                       {item.label}
-                    </button>
+                    </Link>
                   ))}
                 </nav>
                 <div className="p-4 border-t border-border">
-                  <Button
-                    onClick={() => {
-                      navigate("campaigns");
-                      setMobileOpen(false);
-                    }}
-                    className="w-full bg-primary hover:bg-primary/90 text-white rounded-full"
-                  >
-                    <PenLine className="h-4 w-4 mr-2" />
-                    Tandatangani Petisi
-                  </Button>
+                  <Link href="/kampanye">
+                    <Button className="w-full bg-primary hover:bg-primary/90 text-white rounded-full">
+                      <PenLine className="h-4 w-4 mr-2" />
+                      Tandatangani Petisi
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </SheetContent>
