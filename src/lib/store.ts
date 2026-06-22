@@ -205,7 +205,7 @@ export interface AboutSection {
   nilai: { title: string; description: string; icon: string }[];
   sejarah: string;
   // New structured sections
-  sejarahTimeline: { year: string; title: string; description: string }[];
+  sejarahTimeline: { year: string; title: string; description: string; icon?: string }[];
   motto: string;
 }
 
@@ -509,12 +509,38 @@ const seedSettings: SiteSettings = {
       { title: "Transparan", description: "Setiap rupiah yang kami terima dan keluarkan dilaporkan terbuka untuk dapat diaudit publik.", icon: "Wallet" },
       { title: "Berakar pada Rakyat", description: "Seluruh agenda kami lahir dari aspirasi nyata masyarakat di lapangan, bukan dari meja elite.", icon: "Heart" },
     ],
-    sejarah: "Petisi Bela Rakyat lahir dari keprihatinan sekelompok aktivis, akademisi, dan tokoh masyarakat di Kabupaten Kepulauan Meranti terhadap lambatnya pembangunan infrastruktur publik dan lemahnya advokasi hak warga. Berdiri sejak 2024, organisasi ini memulai perjalanan dengan kampanye penuntasan pembangunan Jembatan Panglima Sampul dan Jembatan Perawang — dua infrastruktur vital yang menghubungkan pulau-pulau dan menentukan nasib ribuan warga. Dalam waktu singkat, gerakan ini berhasil mengumpulkan ratusan tanda tangan dukungan dan melibatkan tokoh-tokoh strategis sebagai pendukung. Hari ini, Petisi Bela Rakyat berkembang menjadi platform advokasi multisektor yang mencakup infrastruktur, pendidikan, ekonomi rakyat, pelayanan publik, dan advokasi hukum — dengan komitmen yang sama: membela rakyat, tanpa kompromi.",
+    sejarah: `Petisi Bela Rakyat bukanlah gerakan yang lahir secara tiba-tiba.
+
+Pada September 2016, sejumlah masyarakat dan aktivis Kepulauan Meranti pernah menginisiasi sebuah petisi publik terkait peristiwa yang dikenal masyarakat sebagai "Meranti Berdarah", yang terjadi pada 25 Agustus 2016.
+
+Saat itu, tujuan gerakan tersebut adalah mendorong pemerintah dan aparat penegak hukum untuk mengusut tuntas kematian tidak wajar dua warga Kepulauan Meranti yang diduga melibatkan oknum aparat.
+
+Melalui dukungan masyarakat dan berbagai elemen sipil, gerakan tersebut berhasil menarik perhatian nasional. Ketua Komnas HAM saat itu, Natalius Pigai, serta aktivis HAM dan Ketua KontraS, Haris Azhar, datang langsung ke Kepulauan Meranti untuk melihat dan mendalami peristiwa yang terjadi.
+
+Perjuangan tersebut membuahkan hasil. Kasus yang menjadi perhatian masyarakat akhirnya diproses melalui mekanisme hukum yang berlaku dan para pelaku diadili sesuai ketentuan hukum.
+
+Hampir sepuluh tahun kemudian, semangat yang sama kembali hadir.
+
+Hari ini, yang dihadapi masyarakat bukan lagi tragedi berdarah, melainkan persoalan infrastruktur yang berdampak langsung terhadap kehidupan ribuan warga.
+
+Ambruknya Jembatan Perawang di Selat Akar pada 14 Agustus 2023 dan Jembatan Panglima Sampul di Alai pada 22 Mei 2024 telah menyebabkan terganggunya aktivitas masyarakat, pendidikan, pelayanan kesehatan, mobilitas, serta perekonomian warga.
+
+Atas dasar itulah Petisi Bela Rakyat kembali bergerak.
+
+Melalui jalur partisipasi publik yang damai, terbuka, dan konstitusional, gerakan ini berupaya menyampaikan aspirasi masyarakat Kepulauan Meranti kepada pemerintah daerah, pemerintah pusat, hingga Presiden Republik Indonesia agar pembangunan kedua jembatan tersebut menjadi perhatian dan prioritas.
+
+Petisi Bela Rakyat tidak berafiliasi dengan kepentingan politik praktis.
+
+Gerakan ini hadir sebagai wadah masyarakat untuk memperjuangkan kepentingan bersama, menghubungkan aspirasi rakyat dengan pengambil kebijakan, serta mendorong hadirnya solusi nyata bagi masyarakat Kepulauan Meranti.
+
+Karena setiap jembatan yang dibangun kembali bukan hanya menghubungkan dua wilayah, tetapi juga menghubungkan harapan dan masa depan masyarakat.`,
     sejarahTimeline: [
-      { year: "2024", title: "Awal Mula", description: "Berdiri sebagai forum keprihatinan masyarakat Meranti" },
-      { year: "2024", title: "Kampanye Pertama", description: "Meluncurkan petisi Jembatan Panglima Sampul dan Perawang" },
-      { year: "2025", title: "Aliansi Luas", description: "Membangun jaringan dengan 50+ organisasi mitra" },
-      { year: "2026", title: "Skala Nasional", description: "Memperluas advokasi ke 5 bidang kerja strategis" },
+      { year: "2016", title: "Petisi Meranti Berdarah", description: "Masyarakat dan aktivis Kepulauan Meranti menginisiasi petisi publik terkait peristiwa 25 Agustus 2016 untuk mendorong penegakan hukum.", icon: "Megaphone" },
+      { year: "2016", title: "Kunjungan Komnas HAM dan KontraS", description: "Ketua Komnas HAM Natalius Pigai dan Ketua KontraS Haris Azhar datang langsung ke Kepulauan Meranti untuk mendalami peristiwa.", icon: "Users" },
+      { year: "2016", title: "Kasus Diproses Secara Hukum", description: "Perjuangan membuahkan hasil — kasus diproses melalui mekanisme hukum dan para pelaku diadili sesuai ketentuan.", icon: "Scale" },
+      { year: "2025", title: "Petisi Bela Rakyat Kembali Bergerak", description: "Hampir sepuluh tahun kemudian, semangat yang sama kembali hadir untuk menjawab persoalan infrastruktur masyarakat.", icon: "RefreshCw" },
+      { year: "2025", title: "Perjuangan Pembangunan Dua Jembatan Meranti", description: "Mengadvokasi pembangunan kembali Jembatan Perawang (ambruk 14 Agustus 2023) dan Jembatan Panglima Sampul (ambruk 22 Mei 2024).", icon: "Building2" },
+      { year: "2025", title: "Dukungan Masyarakat Terus Bertambah", description: "Petisi menjangkau pemerintah daerah, pusat, hingga Presiden RI — didukung masyarakat luas dan berbagai elemen sipil.", icon: "HeartHandshake" },
     ],
     motto: "Bersama membela rakyat, tanpa kompromi.",
   },
@@ -1037,7 +1063,7 @@ export const useStore = create<AppState>()(
         set((state) => ({ reports: state.reports.filter((b) => b.id !== id) })),
     }),
     {
-      name: "pbr-storage-v2",
+      name: "pbr-storage-v3",
       partialize: (state) => ({
         currentUser: state.currentUser,
         settings: state.settings,
