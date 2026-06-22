@@ -28,42 +28,21 @@ export interface TeamMember {
   order: number;
 }
 
-// ============ PENGURUS (new) ============
+// ============ PENGURUS (dynamic org structure) ============
 export interface Pengurus {
   id: string;
   slug: string;
   name: string;
   gelar: string; // e.g. "S.H., M.H."
-  jabatan: string; // e.g. "Ketua", "Bidang Hukum"
-  jabatanKey: string; // maps to OrgPosition key
+  jabatan: string; // free text: "Ketua", "Wakil Ketua 1", "Bidang Relawan", dll
+  parentId: string | null; // ID pengurus lain sebagai atasan langsung, null = top-level (Ketua)
   bio: string;
   experience: string;
   whatsapp: string;
   email: string;
-  photo: string;
-  order: number;
+  photo: string; // empty string = use initials placeholder
+  order: number; // urutan tampil di level yang sama
   status: "active" | "inactive";
-}
-
-// ============ ORG STRUCTURE ============
-export type OrgPositionKey =
-  | "ketua"
-  | "wakil_ketua"
-  | "sekretaris"
-  | "bidang_hukum"
-  | "bidang_advokasi"
-  | "bidang_media"
-  | "bidang_hubungan_pemerintah"
-  | "bidang_penggalangan_dukungan"
-  | "bidang_riset_data"
-  | "bidang_keuangan";
-
-export interface OrgNode {
-  key: OrgPositionKey;
-  label: string;
-  parent?: OrgPositionKey;
-  level: number; // 0 = top
-  order: number;
 }
 
 // ============ DEWAN PENASEHAT ============
@@ -262,163 +241,180 @@ const seedPengurus: Pengurus[] = [
     name: "Agus Suliadi",
     gelar: "S.Sos., M.Si",
     jabatan: "Ketua",
-    jabatanKey: "ketua",
+    parentId: null,
     bio: "Agus Suliadi adalah pendiri Petisi Bela Rakyat yang sejak muda aktif dalam gerakan masyarakat sipil. Ia memimpin organisasi dengan visi membela rakyat kecil tanpa kompromi.",
     experience: "Pendiri Forum Masyarakat Sipil Meranti (2018). Konsultan Advokasi Infrastruktur Pemerintah Daerah (2020-2023). Pembicara Forum NGO Nasional 2023.",
     whatsapp: "+62 812-0000-0001",
     email: "agus@petisibelarakyat.id",
-    photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    photo: "",
     order: 1,
     status: "active",
   },
   {
     id: "p2",
-    slug: "siti-rahmawati",
-    name: "Siti Rahmawati",
-    gelar: "S.Sos., M.A.P",
+    slug: "alazhar-yusuf",
+    name: "Alazhar Yusuf",
+    gelar: "S.Sos",
     jabatan: "Wakil Ketua",
-    jabatanKey: "wakil_ketua",
-    bio: "Siti Rahmawati menyelesaikan magister di bidang Administrasi Publik dan aktif menulis tentang tata kelola pemerintahan. Ia memimpin operasional harian organisasi.",
-    experience: "Peneliti Lembaga Studi Kebijakan Publik (2019-2024). Penulis 12 policy brief. Narasumber 30+ forum publik.",
+    parentId: "p1",
+    bio: "Alazhar Yusuf mendampingi Ketua dalam pengambilan keputusan strategis dan mengawasi operasional bidang advokasi.",
+    experience: "Aktivis masyarakat sipil Meranti sejak 2016. Koordinator lapangan kampanye infrastruktur.",
     whatsapp: "+62 812-0000-0002",
-    email: "siti@petisibelarakyat.id",
-    photo: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    order: 2,
+    email: "alazhar@petisibelarakyat.id",
+    photo: "",
+    order: 1,
     status: "active",
   },
   {
     id: "p3",
-    slug: "budi-hartono",
-    name: "Budi Hartono",
-    gelar: "S.Kom",
-    jabatan: "Sekretaris",
-    jabatanKey: "sekretaris",
-    bio: "Budi Hartono bertanggung jawab atas administrasi dan dokumentasi organisasi. Ia adalah mantan nelayan yang kini menjadi aktivis.",
-    experience: "Koordinator Lapangan Forum Nelayan Meranti (2017-2024). Penyelenggara 50+ aksi damai.",
+    slug: "mitrizal",
+    name: "Mitrizal",
+    gelar: "S.E",
+    jabatan: "Wakil Ketua",
+    parentId: "p1",
+    bio: "Mitrizal bertanggung jawab atas bidang ekonomi rakyat dan hubungan komunitas.",
+    experience: "Pengusaha lokal dan tokoh masyarakat Meranti. Aktif dalam koperasi nelayan.",
     whatsapp: "+62 812-0000-0003",
-    email: "budi@petisibelarakyat.id",
-    photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    order: 3,
+    email: "mitrizal@petisibelarakyat.id",
+    photo: "",
+    order: 2,
     status: "active",
   },
   {
     id: "p4",
-    slug: "may-ratna-sari",
-    name: "May Ratna Sari",
-    gelar: "S.H., M.H",
-    jabatan: "Bidang Hukum",
-    jabatanKey: "bidang_hukum",
-    bio: "May Ratna Sari adalah advokat dengan pengalaman 15 tahun dalam kasus hak warga. Ia memimpin pendampingan hukum gratis untuk masyarakat miskin.",
-    experience: "Advokat tetap Peradin (2010-sekarang). Pendamping 100+ kasus pro bono. Pengajar Hukum Tata Negara Universitas Riau.",
+    slug: "mujiono",
+    name: "Mujiono",
+    gelar: "S.Pd",
+    jabatan: "Wakil Ketua",
+    parentId: "p1",
+    bio: "Mujiono memimpin bidang pendidikan dan pemberdayaan pemuda.",
+    experience: "Pendidik dan aktivis kepemudaan. Pendiri sanggar belajar untuk anak pesisir.",
     whatsapp: "+62 812-0000-0004",
-    email: "hukum@petisibelarakyat.id",
-    photo: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    order: 4,
+    email: "mujiono@petisibelarakyat.id",
+    photo: "",
+    order: 3,
     status: "active",
   },
   {
     id: "p5",
-    slug: "rudi-hartono",
-    name: "Rudi Hartono",
-    gelar: "S.Sos",
-    jabatan: "Bidang Advokasi",
-    jabatanKey: "bidang_advokasi",
-    bio: "Rudi Hartono adalah aktivis lapangan yang mengkoordinir seluruh kampanye advokasi di tingkat desa dan kecamatan.",
-    experience: "Aktivis BMH (2015-2023). Koordinator 20+ kampanye advokasi lokal.",
+    slug: "budi-hartono",
+    name: "Budi Hartono",
+    gelar: "S.Kom",
+    jabatan: "Sekretaris",
+    parentId: "p1",
+    bio: "Budi Hartono bertanggung jawab atas administrasi dan dokumentasi organisasi.",
+    experience: "Koordinator Lapangan Forum Nelayan Meranti (2017-2024). Penyelenggara 50+ aksi damai.",
     whatsapp: "+62 812-0000-0005",
-    email: "advokasi@petisibelarakyat.id",
-    photo: "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    order: 5,
+    email: "budi@petisibelarakyat.id",
+    photo: "",
+    order: 1,
     status: "active",
   },
   {
     id: "p6",
-    slug: "maya-anggraini",
-    name: "Maya Anggraini",
-    gelar: "S.I.Kom",
-    jabatan: "Bidang Media",
-    jabatanKey: "bidang_media",
-    bio: "Maya Anggraini adalah jurnalis berpengalaman yang kini memimpin strategi komunikasi organisasi.",
-    experience: "Jurnalis Media Nasional (2016-2024). Pemenang Anugerah Pers Jurnalistik 2022.",
+    slug: "dewi-lestari",
+    name: "Dewi Lestari",
+    gelar: "S.E., M.M",
+    jabatan: "Bendahara",
+    parentId: "p1",
+    bio: "Dewi Lestari adalah akuntan publik bersertifikasi yang mengawal transparansi keuangan organisasi.",
+    experience: "Auditor KAP Big Four (2012-2020). Treasurer untuk 3 organisasi nirlaba.",
     whatsapp: "+62 812-0000-0006",
-    email: "media@petisibelarakyat.id",
-    photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    order: 6,
+    email: "keuangan@petisibelarakyat.id",
+    photo: "",
+    order: 2,
     status: "active",
   },
   {
     id: "p7",
-    slug: "fauzi-akmal",
-    name: "Fauzi Akmal",
-    gelar: "S.IP., M.Si",
-    jabatan: "Bidang Hubungan Pemerintah",
-    jabatanKey: "bidang_hubungan_pemerintah",
-    bio: "Fauzi Akmal menjembatani komunikasi organisasi dengan institusi pemerintah dan DPRD.",
-    experience: "Staf ahli anggota DPRD (2014-2019). Konsultan kebijakan publik (2020-sekarang).",
+    slug: "may-ratna-sari",
+    name: "May Ratna Sari",
+    gelar: "S.H., M.H",
+    jabatan: "Bidang Hukum",
+    parentId: "p5",
+    bio: "May Ratna Sari adalah advokat dengan pengalaman 15 tahun dalam kasus hak warga. Ia memimpin pendampingan hukum gratis untuk masyarakat miskin.",
+    experience: "Advokat tetap Peradin (2010-sekarang). Pendamping 100+ kasus pro bono.",
     whatsapp: "+62 812-0000-0007",
-    email: "pemerintah@petisibelarakyat.id",
-    photo: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    order: 7,
+    email: "hukum@petisibelarakyat.id",
+    photo: "",
+    order: 1,
     status: "active",
   },
   {
     id: "p8",
-    slug: "nia-permata",
-    name: "Nia Permata",
-    gelar: "S.E",
-    jabatan: "Bidang Penggalangan Dukungan",
-    jabatanKey: "bidang_penggalangan_dukungan",
-    bio: "Nia Permata bertanggung jawab atas rekrutmen relawan dan kampanye crowdfunding.",
-    experience: "Manajer Kampanye LSM Lestari (2018-2024). Penggalang Rp 2M+ dana sosial.",
+    slug: "rudi-hartono",
+    name: "Rudi Hartono",
+    gelar: "S.Sos",
+    jabatan: "Bidang Advokasi",
+    parentId: "p5",
+    bio: "Rudi Hartono adalah aktivis lapangan yang mengkoordinir seluruh kampanye advokasi di tingkat desa dan kecamatan.",
+    experience: "Aktivis BMH (2015-2023). Koordinator 20+ kampanye advokasi lokal.",
     whatsapp: "+62 812-0000-0008",
-    email: "dukungan@petisibelarakyat.id",
-    photo: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    order: 8,
+    email: "advokasi@petisibelarakyat.id",
+    photo: "",
+    order: 2,
     status: "active",
   },
   {
     id: "p9",
-    slug: "arif-rahman",
-    name: "Arif Rahman",
-    gelar: "S.Stat., M.Sc",
-    jabatan: "Bidang Riset dan Data",
-    jabatanKey: "bidang_riset_data",
-    bio: "Arif Rahman memimpin tim riset yang menghasilkan data dan analisis pendukung advokasi.",
-    experience: "Peneliti senior BPS (2013-2023). Konsultan data untuk 10+ lembaga internasional.",
+    slug: "maya-anggraini",
+    name: "Maya Anggraini",
+    gelar: "S.I.Kom",
+    jabatan: "Bidang Media",
+    parentId: "p5",
+    bio: "Maya Anggraini adalah jurnalis berpengalaman yang kini memimpin strategi komunikasi organisasi.",
+    experience: "Jurnalis Media Nasional (2016-2024). Pemenang Anugerah Pers Jurnalistik 2022.",
     whatsapp: "+62 812-0000-0009",
-    email: "riset@petisibelarakyat.id",
-    photo: "https://images.unsplash.com/photo-1472099483957-5a6586b09573?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    order: 9,
+    email: "media@petisibelarakyat.id",
+    photo: "",
+    order: 3,
     status: "active",
   },
   {
     id: "p10",
-    slug: "dewi-lestari",
-    name: "Dewi Lestari",
-    gelar: "S.E., M.M",
-    jabatan: "Bidang Keuangan",
-    jabatanKey: "bidang_keuangan",
-    bio: "Dewi Lestari adalah akuntan publik bersertifikasi yang mengawal transparansi keuangan organisasi.",
-    experience: "Auditor KAP Big Four (2012-2020). Treasurer untuk 3 organisasi nirlaba.",
+    slug: "fauzi-akmal",
+    name: "Fauzi Akmal",
+    gelar: "S.IP., M.Si",
+    jabatan: "Bidang Hubungan Pemerintah",
+    parentId: "p5",
+    bio: "Fauzi Akmal menjembatani komunikasi organisasi dengan institusi pemerintah dan DPRD.",
+    experience: "Staf ahli anggota DPRD (2014-2019). Konsultan kebijakan publik (2020-sekarang).",
     whatsapp: "+62 812-0000-0010",
-    email: "keuangan@petisibelarakyat.id",
-    photo: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    order: 10,
+    email: "pemerintah@petisibelarakyat.id",
+    photo: "",
+    order: 4,
     status: "active",
   },
-];
-
-const seedOrgStructure: OrgNode[] = [
-  { key: "ketua", label: "Ketua", level: 0, order: 1 },
-  { key: "wakil_ketua", label: "Wakil Ketua", level: 1, parent: "ketua", order: 1 },
-  { key: "sekretaris", label: "Sekretaris", level: 1, parent: "ketua", order: 2 },
-  { key: "bidang_hukum", label: "Bidang Hukum", level: 2, parent: "sekretaris", order: 1 },
-  { key: "bidang_advokasi", label: "Bidang Advokasi", level: 2, parent: "sekretaris", order: 2 },
-  { key: "bidang_media", label: "Bidang Media", level: 2, parent: "sekretaris", order: 3 },
-  { key: "bidang_hubungan_pemerintah", label: "Bidang Hubungan Pemerintah", level: 2, parent: "sekretaris", order: 4 },
-  { key: "bidang_penggalangan_dukungan", label: "Bidang Penggalangan Dukungan", level: 2, parent: "sekretaris", order: 5 },
-  { key: "bidang_riset_data", label: "Bidang Riset dan Data", level: 2, parent: "sekretaris", order: 6 },
-  { key: "bidang_keuangan", label: "Bidang Keuangan", level: 2, parent: "sekretaris", order: 7 },
+  {
+    id: "p11",
+    slug: "nia-permata",
+    name: "Nia Permata",
+    gelar: "S.E",
+    jabatan: "Bidang Penggalangan Dukungan",
+    parentId: "p5",
+    bio: "Nia Permata bertanggung jawab atas rekrutmen relawan dan kampanye crowdfunding.",
+    experience: "Manajer Kampanye LSM Lestari (2018-2024). Penggalang Rp 2M+ dana sosial.",
+    whatsapp: "+62 812-0000-0011",
+    email: "dukungan@petisibelarakyat.id",
+    photo: "",
+    order: 5,
+    status: "active",
+  },
+  {
+    id: "p12",
+    slug: "arif-rahman",
+    name: "Arif Rahman",
+    gelar: "S.Stat., M.Sc",
+    jabatan: "Bidang Riset dan Data",
+    parentId: "p5",
+    bio: "Arif Rahman memimpin tim riset yang menghasilkan data dan analisis pendukung advokasi.",
+    experience: "Peneliti senior BPS (2013-2023). Konsultan data untuk 10+ lembaga internasional.",
+    whatsapp: "+62 812-0000-0012",
+    email: "riset@petisibelarakyat.id",
+    photo: "",
+    order: 6,
+    status: "active",
+  },
 ];
 
 const seedPenasehat: Penasehat[] = [
@@ -428,7 +424,7 @@ const seedPenasehat: Penasehat[] = [
     gelar: "Prof. Dr. S.H., M.H",
     jabatan: "Dewan Penasehat",
     bio: "Akademisi hukum tata negara Universitas Riau dengan 30 tahun pengalaman.",
-    photo: "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
+    photo: "",
     order: 1,
   },
   {
@@ -437,7 +433,7 @@ const seedPenasehat: Penasehat[] = [
     gelar: "M.Si",
     jabatan: "Dewan Penasehat",
     bio: "Tokoh masyarakat Meranti dengan pengalaman birokrasi 35 tahun.",
-    photo: "https://images.unsplash.com/photo-1546961342-1543f0a9c4c0?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
+    photo: "",
     order: 2,
   },
   {
@@ -446,16 +442,16 @@ const seedPenasehat: Penasehat[] = [
     gelar: "S.Pd",
     jabatan: "Dewan Penasehat",
     bio: "Pendidik dan aktivis perempuan, pendiri 5 PAUD di kepulauan.",
-    photo: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
+    photo: "",
     order: 3,
   },
 ];
 
 const seedRelawan: Relawan[] = [
-  { id: "r1", name: "Andi Pratama", area: "Selatpanjang", joinedAt: "2024-01-15", photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80", active: true },
-  { id: "r2", name: "Rina Wati", area: "Rangsang", joinedAt: "2024-02-20", photo: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80", active: true },
-  { id: "r3", name: "Joko Susilo", area: "Tebing Tinggi", joinedAt: "2024-03-10", photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80", active: true },
-  { id: "r4", name: "Fitri Handayani", area: "Merbau", joinedAt: "2024-04-05", photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80", active: true },
+  { id: "r1", name: "Andi Pratama", area: "Selatpanjang", joinedAt: "2024-01-15", photo: "", active: true },
+  { id: "r2", name: "Rina Wati", area: "Rangsang", joinedAt: "2024-02-20", photo: "", active: true },
+  { id: "r3", name: "Joko Susilo", area: "Tebing Tinggi", joinedAt: "2024-03-10", photo: "", active: true },
+  { id: "r4", name: "Fitri Handayani", area: "Merbau", joinedAt: "2024-04-05", photo: "", active: true },
 ];
 
 const seedSettings: SiteSettings = {
@@ -722,12 +718,12 @@ const seedCampaigns: Campaign[] = [
 ];
 
 const seedSupporters: Supporter[] = [
-  { id: "s1", name: "Prof. Dr. H. Marwan Bali", position: "Akademisi Universitas Riau", statement: "Gerakan seperti Petisi Bela Rakyat adalah ruang demokrasi yang sehat. Saya mendukung penuh agenda advokasi infrastruktur ini.", photo: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" },
-  { id: "s2", name: "Drs. H. Syafrudin, M.Si", position: "Tokoh Masyarakat Meranti", statement: "Sudah saatnya masyarakat bersuara. Saya berdiri di belakang Petisi Bela Rakyat untuk menuntut hak dasar warga.", photo: "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" },
-  { id: "s3", name: "Hj. Rohani, S.Pd", position: "Pendidik & Aktivis Perempuan", statement: "Kesejahteraan rakyat harus didahulukan. Saya mendukung perjuangan ini demi generasi mendatang.", photo: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" },
-  { id: "s4", name: "Ir. H. Asmawi", position: "Pengusaha Lokal", statement: "Infrastruktur adalah darah perekonomian. Saya mendukung transparansi dan percepatan pembangunan jembatan.", photo: "https://images.unsplash.com/photo-1472099483957-5a6586b09573?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" },
-  { id: "s5", name: "Dra. Hj. Nuraini", position: "Pensiunan ASN", statement: "Pelayanan publik yang baik adalah hak setiap warga. Saya bersama Petisi Bela Rakyat.", photo: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" },
-  { id: "s6", name: "H. Rizal Rahman", position: "Pemuka Agama", statement: "Membela hak rakyat adalah ibadah. Mari bersama mendukung gerakan ini.", photo: "https://images.unsplash.com/photo-1546961342-1543f0a9c4c0?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" },
+  { id: "s1", name: "Prof. Dr. H. Marwan Bali", position: "Akademisi Universitas Riau", statement: "Gerakan seperti Petisi Bela Rakyat adalah ruang demokrasi yang sehat. Saya mendukung penuh agenda advokasi infrastruktur ini.", photo: "" },
+  { id: "s2", name: "Drs. H. Syafrudin, M.Si", position: "Tokoh Masyarakat Meranti", statement: "Sudah saatnya masyarakat bersuara. Saya berdiri di belakang Petisi Bela Rakyat untuk menuntut hak dasar warga.", photo: "" },
+  { id: "s3", name: "Hj. Rohani, S.Pd", position: "Pendidik & Aktivis Perempuan", statement: "Kesejahteraan rakyat harus didahulukan. Saya mendukung perjuangan ini demi generasi mendatang.", photo: "" },
+  { id: "s4", name: "Ir. H. Asmawi", position: "Pengusaha Lokal", statement: "Infrastruktur adalah darah perekonomian. Saya mendukung transparansi dan percepatan pembangunan jembatan.", photo: "" },
+  { id: "s5", name: "Dra. Hj. Nuraini", position: "Pensiunan ASN", statement: "Pelayanan publik yang baik adalah hak setiap warga. Saya bersama Petisi Bela Rakyat.", photo: "" },
+  { id: "s6", name: "H. Rizal Rahman", position: "Pemuka Agama", statement: "Membela hak rakyat adalah ibadah. Mari bersama mendukung gerakan ini.", photo: "" },
 ];
 
 const seedGallery: GalleryItem[] = [
@@ -797,7 +793,6 @@ interface AppState {
   settings: SiteSettings;
   team: TeamMember[]; // legacy
   pengurus: Pengurus[];
-  orgStructure: OrgNode[];
   penasehat: Penasehat[];
   relawan: Relawan[];
   blog: BlogPost[];
@@ -821,11 +816,6 @@ interface AppState {
   addPengurus: (m: Omit<Pengurus, "id">) => void;
   updatePengurus: (id: string, m: Partial<Pengurus>) => void;
   deletePengurus: (id: string) => void;
-
-  // OrgStructure CRUD
-  addOrgNode: (n: Omit<OrgNode, "key"> & { key?: string }) => void;
-  updateOrgNode: (key: string, n: Partial<OrgNode>) => void;
-  deleteOrgNode: (key: string) => void;
 
   // Penasehat CRUD
   addPenasehat: (p: Omit<Penasehat, "id">) => void;
@@ -904,7 +894,6 @@ export const useStore = create<AppState>()(
       settings: seedSettings,
       team: seedTeam,
       pengurus: seedPengurus,
-      orgStructure: seedOrgStructure,
       penasehat: seedPenasehat,
       relawan: seedRelawan,
       blog: seedBlog,
@@ -947,19 +936,6 @@ export const useStore = create<AppState>()(
         })),
       deletePengurus: (id) =>
         set((state) => ({ pengurus: state.pengurus.filter((t) => t.id !== id) })),
-
-      addOrgNode: (n) =>
-        set((state) => {
-          const key = n.key || slugify(n.label).replace(/-/g, "_");
-          if (state.orgStructure.some((x) => x.key === key)) return state;
-          return { orgStructure: [...state.orgStructure, { ...n, key } as OrgNode] };
-        }),
-      updateOrgNode: (key, n) =>
-        set((state) => ({
-          orgStructure: state.orgStructure.map((x) => (x.key === key ? { ...x, ...n } : x)),
-        })),
-      deleteOrgNode: (key) =>
-        set((state) => ({ orgStructure: state.orgStructure.filter((x) => x.key !== key) })),
 
       addPenasehat: (p) =>
         set((state) => ({ penasehat: [...state.penasehat, { ...p, id: genId() }] })),
@@ -1063,13 +1039,12 @@ export const useStore = create<AppState>()(
         set((state) => ({ reports: state.reports.filter((b) => b.id !== id) })),
     }),
     {
-      name: "pbr-storage-v3",
+      name: "pbr-storage-v4",
       partialize: (state) => ({
         currentUser: state.currentUser,
         settings: state.settings,
         team: state.team,
         pengurus: state.pengurus,
-        orgStructure: state.orgStructure,
         penasehat: state.penasehat,
         relawan: state.relawan,
         blog: state.blog,
@@ -1099,3 +1074,69 @@ export const formatDate = (s: string) => {
     return s;
   }
 };
+
+// ============ ORG TREE HELPERS (dynamic) ============
+export interface PengurusTreeNode extends Pengurus {
+  children: PengurusTreeNode[];
+  level: number;
+}
+
+/** Get root-level pengurus (parentId is null/empty) — sorted by order */
+export function getRootPengurus(all: Pengurus[]): Pengurus[] {
+  return all
+    .filter((p) => !p.parentId)
+    .sort((a, b) => a.order - b.order);
+}
+
+/** Get direct children of a pengurus (by parentId) — sorted by order */
+export function getChildrenPengurus(all: Pengurus[], parentId: string): Pengurus[] {
+  return all
+    .filter((p) => p.parentId === parentId)
+    .sort((a, b) => a.order - b.order);
+}
+
+/** Build full tree from flat pengurus list (only active by default) */
+export function buildPengurusTree(
+  all: Pengurus[],
+  options: { onlyActive?: boolean } = {}
+): PengurusTreeNode[] {
+  const { onlyActive = true } = options;
+  const filtered = onlyActive ? all.filter((p) => p.status === "active") : all;
+
+  const buildNode = (p: Pengurus, level: number): PengurusTreeNode => {
+    const children = filtered
+      .filter((c) => c.parentId === p.id)
+      .sort((a, b) => a.order - b.order)
+      .map((c) => buildNode(c, level + 1));
+    return { ...p, children, level };
+  };
+
+  return filtered
+    .filter((p) => !p.parentId)
+    .sort((a, b) => a.order - b.order)
+    .map((p) => buildNode(p, 0));
+}
+
+/** Get all ancestors of a pengurus (for breadcrumb) */
+export function getAncestors(all: Pengurus[], id: string): Pengurus[] {
+  const ancestors: Pengurus[] = [];
+  let current = all.find((p) => p.id === id);
+  while (current?.parentId) {
+    const parent = all.find((p) => p.id === current!.parentId);
+    if (!parent) break;
+    ancestors.unshift(parent);
+    current = parent;
+  }
+  return ancestors;
+}
+
+/** Generate initials from name for placeholder avatar */
+export function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("");
+}
+

@@ -2,7 +2,7 @@
 
 import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
-import { useStore } from "@/lib/store";
+import { useStore, getInitials } from "@/lib/store";
 import { useNav } from "@/lib/nav";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,8 +32,14 @@ export function PenasehatPage() {
             {sorted.map((p, i) => (
               <Reveal key={p.id} delay={i * 0.1}>
                 <Card className="overflow-hidden h-full border-0 shadow-lg shadow-foreground/5 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
-                  <div className="relative aspect-[4/5] overflow-hidden">
-                    <img src={p.photo} alt={p.name} className="h-full w-full object-cover" />
+                  <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                    {p.photo ? (
+                      <img src={p.photo} alt={p.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-24 w-24 rounded-full bg-gradient-to-br from-primary to-red-700 text-white flex items-center justify-center font-heading font-bold text-3xl">
+                        {getInitials(p.name)}
+                      </div>
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                     <Badge className="absolute top-3 left-3 bg-primary text-white border-0">
                       {p.jabatan}
@@ -110,8 +116,14 @@ export function RelawanPage() {
             {active.map((r, i) => (
               <Reveal key={r.id} delay={i * 0.05}>
                 <Card className="overflow-hidden h-full border-0 shadow-lg shadow-foreground/5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                  <div className="relative aspect-square overflow-hidden">
-                    <img src={r.photo} alt={r.name} className="h-full w-full object-cover" />
+                  <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                    {r.photo ? (
+                      <img src={r.photo} alt={r.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary to-red-700 text-white flex items-center justify-center font-heading font-bold text-xl">
+                        {getInitials(r.name)}
+                      </div>
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                     <div className="absolute bottom-0 left-0 right-0 p-3">
                       <h3 className="font-heading font-bold text-sm text-white">{r.name}</h3>

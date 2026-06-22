@@ -10,12 +10,13 @@ import {
 } from "lucide-react";
 import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
-import { useStore } from "@/lib/store";
+import { useStore, buildPengurusTree, getInitials, type PengurusTreeNode } from "@/lib/store";
 import { useNav } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/store";
+import { Avatar } from "@/components/avatar";
 
 const nilaiIcons: Record<string, React.ElementType> = {
   Eye, HandHeart, Shield, Flag, Heart, Building2, TrendingUp, Scale,
@@ -23,20 +24,6 @@ const nilaiIcons: Record<string, React.ElementType> = {
 
 const workIcons: Record<string, React.ElementType> = {
   Building2, GraduationCap, TrendingUp, HeartHandshake, Scale,
-};
-
-// Org structure position icons
-const positionIcons: Record<string, React.ElementType> = {
-  ketua: Crown,
-  wakil_ketua: Users,
-  sekretaris: Briefcase,
-  bidang_hukum: Scale,
-  bidang_advokasi: Megaphone,
-  bidang_media: Camera,
-  bidang_hubungan_pemerintah: Building2,
-  bidang_penggalangan_dukungan: Users,
-  bidang_riset_data: Target,
-  bidang_keuangan: Wallet,
 };
 
 // ============ SUPPORTER CAROUSEL ============
@@ -78,7 +65,13 @@ function SupporterCarousel() {
                 &ldquo;{current.statement}&rdquo;
               </p>
               <div className="mt-6 flex items-center gap-4">
-                <img src={current.photo} alt={current.name} className="h-14 w-14 rounded-full object-cover ring-2 ring-primary/20" />
+                {current.photo ? (
+                  <img src={current.photo} alt={current.name} className="h-14 w-14 rounded-full object-cover ring-2 ring-primary/20" />
+                ) : (
+                  <div className="h-14 w-14 rounded-full bg-gradient-to-br from-primary to-red-700 text-white flex items-center justify-center font-heading font-bold text-lg ring-2 ring-primary/20">
+                    {getInitials(current.name)}
+                  </div>
+                )}
                 <div>
                   <div className="font-heading font-bold text-lg">{current.name}</div>
                   <div className="text-sm text-muted-foreground">{current.position}</div>
@@ -132,12 +125,20 @@ export function HomePage() {
   const supporters = useStore((s) => s.supporters);
   const news = useStore((s) => s.news);
   const pengurus = useStore((s) => s.pengurus);
-  const orgStructure = useStore((s) => s.orgStructure);
 
-  // Top positions for org preview (Ketua + Wakil + Sekretaris + Bidang heads)
-  const topPositions = orgStructure.slice(0, 4);
-  const getPengurusByPosition = (key: string) =>
-    pengurus.find((p) => p.jabatanKey === key && p.status === "active");
+  // Build dynamic org tree and get top pengurus for homepage preview
+  // Strategy: show root (Ketua) + direct children level 1 (Wakil/Sekretaris/Bendahara)
+  const orgTree = buildPengurusTree(pengurus);
+  const rootPengurus = orgTree[0]; // Ketua
+  const level1Children = rootPengurus?.children || [];
+  // Combine root + level 1 children, limit to 4 for clean grid
+  const topPengurus: PengurusTreeNode[] = [
+    ...(rootPengurus ? [rootPengurus] : []),
+    ...level1Children,
+  ].slice(0, 4);
+  const totalActivePengurus = pengurus.filter((p) => p.status === "active").length;
+  // Count distinct jabatan values for "positions" stat
+  const uniqueJabatan = new Set(pengurus.filter((p) => p.status === "active").map((p) => p.jabatan)).size;
 
   return (
     <div>
@@ -300,47 +301,42 @@ export function HomePage() {
             </Button>
           </div>
 
-          {/* Top positions preview */}
+          {/* Top pengurus preview - dynamic from tree */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-            {topPositions.map((node, i) => {
-              const person = getPengurusByPosition(node.key);
-              const Icon = positionIcons[node.key] || Briefcase;
-              return (
-                <Reveal key={node.key} delay={i * 0.08}>
-                  <button
-                    onClick={() => person && navigate("pengurus", { pengurusSlug: person.slug })}
-                    className="group text-left w-full"
-                  >
-                    <Card className="overflow-hidden h-full border-0 shadow-lg shadow-foreground/5 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
-                      <div className="relative aspect-square overflow-hidden">
-                        {person?.photo ? (
-                          <img src={person.photo} alt={person.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                        ) : (
-                          <div className="h-full w-full bg-secondary flex items-center justify-center">
-                            <Icon className="h-12 w-12 text-muted-foreground/50" />
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                        <div className="absolute top-3 left-3 h-9 w-9 rounded-xl bg-primary/95 backdrop-blur flex items-center justify-center shadow-lg">
-                          <Icon className="h-4 w-4 text-white" />
+            {topPengurus.map((person, i) => (
+              <Reveal key={person.id} delay={i * 0.08}>
+                <button
+                  onClick={() => person.slug && navigate("pengurus", { pengurusSlug: person.slug })}
+                  className="group text-left w-full"
+                >
+                  <Card className="overflow-hidden h-full border-0 shadow-lg shadow-foreground/5 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+                    <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                      {person.photo ? (
+                        <img src={person.photo} alt={person.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                      ) : (
+                        <div className="h-20 w-20 rounded-full bg-gradient-to-br from-primary to-red-700 text-white flex items-center justify-center font-heading font-bold text-2xl">
+                          {getInitials(person.name)}
                         </div>
-                        <div className="absolute bottom-3 left-3 right-3">
-                          <div className="text-[10px] font-bold uppercase tracking-wide text-primary/90 mb-0.5">
-                            {node.label}
-                          </div>
-                          <h3 className="font-heading font-bold text-white text-sm line-clamp-1">
-                            {person?.name || "Belum diisi"}
-                          </h3>
-                          {person?.gelar && (
-                            <p className="text-white/70 text-[10px] line-clamp-1">{person.gelar}</p>
-                          )}
-                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                      <div className="absolute top-3 left-3">
+                        <Badge className="bg-primary/95 text-white border-0 text-[10px]">
+                          {person.jabatan}
+                        </Badge>
                       </div>
-                    </Card>
-                  </button>
-                </Reveal>
-              );
-            })}
+                      <div className="absolute bottom-3 left-3 right-3">
+                        <h3 className="font-heading font-bold text-white text-sm line-clamp-1">
+                          {person.name}
+                        </h3>
+                        {person.gelar && (
+                          <p className="text-white/70 text-[10px] line-clamp-1">{person.gelar}</p>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                </button>
+              </Reveal>
+            ))}
           </div>
 
           {/* Quick stats line */}
@@ -349,14 +345,14 @@ export function HomePage() {
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">
-                  <strong className="font-heading">{pengurus.filter((p) => p.status === "active").length} pengurus aktif</strong>
+                  <strong className="font-heading">{totalActivePengurus} pengurus aktif</strong>
                 </span>
               </div>
               <div className="hidden md:block h-4 w-px bg-border" />
               <div className="flex items-center gap-2">
                 <Briefcase className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">
-                  <strong className="font-heading">{orgStructure.length} posisi</strong> dalam struktur
+                  <strong className="font-heading">{uniqueJabatan} jenis jabatan</strong> dalam struktur
                 </span>
               </div>
               <div className="hidden md:block h-4 w-px bg-border" />

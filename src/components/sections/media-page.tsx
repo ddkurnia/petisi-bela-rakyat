@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Image as ImageIcon, Video, FileText, Play, Download, Filter } from "lucide-react";
 import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
-import { useStore } from "@/lib/store";
+import { useStore, getInitials } from "@/lib/store";
 import { useNav } from "@/lib/nav";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -136,7 +136,13 @@ export function MediaPage() {
                     &ldquo;{s.statement}&rdquo;
                   </p>
                   <div className="mt-5 flex items-center gap-3 pt-5 border-t border-border">
-                    <img src={s.photo} alt={s.name} className="h-11 w-11 rounded-full object-cover" />
+                    {s.photo ? (
+                      <img src={s.photo} alt={s.name} className="h-11 w-11 rounded-full object-cover" />
+                    ) : (
+                      <div className="h-11 w-11 rounded-full bg-gradient-to-br from-primary to-red-700 text-white flex items-center justify-center font-heading font-bold text-sm">
+                        {getInitials(s.name)}
+                      </div>
+                    )}
                     <div>
                       <div className="font-heading font-bold text-sm">{s.name}</div>
                       <div className="text-xs text-muted-foreground">{s.position}</div>
