@@ -14,6 +14,7 @@ export interface User {
   photoURL?: string;
 }
 
+// Legacy team (kept for backward compat) — replaced by Pengurus
 export interface TeamMember {
   id: string;
   slug: string;
@@ -27,6 +28,66 @@ export interface TeamMember {
   order: number;
 }
 
+// ============ PENGURUS (new) ============
+export interface Pengurus {
+  id: string;
+  slug: string;
+  name: string;
+  gelar: string; // e.g. "S.H., M.H."
+  jabatan: string; // e.g. "Ketua", "Bidang Hukum"
+  jabatanKey: string; // maps to OrgPosition key
+  bio: string;
+  experience: string;
+  whatsapp: string;
+  email: string;
+  photo: string;
+  order: number;
+  status: "active" | "inactive";
+}
+
+// ============ ORG STRUCTURE ============
+export type OrgPositionKey =
+  | "ketua"
+  | "wakil_ketua"
+  | "sekretaris"
+  | "bidang_hukum"
+  | "bidang_advokasi"
+  | "bidang_media"
+  | "bidang_hubungan_pemerintah"
+  | "bidang_penggalangan_dukungan"
+  | "bidang_riset_data"
+  | "bidang_keuangan";
+
+export interface OrgNode {
+  key: OrgPositionKey;
+  label: string;
+  parent?: OrgPositionKey;
+  level: number; // 0 = top
+  order: number;
+}
+
+// ============ DEWAN PENASEHAT ============
+export interface Penasehat {
+  id: string;
+  name: string;
+  gelar: string;
+  jabatan: string; // e.g. "Dewan Penasehat"
+  bio: string;
+  photo: string;
+  order: number;
+}
+
+// ============ RELAWAN ============
+export interface Relawan {
+  id: string;
+  name: string;
+  area: string; // lokasi
+  joinedAt: string;
+  photo: string;
+  active: boolean;
+}
+
+// ============ BLOG ============
 export interface BlogPost {
   id: string;
   slug: string;
@@ -34,13 +95,15 @@ export interface BlogPost {
   excerpt: string;
   content: string;
   coverImage: string;
+  images: string[]; // multiple images
   category: string;
   tags: string[];
   author: string;
   publishedAt: string;
+  scheduledAt?: string | null; // ISO datetime for scheduled publish
   metaTitle: string;
   metaDescription: string;
-  status: "published" | "draft";
+  status: "published" | "draft" | "scheduled";
   views: number;
 }
 
@@ -118,7 +181,41 @@ export interface WorkCategory {
   coverImage: string;
 }
 
-export interface SiteSettings {
+// ============ EXPANDED SETTINGS ============
+export interface SocialLink {
+  name: string;
+  url: string;
+  icon: string; // facebook, instagram, twitter, youtube, tiktok
+  handle: string; // @petisibelarakyat
+}
+
+export interface ContactInfo {
+  address: string;
+  whatsapp: string;
+  email: string;
+  phone: string;
+  mapEmbed: string;
+  mapLink: string;
+  operationHours: string;
+}
+
+export interface AboutSection {
+  visi: string;
+  misi: string[];
+  nilai: { title: string; description: string; icon: string }[];
+  sejarah: string;
+  // New structured sections
+  sejarahTimeline: { year: string; title: string; description: string }[];
+  motto: string;
+}
+
+export interface FooterSettings {
+  description: string;
+  copyrightText: string;
+  legalLinks: { label: string; url: string }[];
+}
+
+export interface HomepageSettings {
   hero: {
     image: string;
     headline: string;
@@ -126,39 +223,277 @@ export interface SiteSettings {
     primaryCta: string;
     secondaryCta: string;
   };
-  stats: { label: string; value: number; suffix: string }[];
   about: {
-    visi: string;
-    misi: string[];
-    nilai: { title: string; description: string }[];
-    sejarah: string;
+    image: string;
+    title: string;
+    description: string;
   };
-  contact: {
-    address: string;
-    whatsapp: string;
-    email: string;
-    mapEmbed: string;
+  work: {
+    title: string;
+    description: string;
   };
-  socials: { name: string; url: string; icon: string }[];
+  campaigns: {
+    title: string;
+    description: string;
+  };
+  supporters: {
+    title: string;
+    description: string;
+  };
+  stats: { label: string; value: number; suffix: string }[];
+}
+
+export interface SiteSettings {
+  siteName: string;
+  tagline: string;
+  logoUrl: string;
+  homepage: HomepageSettings;
+  about: AboutSection;
+  contact: ContactInfo;
+  socials: SocialLink[];
+  footer: FooterSettings;
 }
 
 // ============ SEED DATA ============
-const seedSettings: SiteSettings = {
-  hero: {
-    image:
-      "https://images.unsplash.com/photo-1593113598332-cd288d649433?ixlib=rb-4.0.3&auto=format&fit=crop&w=2400&q=80",
-    headline: "Menyatukan Suara Rakyat Menjadi Perubahan",
-    subheadline:
-      "Gerakan masyarakat sipil independen untuk memperjuangkan kepentingan rakyat melalui advokasi, partisipasi publik, dan aksi nyata.",
-    primaryCta: "Tandatangani Petisi",
-    secondaryCta: "Pelajari Perjuangan Kami",
+const seedPengurus: Pengurus[] = [
+  {
+    id: "p1",
+    slug: "agus-suliadi",
+    name: "Agus Suliadi",
+    gelar: "S.Sos., M.Si",
+    jabatan: "Ketua",
+    jabatanKey: "ketua",
+    bio: "Agus Suliadi adalah pendiri Petisi Bela Rakyat yang sejak muda aktif dalam gerakan masyarakat sipil. Ia memimpin organisasi dengan visi membela rakyat kecil tanpa kompromi.",
+    experience: "Pendiri Forum Masyarakat Sipil Meranti (2018). Konsultan Advokasi Infrastruktur Pemerintah Daerah (2020-2023). Pembicara Forum NGO Nasional 2023.",
+    whatsapp: "+62 812-0000-0001",
+    email: "agus@petisibelarakyat.id",
+    photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    order: 1,
+    status: "active",
   },
-  stats: [
-    { label: "Tanda Tangan", value: 585, suffix: "+" },
-    { label: "Relawan", value: 10, suffix: "+" },
-    { label: "Tokoh Pendukung", value: 6, suffix: "+" },
-    { label: "Kampanye Aktif", value: 2, suffix: "" },
-  ],
+  {
+    id: "p2",
+    slug: "siti-rahmawati",
+    name: "Siti Rahmawati",
+    gelar: "S.Sos., M.A.P",
+    jabatan: "Wakil Ketua",
+    jabatanKey: "wakil_ketua",
+    bio: "Siti Rahmawati menyelesaikan magister di bidang Administrasi Publik dan aktif menulis tentang tata kelola pemerintahan. Ia memimpin operasional harian organisasi.",
+    experience: "Peneliti Lembaga Studi Kebijakan Publik (2019-2024). Penulis 12 policy brief. Narasumber 30+ forum publik.",
+    whatsapp: "+62 812-0000-0002",
+    email: "siti@petisibelarakyat.id",
+    photo: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    order: 2,
+    status: "active",
+  },
+  {
+    id: "p3",
+    slug: "budi-hartono",
+    name: "Budi Hartono",
+    gelar: "S.Kom",
+    jabatan: "Sekretaris",
+    jabatanKey: "sekretaris",
+    bio: "Budi Hartono bertanggung jawab atas administrasi dan dokumentasi organisasi. Ia adalah mantan nelayan yang kini menjadi aktivis.",
+    experience: "Koordinator Lapangan Forum Nelayan Meranti (2017-2024). Penyelenggara 50+ aksi damai.",
+    whatsapp: "+62 812-0000-0003",
+    email: "budi@petisibelarakyat.id",
+    photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    order: 3,
+    status: "active",
+  },
+  {
+    id: "p4",
+    slug: "may-ratna-sari",
+    name: "May Ratna Sari",
+    gelar: "S.H., M.H",
+    jabatan: "Bidang Hukum",
+    jabatanKey: "bidang_hukum",
+    bio: "May Ratna Sari adalah advokat dengan pengalaman 15 tahun dalam kasus hak warga. Ia memimpin pendampingan hukum gratis untuk masyarakat miskin.",
+    experience: "Advokat tetap Peradin (2010-sekarang). Pendamping 100+ kasus pro bono. Pengajar Hukum Tata Negara Universitas Riau.",
+    whatsapp: "+62 812-0000-0004",
+    email: "hukum@petisibelarakyat.id",
+    photo: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    order: 4,
+    status: "active",
+  },
+  {
+    id: "p5",
+    slug: "rudi-hartono",
+    name: "Rudi Hartono",
+    gelar: "S.Sos",
+    jabatan: "Bidang Advokasi",
+    jabatanKey: "bidang_advokasi",
+    bio: "Rudi Hartono adalah aktivis lapangan yang mengkoordinir seluruh kampanye advokasi di tingkat desa dan kecamatan.",
+    experience: "Aktivis BMH (2015-2023). Koordinator 20+ kampanye advokasi lokal.",
+    whatsapp: "+62 812-0000-0005",
+    email: "advokasi@petisibelarakyat.id",
+    photo: "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    order: 5,
+    status: "active",
+  },
+  {
+    id: "p6",
+    slug: "maya-anggraini",
+    name: "Maya Anggraini",
+    gelar: "S.I.Kom",
+    jabatan: "Bidang Media",
+    jabatanKey: "bidang_media",
+    bio: "Maya Anggraini adalah jurnalis berpengalaman yang kini memimpin strategi komunikasi organisasi.",
+    experience: "Jurnalis Media Nasional (2016-2024). Pemenang Anugerah Pers Jurnalistik 2022.",
+    whatsapp: "+62 812-0000-0006",
+    email: "media@petisibelarakyat.id",
+    photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    order: 6,
+    status: "active",
+  },
+  {
+    id: "p7",
+    slug: "fauzi-akmal",
+    name: "Fauzi Akmal",
+    gelar: "S.IP., M.Si",
+    jabatan: "Bidang Hubungan Pemerintah",
+    jabatanKey: "bidang_hubungan_pemerintah",
+    bio: "Fauzi Akmal menjembatani komunikasi organisasi dengan institusi pemerintah dan DPRD.",
+    experience: "Staf ahli anggota DPRD (2014-2019). Konsultan kebijakan publik (2020-sekarang).",
+    whatsapp: "+62 812-0000-0007",
+    email: "pemerintah@petisibelarakyat.id",
+    photo: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    order: 7,
+    status: "active",
+  },
+  {
+    id: "p8",
+    slug: "nia-permata",
+    name: "Nia Permata",
+    gelar: "S.E",
+    jabatan: "Bidang Penggalangan Dukungan",
+    jabatanKey: "bidang_penggalangan_dukungan",
+    bio: "Nia Permata bertanggung jawab atas rekrutmen relawan dan kampanye crowdfunding.",
+    experience: "Manajer Kampanye LSM Lestari (2018-2024). Penggalang Rp 2M+ dana sosial.",
+    whatsapp: "+62 812-0000-0008",
+    email: "dukungan@petisibelarakyat.id",
+    photo: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    order: 8,
+    status: "active",
+  },
+  {
+    id: "p9",
+    slug: "arif-rahman",
+    name: "Arif Rahman",
+    gelar: "S.Stat., M.Sc",
+    jabatan: "Bidang Riset dan Data",
+    jabatanKey: "bidang_riset_data",
+    bio: "Arif Rahman memimpin tim riset yang menghasilkan data dan analisis pendukung advokasi.",
+    experience: "Peneliti senior BPS (2013-2023). Konsultan data untuk 10+ lembaga internasional.",
+    whatsapp: "+62 812-0000-0009",
+    email: "riset@petisibelarakyat.id",
+    photo: "https://images.unsplash.com/photo-1472099483957-5a6586b09573?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    order: 9,
+    status: "active",
+  },
+  {
+    id: "p10",
+    slug: "dewi-lestari",
+    name: "Dewi Lestari",
+    gelar: "S.E., M.M",
+    jabatan: "Bidang Keuangan",
+    jabatanKey: "bidang_keuangan",
+    bio: "Dewi Lestari adalah akuntan publik bersertifikasi yang mengawal transparansi keuangan organisasi.",
+    experience: "Auditor KAP Big Four (2012-2020). Treasurer untuk 3 organisasi nirlaba.",
+    whatsapp: "+62 812-0000-0010",
+    email: "keuangan@petisibelarakyat.id",
+    photo: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    order: 10,
+    status: "active",
+  },
+];
+
+const seedOrgStructure: OrgNode[] = [
+  { key: "ketua", label: "Ketua", level: 0, order: 1 },
+  { key: "wakil_ketua", label: "Wakil Ketua", level: 1, parent: "ketua", order: 1 },
+  { key: "sekretaris", label: "Sekretaris", level: 1, parent: "ketua", order: 2 },
+  { key: "bidang_hukum", label: "Bidang Hukum", level: 2, parent: "sekretaris", order: 1 },
+  { key: "bidang_advokasi", label: "Bidang Advokasi", level: 2, parent: "sekretaris", order: 2 },
+  { key: "bidang_media", label: "Bidang Media", level: 2, parent: "sekretaris", order: 3 },
+  { key: "bidang_hubungan_pemerintah", label: "Bidang Hubungan Pemerintah", level: 2, parent: "sekretaris", order: 4 },
+  { key: "bidang_penggalangan_dukungan", label: "Bidang Penggalangan Dukungan", level: 2, parent: "sekretaris", order: 5 },
+  { key: "bidang_riset_data", label: "Bidang Riset dan Data", level: 2, parent: "sekretaris", order: 6 },
+  { key: "bidang_keuangan", label: "Bidang Keuangan", level: 2, parent: "sekretaris", order: 7 },
+];
+
+const seedPenasehat: Penasehat[] = [
+  {
+    id: "pn1",
+    name: "Prof. Dr. H. Marwan Bali",
+    gelar: "Prof. Dr. S.H., M.H",
+    jabatan: "Dewan Penasehat",
+    bio: "Akademisi hukum tata negara Universitas Riau dengan 30 tahun pengalaman.",
+    photo: "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
+    order: 1,
+  },
+  {
+    id: "pn2",
+    name: "Drs. H. Syafrudin, M.Si",
+    gelar: "M.Si",
+    jabatan: "Dewan Penasehat",
+    bio: "Tokoh masyarakat Meranti dengan pengalaman birokrasi 35 tahun.",
+    photo: "https://images.unsplash.com/photo-1546961342-1543f0a9c4c0?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
+    order: 2,
+  },
+  {
+    id: "pn3",
+    name: "Hj. Rohani, S.Pd",
+    gelar: "S.Pd",
+    jabatan: "Dewan Penasehat",
+    bio: "Pendidik dan aktivis perempuan, pendiri 5 PAUD di kepulauan.",
+    photo: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
+    order: 3,
+  },
+];
+
+const seedRelawan: Relawan[] = [
+  { id: "r1", name: "Andi Pratama", area: "Selatpanjang", joinedAt: "2024-01-15", photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80", active: true },
+  { id: "r2", name: "Rina Wati", area: "Rangsang", joinedAt: "2024-02-20", photo: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80", active: true },
+  { id: "r3", name: "Joko Susilo", area: "Tebing Tinggi", joinedAt: "2024-03-10", photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80", active: true },
+  { id: "r4", name: "Fitri Handayani", area: "Merbau", joinedAt: "2024-04-05", photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80", active: true },
+];
+
+const seedSettings: SiteSettings = {
+  siteName: "Petisi Bela Rakyat",
+  tagline: "Membela Suara Rakyat",
+  logoUrl: "",
+  homepage: {
+    hero: {
+      image: "https://images.unsplash.com/photo-1593113598332-cd288d649433?ixlib=rb-4.0.3&auto=format&fit=crop&w=2400&q=80",
+      headline: "Menyatukan Suara Rakyat Menjadi Perubahan",
+      subheadline: "Gerakan masyarakat sipil independen untuk memperjuangkan kepentingan rakyat melalui advokasi, partisipasi publik, dan aksi nyata.",
+      primaryCta: "Tandatangani Petisi",
+      secondaryCta: "Pelajari Perjuangan Kami",
+    },
+    about: {
+      image: "https://images.unsplash.com/photo-1559027615-cd4628902d4a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
+      title: "Lahir dari Rakyat, untuk Rakyat",
+      description: "Kami bukan sekadar NGO — kami adalah perpanjangan tangan masyarakat yang selama ini tidak didengar.",
+    },
+    work: {
+      title: "Lima Bidang Perjuangan",
+      description: "Kami fokus pada isu-isu strategis yang berdampak langsung pada kehidupan rakyat.",
+    },
+    campaigns: {
+      title: "Bergabung dalam Perjuangan",
+      description: "Setiap tanda tangan adalah suara yang membawa kami lebih dekat pada keadilan.",
+    },
+    supporters: {
+      title: "Suara yang Mempercayai Kami",
+      description: "Tokoh-tokoh dari berbagai latar belakang memberikan dukungan mereka pada perjuangan ini.",
+    },
+    stats: [
+      { label: "Tanda Tangan", value: 585, suffix: "+" },
+      { label: "Relawan", value: 10, suffix: "+" },
+      { label: "Tokoh Pendukung", value: 6, suffix: "+" },
+      { label: "Kampanye Aktif", value: 2, suffix: "" },
+    ],
+  },
   about: {
     visi: "Menjadi gerakan masyarakat sipil terdepan di Indonesia yang memperjuangkan keadilan, transparansi, dan kesejahteraan rakyat melalui partisipasi publik yang berkelanjutan.",
     misi: [
@@ -169,130 +504,67 @@ const seedSettings: SiteSettings = {
       "Membangun aliansi lintas sektor untuk perubahan struktural.",
     ],
     nilai: [
-      {
-        title: "Independen",
-        description:
-          "Kami bebas dari pengaruh politik dan kepentingan ekonomi tertentu, berdiri tegak untuk kepentingan rakyat.",
-      },
-      {
-        title: "Berani",
-        description:
-          "Kami berani menyuarakan kebenaran dan menuntut keadilan meskipun di hadapan kekuasaan.",
-      },
-      {
-        title: "Transparan",
-        description:
-          "Setiap rupiah yang kami terima dan keluarkan dilaporkan terbuka untuk dapat diaudit publik.",
-      },
-      {
-        title: "Berakar pada Rakyat",
-        description:
-          "Seluruh agenda kami lahir dari aspirasi nyata masyarakat di lapangan, bukan dari meja elite.",
-      },
+      { title: "Independen", description: "Kami bebas dari pengaruh politik dan kepentingan ekonomi tertentu, berdiri tegak untuk kepentingan rakyat.", icon: "Eye" },
+      { title: "Berani", description: "Kami berani menyuarakan kebenaran dan menuntut keadilan meskipun di hadapan kekuasaan.", icon: "Shield" },
+      { title: "Transparan", description: "Setiap rupiah yang kami terima dan keluarkan dilaporkan terbuka untuk dapat diaudit publik.", icon: "Wallet" },
+      { title: "Berakar pada Rakyat", description: "Seluruh agenda kami lahir dari aspirasi nyata masyarakat di lapangan, bukan dari meja elite.", icon: "Heart" },
     ],
-    sejarah:
-      "Petisi Bela Rakyat lahir dari keprihatinan sekelompok aktivis, akademisi, dan tokoh masyarakat di Kabupaten Kepulauan Meranti terhadap lambatnya pembangunan infrastruktur publik dan lemahnya advokasi hak warga. Berdiri sejak 2024, organisasi ini memulai perjalanan dengan kampanye penuntasan pembangunan Jembatan Panglima Sampul dan Jembatan Perawang — dua infrastruktur vital yang menghubungkan pulau-pulau dan menentukan nasib ribuan warga. Dalam waktu singkat, gerakan ini berhasil mengumpulkan ratusan tanda tangan dukungan dan melibatkan tokoh-tokoh strategis sebagai pendukung. Hari ini, Petisi Bela Rakyat berkembang menjadi platform advokasi multisektor yang mencakup infrastruktur, pendidikan, ekonomi rakyat, pelayanan publik, dan advokasi hukum — dengan komitmen yang sama: membela rakyat, tanpa kompromi.",
+    sejarah: "Petisi Bela Rakyat lahir dari keprihatinan sekelompok aktivis, akademisi, dan tokoh masyarakat di Kabupaten Kepulauan Meranti terhadap lambatnya pembangunan infrastruktur publik dan lemahnya advokasi hak warga. Berdiri sejak 2024, organisasi ini memulai perjalanan dengan kampanye penuntasan pembangunan Jembatan Panglima Sampul dan Jembatan Perawang — dua infrastruktur vital yang menghubungkan pulau-pulau dan menentukan nasib ribuan warga. Dalam waktu singkat, gerakan ini berhasil mengumpulkan ratusan tanda tangan dukungan dan melibatkan tokoh-tokoh strategis sebagai pendukung. Hari ini, Petisi Bela Rakyat berkembang menjadi platform advokasi multisektor yang mencakup infrastruktur, pendidikan, ekonomi rakyat, pelayanan publik, dan advokasi hukum — dengan komitmen yang sama: membela rakyat, tanpa kompromi.",
+    sejarahTimeline: [
+      { year: "2024", title: "Awal Mula", description: "Berdiri sebagai forum keprihatinan masyarakat Meranti" },
+      { year: "2024", title: "Kampanye Pertama", description: "Meluncurkan petisi Jembatan Panglima Sampul dan Perawang" },
+      { year: "2025", title: "Aliansi Luas", description: "Membangun jaringan dengan 50+ organisasi mitra" },
+      { year: "2026", title: "Skala Nasional", description: "Memperluas advokasi ke 5 bidang kerja strategis" },
+    ],
+    motto: "Bersama membela rakyat, tanpa kompromi.",
   },
   contact: {
-    address:
-      "Sekretariat Petisi Bela Rakyat, Jl. Pahlawan No. 12, Selatpanjang, Kabupaten Kepulauan Meranti, Riau 28753",
+    address: "Sekretariat Petisi Bela Rakyat, Jl. Pahlawan No. 12, Selatpanjang, Kabupaten Kepulauan Meranti, Riau 28753",
     whatsapp: "+62 812-0000-0000",
     email: "halo@petisibelarakyat.id",
-    mapEmbed:
-      "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15955.5!2d102.7!3d1.0!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMcKwMDAnMDAuMCJOIDEwMsKwNDInMDAuMCJF!5e0!3m2!1sen!2sid!4v1700000000000",
+    phone: "+62 812-0000-0000",
+    mapEmbed: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15955.5!2d102.7!3d1.0!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMcKwMDAnMDAuMCJOIDEwMsKwNDInMDAuMCJF!5e0!3m2!1sen!2sid!4v1700000000000",
+    mapLink: "https://maps.google.com/?q=Selatpanjang+Meranti",
+    operationHours: "Senin – Jumat, 09:00 – 17:00 WIB",
   },
   socials: [
-    { name: "Facebook", url: "https://facebook.com/petisibelarakyat", icon: "facebook" },
-    { name: "Instagram", url: "https://instagram.com/petisibelarakyat", icon: "instagram" },
-    { name: "X", url: "https://twitter.com/petisibelarakyat", icon: "twitter" },
-    { name: "YouTube", url: "https://youtube.com/@petisibelarakyat", icon: "youtube" },
+    { name: "Facebook", url: "https://facebook.com/petisibelarakyat", icon: "facebook", handle: "@petisibelarakyat" },
+    { name: "Instagram", url: "https://instagram.com/petisibelarakyat", icon: "instagram", handle: "@petisibelarakyat" },
+    { name: "X", url: "https://twitter.com/petisibelarakyat", icon: "twitter", handle: "@petisibelarakyat" },
+    { name: "YouTube", url: "https://youtube.com/@petisibelarakyat", icon: "youtube", handle: "@petisibelarakyat" },
+    { name: "TikTok", url: "https://tiktok.com/@petisibelarakyat", icon: "tiktok", handle: "@petisibelarakyat" },
   ],
+  footer: {
+    description: "Gerakan masyarakat sipil independen yang memperjuangkan kepentingan rakyat melalui advokasi, partisipasi publik, dan aksi nyata.",
+    copyrightText: "© {year} Petisi Bela Rakyat. Hak cipta dilindungi. Dibangun untuk rakyat, oleh rakyat.",
+    legalLinks: [
+      { label: "Kebijakan Privasi", url: "#" },
+      { label: "Syarat & Ketentuan", url: "#" },
+    ],
+  },
 };
 
-const seedTeam: TeamMember[] = [
-  {
-    id: "t1",
-    slug: "agus-suliadi",
-    name: "Agus Suliadi",
-    position: "Ketua Dewan Pembina",
-    summary:
-      "Tokoh masyarakat Kepulauan Meranti dengan lebih dari 20 tahun pengalaman advokasi infrastruktur publik.",
-    bio: "Agus Suliadi adalah putra asli Selatpanjang yang sejak muda aktif dalam berbagai gerakan masyarakat sipil. Ia memimpin petisi penuntasan Jembatan Panglima Sampul dan dikenal sebagai suara yang konsisten membela hak masyarakat pesisir.",
-    experience:
-      "Pendiri Forum Masyarakat Sipil Meranti (2018), Konsultan Advokasi Infrastruktur Pemerintah Daerah (2020-2023), Pembicara di Forum NGO Nasional 2023.",
-    responsibilities:
-      "Mengarahkan strategi organisasi, membangun aliansi strategis dengan pemangku kepentingan, dan memastikan setiap kampanye berakar pada kebutuhan riil masyarakat.",
-    photo:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    order: 1,
-  },
-  {
-    id: "t2",
-    slug: "siti-rahmawati",
-    name: "Siti Rahmawati",
-    position: "Direktur Eksekutif",
-    summary:
-      "Peneliti kebijakan publik dengan fokus pada tata kelola pemerintahan dan transparansi anggaran.",
-    bio: "Siti Rahmawati menyelesaikan magister di bidang Kebijakan Publik dan aktif menulis tentang akuntabilitas anggaran daerah. Ia memimpin operasional harian Petisi Bela Rakyat.",
-    experience:
-      "Peneliti di Lembaga Studi Kebijakan Publik (2019-2024), Penulis 12 policy brief, Narasumber di 30+ forum publik.",
-    responsibilities:
-      "Mengelola operasional organisasi, mengarahkan riset kebijakan, dan mengawal pelaksanaan program kerja.",
-    photo:
-      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    order: 2,
-  },
-  {
-    id: "t3",
-    slug: "budi-hartono",
-    name: "Budi Hartono",
-    position: "Koordinator Kampanye",
-    summary:
-      "Aktivis lapangan dengan jaringan luas di komunitas nelayan dan petani Kepulauan Meranti.",
-    bio: "Budi Hartono adalah mantan nelayan yang berubah menjadi aktivis. Ia mengkoordinir seluruh kampanye lapangan dan menjadi jembatan antara organisasi dengan masyarakat akar rumput.",
-    experience:
-      "Koordinator Lapangan Forum Nelayan Meranti (2017-2024), Penyelenggara 50+ aksi damai, Pelatih partisipasi warga.",
-    responsibilities:
-      "Merancang dan mengeksekusi kampanye lapangan, mengelola relawan, serta memastikan partisipasi masyarakat dalam setiap aksi.",
-    photo:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    order: 3,
-  },
-  {
-    id: "t4",
-    slug: "maya-anggraini",
-    name: "Maya Anggraini",
-    position: "Manajer Komunikasi",
-    summary:
-      "Jurnalis dan content strategist dengan pengalaman 8 tahun di media nasional.",
-    blog: "",
-    experience: "",
-    responsibilities: "",
-    bio: "Maya Anggraini bertugas memastikan setiap cerita rakyat didengar oleh publik luas melalui narasi yang kuat dan etis.",
-    photo:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    order: 4,
-  } as TeamMember,
-];
+const seedTeam: TeamMember[] = [];
 
 const seedBlog: BlogPost[] = [
   {
     id: "b1",
     slug: "mengapa-jembatan-panglima-sampul-penting",
     title: "Mengapa Jembatan Panglima Sampul Penting bagi Masyarakat Meranti?",
-    excerpt:
-      "Jembatan ini bukan sekadar infrastruktur — ia adalah penghubung harapan, ekonomi, dan akses dasar bagi ribuan warga.",
-    content:
-      "## Latar Belakang\n\nJembatan Panglima Sampul adalah penghubung vital antara Pulau Tebing Tinggi dengan Pulau Rangsang di Kabupaten Kepulauan Meranti. Pembangunannya yang sudah berjalan bertahun-tahun masih belum tuntas, menyebabkan penderitaan nyata bagi masyarakat.\n\n## Dampak Ekonomi\n\nSetiap hari, ratusan warga harus menempuh jalur laut yang mahal dan berisiko untuk mengakses pasar, sekolah, dan layanan kesehatan. Biaya transportasi meningkat hingga 3x lipat dibanding jika jembatan berfungsi.\n\n## Dampak Sosial\n\nAnak-anak terlambat ke sekolah, ibu hamil kesulitan akses fasilitas kesehatan, dan pedagang kecil kehilangan margin akibat biaya logistik tinggi.\n\n## Solusi\n\nKami menuntut percepatan penyelesaian jembatan ini dengan transparansi anggaran dan keterlibatan masyarakat dalam pengawasan.",
-    coverImage:
-      "https://images.unsplash.com/photo-1545558014-8692077e9b5c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+    excerpt: "Jembatan ini bukan sekadar infrastruktur — ia adalah penghubung harapan, ekonomi, dan akses dasar bagi ribuan warga.",
+    content: "## Latar Belakang\n\nJembatan Panglima Sampul adalah penghubung vital antara Pulau Tebing Tinggi dengan Pulau Rangsang di Kabupaten Kepulauan Meranti. Pembangunannya yang sudah berjalan bertahun-tahun masih belum tuntas, menyebabkan penderitaan nyata bagi masyarakat.\n\n## Dampak Ekonomi\n\nSetiap hari, ratusan warga harus menempuh jalur laut yang mahal dan berisiko untuk mengakses pasar, sekolah, dan layanan kesehatan. Biaya transportasi meningkat hingga 3x lipat dibanding jika jembatan berfungsi.\n\n## Dampak Sosial\n\nAnak-anak terlambat ke sekolah, ibu hamil kesulitan akses fasilitas kesehatan, dan pedagang kecil kehilangan margin akibat biaya logistik tinggi.\n\n## Solusi\n\nKami menuntut percepatan penyelesaian jembatan ini dengan transparansi anggaran dan keterlibatan masyarakat dalam pengawasan.",
+    coverImage: "https://images.unsplash.com/photo-1545558014-8692077e9b5c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1545558014-8692077e9b5c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
+    ],
     category: "Infrastruktur",
     tags: ["jembatan", "meranti", "infrastruktur"],
     author: "Siti Rahmawati",
     publishedAt: "2025-05-20",
+    scheduledAt: null,
     metaTitle: "Mengapa Jembatan Panglima Sampul Penting? | Petisi Bela Rakyat",
-    metaDescription:
-      "Jembatan Panglima Sampul bukan sekadar infrastruktur — ia adalah penghubung harapan bagi ribuan warga Meranti.",
+    metaDescription: "Jembatan Panglima Sampul bukan sekadar infrastruktur — ia adalah penghubung harapan bagi ribuan warga Meranti.",
     status: "published",
     views: 1240,
   },
@@ -300,19 +572,17 @@ const seedBlog: BlogPost[] = [
     id: "b2",
     slug: "transparansi-anggaran-daerah",
     title: "Transparansi Anggaran Daerah: Hak Rakyat, Bukan Privilese",
-    excerpt:
-      "Mengapa publik berhak tahu ke mana uang mereka pergi, dan bagaimana kami mengawalnya.",
-    content:
-      "## Hak Konstitusional\n\nPasal 23E UUD 1945 menegaskan bahwa anggaran negara harus dikelola secara terbuka dan akuntabel.\n\n## Praktik Baik\n\nBeberapa daerah sudah membuka portal transparansi anggaran. Ini contoh yang harus diikuti oleh semua pemerintah daerah.\n\n## Peran Kami\n\nKami melakukan pendampingan masyarakat untuk mengakses informasi anggaran dan melaporkan indikasi penyimpangan.",
-    coverImage:
-      "https://images.unsplash.com/photo-1554224155-6726b3ff858f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+    excerpt: "Mengapa publik berhak tahu ke mana uang mereka pergi, dan bagaimana kami mengawalnya.",
+    content: "## Hak Konstitusional\n\nPasal 23E UUD 1945 menegaskan bahwa anggaran negara harus dikelola secara terbuka dan akuntabel.\n\n## Praktik Baik\n\nBeberapa daerah sudah membuka portal transparansi anggaran. Ini contoh yang harus diikuti oleh semua pemerintah daerah.\n\n## Peran Kami\n\nKami melakukan pendampingan masyarakat untuk mengakses informasi anggaran dan melaporkan indikasi penyimpangan.",
+    coverImage: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+    images: [],
     category: "Kebijakan Publik",
     tags: ["transparansi", "anggaran", "advokasi"],
     author: "Siti Rahmawati",
     publishedAt: "2025-05-10",
+    scheduledAt: null,
     metaTitle: "Transparansi Anggaran Daerah | Petisi Bela Rakyat",
-    metaDescription:
-      "Mengapa publik berhak tahu ke mana uang mereka pergi, dan bagaimana kami mengawalnya.",
+    metaDescription: "Mengapa publik berhak tahu ke mana uang mereka pergi, dan bagaimana kami mengawalnya.",
     status: "published",
     views: 870,
   },
@@ -320,19 +590,17 @@ const seedBlog: BlogPost[] = [
     id: "b3",
     slug: "aspirasi-nelayan-kepulauan-meranti",
     title: "Aspirasi Nelayan Kepulauan Meranti yang Tidak Pernah Didengar",
-    excerpt:
-      "Suara nelayan kecil seringkali tenggelam. Kami mendokumentasikannya untuk menjadi catatan publik.",
-    content:
-      "## Profil Nelayan Meranti\n\nLebih dari 60% penduduk Kepulauan Meranti menggantungkan hidup pada laut. Namun kebijakan kelautan sering tidak berpihak pada mereka.\n\n## Isu Utama\n\n- Tidak ada subsidi BBM untuk nelayan kecil\n- Pencemaran tambang mengancam hasil tangkapan\n- Tidak ada perlindungan harga saat panen raya\n\n## Tuntutan\n\nKami mendorong pemerintah untuk membuat kebijakan pro-nelayan kecil.",
-    coverImage:
-      "https://images.unsplash.com/photo-1505881502353-a1986add3762?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+    excerpt: "Suara nelayan kecil seringkali tenggelam. Kami mendokumentasikannya untuk menjadi catatan publik.",
+    content: "## Profil Nelayan Meranti\n\nLebih dari 60% penduduk Kepulauan Meranti menggantungkan hidup pada laut. Namun kebijakan kelautan sering tidak berpihak pada mereka.\n\n## Isu Utama\n\n- Tidak ada subsidi BBM untuk nelayan kecil\n- Pencemaran tambang mengancam hasil tangkapan\n- Tidak ada perlindungan harga saat panen raya\n\n## Tuntutan\n\nKami mendorong pemerintah untuk membuat kebijakan pro-nelayan kecil.",
+    coverImage: "https://images.unsplash.com/photo-1505881502353-a1986add3762?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+    images: [],
     category: "Aspirasi Rakyat",
     tags: ["nelayan", "meranti", "ekonomi"],
     author: "Budi Hartono",
     publishedAt: "2025-04-28",
+    scheduledAt: null,
     metaTitle: "Aspirasi Nelayan Kepulauan Meranti | Petisi Bela Rakyat",
-    metaDescription:
-      "Suara nelayan kecil Kepulauan Meranti yang tenggelam — kami dokumentasikan untuk menjadi catatan publik.",
+    metaDescription: "Suara nelayan kecil Kepulauan Meranti yang tenggelam — kami dokumentasikan untuk menjadi catatan publik.",
     status: "published",
     views: 645,
   },
@@ -340,19 +608,17 @@ const seedBlog: BlogPost[] = [
     id: "b4",
     slug: "advokasi-hukum-warga",
     title: "Advokasi Hukum untuk Warga yang Terdzolimi",
-    excerpt:
-      "Bagaimana kami mendampingi warga biasa yang berhadapan dengan sistem hukum yang kompleks.",
-    content:
-      "## Pendampingan Hukum\n\nKami menyediakan pendampingan hukum gratis bagi warga miskin yang berhadapan dengan kasus perdata atau pidana terkait hak-hak mereka.\n\n## Kasus yang Kami Tangani\n\n- Sengketa lahan masyarakat adat\n- Pemutusan hubungan kerja tanpa kompensasi\n- Pelanggaran hak konsumen\n\n## Cara Mengakses\n\nHubungi sekretariat kami atau kirim email ke advokasi@petisibelarakyat.id",
-    coverImage:
-      "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+    excerpt: "Bagaimana kami mendampingi warga biasa yang berhadapan dengan sistem hukum yang kompleks.",
+    content: "## Pendampingan Hukum\n\nKami menyediakan pendampingan hukum gratis bagi warga miskin yang berhadapan dengan kasus perdata atau pidana terkait hak-hak mereka.\n\n## Kasus yang Kami Tangani\n\n- Sengketa lahan masyarakat adat\n- Pemutusan hubungan kerja tanpa kompensasi\n- Pelanggaran hak konsumen\n\n## Cara Mengakses\n\nHubungi sekretariat kami atau kirim email ke advokasi@petisibelarakyat.id",
+    coverImage: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+    images: [],
     category: "Hukum",
     tags: ["advokasi", "hukum", "pendampingan"],
     author: "Maya Anggraini",
     publishedAt: "2025-04-15",
+    scheduledAt: null,
     metaTitle: "Advokasi Hukum untuk Warga | Petisi Bela Rakyat",
-    metaDescription:
-      "Bagaimana kami mendampingi warga biasa yang berhadapan dengan sistem hukum yang kompleks.",
+    metaDescription: "Bagaimana kami mendampingi warga biasa yang berhadapan dengan sistem hukum yang kompleks.",
     status: "published",
     views: 512,
   },
@@ -363,12 +629,9 @@ const seedNews: NewsArticle[] = [
     id: "n1",
     slug: "petisi-jembatan-tembus-500-tanda-tangan",
     title: "Petisi Jembatan Panglima Sampul Tembus 500 Tanda Tangan",
-    excerpt:
-      "Dalam dua minggu, petisi menuntut percepatan pembangunan jembatan berhasil mengumpulkan dukungan luar biasa dari masyarakat.",
-    content:
-      "## Sorotan\n\nPetisi yang diluncurkan pada awal Mei 2025 berhasil mengumpulkan lebih dari 500 tanda tangan dalam dua minggu.\n\n## Dukungan Tokoh\n\nSejumlah tokoh masyarakat, akademisi, dan mantan pejabat menyatakan dukungan terbuka terhadap petisi ini.\n\n## Langkah Selanjutnya\n\nKami akan membawa petisi ini ke DPRD Provinsi Riau dan Kementerian PUPR pada bulan depan.",
-    coverImage:
-      "https://images.unsplash.com/photo-1530541930197-ff16ac917b0e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+    excerpt: "Dalam dua minggu, petisi menuntut percepatan pembangunan jembatan berhasil mengumpulkan dukungan luar biasa dari masyarakat.",
+    content: "## Sorotan\n\nPetisi yang diluncurkan pada awal Mei 2025 berhasil mengumpulkan lebih dari 500 tanda tangan dalam dua minggu.\n\n## Dukungan Tokoh\n\nSejumlah tokoh masyarakat, akademisi, dan mantan pejabat menyatakan dukungan terbuka terhadap petisi ini.\n\n## Langkah Selanjutnya\n\nKami akan membawa petisi ini ke DPRD Provinsi Riau dan Kementerian PUPR pada bulan depan.",
+    coverImage: "https://images.unsplash.com/photo-1530541930197-ff16ac917b0e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
     category: "Kampanye",
     author: "Maya Anggraini",
     publishedAt: "2025-05-25",
@@ -379,12 +642,9 @@ const seedNews: NewsArticle[] = [
     id: "n2",
     slug: "audiensi-dengan-dprd-meranti",
     title: "Audiensi dengan DPRD Meranti: Hasil dan Tanggapan",
-    excerpt:
-      "Tim Petisi Bela Rakyat melakukan audiensi resmi dengan DPRD Kabupaten Kepulauan Meranti membahas pembangunan infrastruktur.",
-    content:
-      "## Audiensi\n\nAudiensi berlangsung selama 2 jam dan membahas tuntutan percepatan pembangunan dua jembatan vital.\n\n## Komitmen DPRD\n\nDPRD berkomitmen membentuk panitia khusus untuk mengawal isu ini.\n\n## Catatan Kami\n\nKami akan terus memantau perkembangan dan melaporkan kepada publik secara berkala.",
-    coverImage:
-      "https://images.unsplash.com/photo-1529070538774-1843cb3265df?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+    excerpt: "Tim Petisi Bela Rakyat melakukan audiensi resmi dengan DPRD Kabupaten Kepulauan Meranti membahas pembangunan infrastruktur.",
+    content: "## Audiensi\n\nAudiensi berlangsung selama 2 jam dan membahas tuntutan percepatan pembangunan dua jembatan vital.\n\n## Komitmen DPRD\n\nDPRD berkomitmen membentuk panitia khusus untuk mengawal isu ini.\n\n## Catatan Kami\n\nKami akan terus memantau perkembangan dan melaporkan kepada publik secara berkala.",
+    coverImage: "https://images.unsplash.com/photo-1529070538774-1843cb3265df?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
     category: "Advokasi",
     author: "Siti Rahmawati",
     publishedAt: "2025-05-18",
@@ -395,12 +655,9 @@ const seedNews: NewsArticle[] = [
     id: "n3",
     slug: "pelatihan-relawan-baru",
     title: "Pelatihan 20 Relawan Baru Petisi Bela Rakyat",
-    excerpt:
-      "Untuk memperluas jangkauan advokasi, kami mengadakan pelatihan relawan baru selama tiga hari di Selatpanjang.",
-    content:
-      "## Pelatihan\n\nMateri mencakup advokasi, dokumentasi isu, komunikasi publik, dan keselamatan kerja lapangan.\n\n## Peserta\n\n20 relawan dari 6 kecamatan berpartisipasi aktif.\n\n## Rencana\n\nPara relawan akan didistribusikan ke kampung-kampung untuk mengumpulkan aspirasi warga.",
-    coverImage:
-      "https://images.unsplash.com/photo-1517048676732-d65bc937f952?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+    excerpt: "Untuk memperluas jangkauan advokasi, kami mengadakan pelatihan relawan baru selama tiga hari di Selatpanjang.",
+    content: "## Pelatihan\n\nMateri mencakup advokasi, dokumentasi isu, komunikasi publik, dan keselamatan kerja lapangan.\n\n## Peserta\n\n20 relawan dari 6 kecamatan berpartisipasi aktif.\n\n## Rencana\n\nPara relawan akan didistribusikan ke kampung-kampung untuk mengumpulkan aspirasi warga.",
+    coverImage: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
     category: "Organisasi",
     author: "Budi Hartono",
     publishedAt: "2025-05-08",
@@ -414,10 +671,8 @@ const seedCampaigns: Campaign[] = [
     id: "c1",
     slug: "jembatan-panglima-sampul",
     title: "Pembangunan Jembatan Panglima Sampul",
-    description:
-      "Menuntut percepatan penyelesaian Jembatan Panglima Sampul yang menghubungkan Pulau Tebing Tinggi dengan Pulau Rangsang. Pembangunan sudah berjalan lebih dari 5 tahun dan belum tuntas, menyulitkan ribuan warga untuk mengakses layanan dasar.",
-    coverImage:
-      "https://images.unsplash.com/photo-1545558014-8692077e9b5c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+    description: "Menuntut percepatan penyelesaian Jembatan Panglima Sampul yang menghubungkan Pulau Tebing Tinggi dengan Pulau Rangsang. Pembangunan sudah berjalan lebih dari 5 tahun dan belum tuntas, menyulitkan ribuan warga untuk mengakses layanan dasar.",
+    coverImage: "https://images.unsplash.com/photo-1545558014-8692077e9b5c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
     petitionLink: "#",
     supporters: 327,
     goal: 1000,
@@ -429,10 +684,8 @@ const seedCampaigns: Campaign[] = [
     id: "c2",
     slug: "jembatan-perawang",
     title: "Pembangunan Jembatan Perawang",
-    description:
-      "Mengadvokasi pembangunan Jembatan Perawang sebagai infrastruktur vital untuk mobilitas ekonomi masyarakat pesisir. Kami menuntut alokasi anggaran yang transparan dan jadwal yang jelas.",
-    coverImage:
-      "https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+    description: "Mengadvokasi pembangunan Jembatan Perawang sebagai infrastruktur vital untuk mobilitas ekonomi masyarakat pesisir. Kami menuntut alokasi anggaran yang transparan dan jadwal yang jelas.",
+    coverImage: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
     petitionLink: "#",
     supporters: 258,
     goal: 1000,
@@ -443,123 +696,21 @@ const seedCampaigns: Campaign[] = [
 ];
 
 const seedSupporters: Supporter[] = [
-  {
-    id: "s1",
-    name: "Prof. Dr. H. Marwan Bali",
-    position: "Akademisi Universitas Riau",
-    statement:
-      "Gerakan seperti Petisi Bela Rakyat adalah ruang demokrasi yang sehat. Saya mendukung penuh agenda advokasi infrastruktur ini.",
-    photo:
-      "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
-  },
-  {
-    id: "s2",
-    name: "Drs. H. Syafrudin, M.Si",
-    position: "Tokoh Masyarakat Meranti",
-    statement:
-      "Sudah saatnya masyarakat bersuara. Saya berdiri di belakang Petisi Bela Rakyat untuk menuntut hak dasar warga.",
-    photo:
-      "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
-  },
-  {
-    id: "s3",
-    name: "Hj. Rohani, S.Pd",
-    position: "Pendidik & Aktivis Perempuan",
-    statement:
-      "Kesejahteraan rakyat harus didahulukan. Saya mendukung perjuangan ini demi generasi mendatang.",
-    photo:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
-  },
-  {
-    id: "s4",
-    name: "Ir. H. Asmawi",
-    position: "Pengusaha Lokal",
-    statement:
-      "Infrastruktur adalah darah perekonomian. Saya mendukung transparansi dan percepatan pembangunan jembatan.",
-    photo:
-      "https://images.unsplash.com/photo-1472099483957-5a6586b09573?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
-  },
-  {
-    id: "s5",
-    name: "Dra. Hj. Nuraini",
-    position: "Pensiunan ASN",
-    statement:
-      "Pelayanan publik yang baik adalah hak setiap warga. Saya bersama Petisi Bela Rakyat.",
-    photo:
-      "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
-  },
-  {
-    id: "s6",
-    name: "H. Rizal Rahman",
-    position: "Pemuka Agama",
-    statement:
-      "Membela hak rakyat adalah ibadah. Mari bersama mendukung gerakan ini.",
-    photo:
-      "https://images.unsplash.com/photo-1546961342-1543f0a9c4c0?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
-  },
+  { id: "s1", name: "Prof. Dr. H. Marwan Bali", position: "Akademisi Universitas Riau", statement: "Gerakan seperti Petisi Bela Rakyat adalah ruang demokrasi yang sehat. Saya mendukung penuh agenda advokasi infrastruktur ini.", photo: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" },
+  { id: "s2", name: "Drs. H. Syafrudin, M.Si", position: "Tokoh Masyarakat Meranti", statement: "Sudah saatnya masyarakat bersuara. Saya berdiri di belakang Petisi Bela Rakyat untuk menuntut hak dasar warga.", photo: "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" },
+  { id: "s3", name: "Hj. Rohani, S.Pd", position: "Pendidik & Aktivis Perempuan", statement: "Kesejahteraan rakyat harus didahulukan. Saya mendukung perjuangan ini demi generasi mendatang.", photo: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" },
+  { id: "s4", name: "Ir. H. Asmawi", position: "Pengusaha Lokal", statement: "Infrastruktur adalah darah perekonomian. Saya mendukung transparansi dan percepatan pembangunan jembatan.", photo: "https://images.unsplash.com/photo-1472099483957-5a6586b09573?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" },
+  { id: "s5", name: "Dra. Hj. Nuraini", position: "Pensiunan ASN", statement: "Pelayanan publik yang baik adalah hak setiap warga. Saya bersama Petisi Bela Rakyat.", photo: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" },
+  { id: "s6", name: "H. Rizal Rahman", position: "Pemuka Agama", statement: "Membela hak rakyat adalah ibadah. Mari bersama mendukung gerakan ini.", photo: "https://images.unsplash.com/photo-1546961342-1543f0a9c4c0?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" },
 ];
 
 const seedGallery: GalleryItem[] = [
-  {
-    id: "g1",
-    type: "photo",
-    title: "Aksi Damai Tuntut Jembatan",
-    url: "https://images.unsplash.com/photo-1530541930197-ff16ac917b0e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
-    thumbnail: "https://images.unsplash.com/photo-1530541930197-ff16ac917b0e?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
-    category: "Aksi",
-    description: "Aksi damai di depan kantor bupati, Mei 2025",
-    uploadedAt: "2025-05-22",
-  },
-  {
-    id: "g2",
-    type: "photo",
-    title: "Audiensi DPRD",
-    url: "https://images.unsplash.com/photo-1529070538774-1843cb3265df?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
-    thumbnail: "https://images.unsplash.com/photo-1529070538774-1843cb3265df?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
-    category: "Audiensi",
-    description: "Audiensi dengan DPRD Meranti, Mei 2025",
-    uploadedAt: "2025-05-18",
-  },
-  {
-    id: "g3",
-    type: "photo",
-    title: "Pelatihan Relawan",
-    url: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
-    thumbnail: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
-    category: "Organisasi",
-    description: "Pelatihan 20 relawan baru, Mei 2025",
-    uploadedAt: "2025-05-08",
-  },
-  {
-    id: "g4",
-    type: "video",
-    title: "Dokumentasi Aksi Damai",
-    url: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-    thumbnail: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
-    category: "Video",
-    description: "Video dokumentasi aksi damai tuntutan jembatan",
-    uploadedAt: "2025-05-23",
-  },
-  {
-    id: "g5",
-    type: "document",
-    title: "Laporan Transparansi Q1 2025",
-    url: "#",
-    thumbnail: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
-    category: "Laporan",
-    description: "Laporan keuangan dan kegiatan Q1 2025",
-    uploadedAt: "2025-04-05",
-  },
-  {
-    id: "g6",
-    type: "document",
-    title: "Press Release Mei 2025",
-    url: "#",
-    thumbnail: "https://images.unsplash.com/photo-1505761671935-60b3a7427bad?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
-    category: "Press Release",
-    description: "Siaran pers petisi jembatan",
-    uploadedAt: "2025-05-01",
-  },
+  { id: "g1", type: "photo", title: "Aksi Damai Tuntut Jembatan", url: "https://images.unsplash.com/photo-1530541930197-ff16ac917b0e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80", thumbnail: "https://images.unsplash.com/photo-1530541930197-ff16ac917b0e?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", category: "Aksi", description: "Aksi damai di depan kantor bupati, Mei 2025", uploadedAt: "2025-05-22" },
+  { id: "g2", type: "photo", title: "Audiensi DPRD", url: "https://images.unsplash.com/photo-1529070538774-1843cb3265df?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80", thumbnail: "https://images.unsplash.com/photo-1529070538774-1843cb3265df?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", category: "Audiensi", description: "Audiensi dengan DPRD Meranti, Mei 2025", uploadedAt: "2025-05-18" },
+  { id: "g3", type: "photo", title: "Pelatihan Relawan", url: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80", thumbnail: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", category: "Organisasi", description: "Pelatihan 20 relawan baru, Mei 2025", uploadedAt: "2025-05-08" },
+  { id: "g4", type: "video", title: "Dokumentasi Aksi Damai", url: "https://www.youtube.com/embed/dQw4w9WgXcQ", thumbnail: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", category: "Video", description: "Video dokumentasi aksi damai tuntutan jembatan", uploadedAt: "2025-05-23" },
+  { id: "g5", type: "document", title: "Laporan Transparansi Q1 2025", url: "#", thumbnail: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", category: "Laporan", description: "Laporan keuangan dan kegiatan Q1 2025", uploadedAt: "2025-04-05" },
+  { id: "g6", type: "document", title: "Press Release Mei 2025", url: "#", thumbnail: "https://images.unsplash.com/photo-1505761671935-60b3a7427bad?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", category: "Press Release", description: "Siaran pers petisi jembatan", uploadedAt: "2025-05-01" },
 ];
 
 const seedTransparency: TransparencyRecord[] = [
@@ -580,47 +731,34 @@ const seedTransparencyReports: TransparencyReport[] = [
 ];
 
 const seedWork: WorkCategory[] = [
-  {
-    id: "w1",
-    slug: "infrastruktur-publik",
-    title: "Infrastruktur Publik",
-    description: "Mengadvokasi percepatan pembangunan infrastruktur vital seperti jembatan, jalan, dan pelabuhan yang menentukan nasib ribuan warga.",
-    icon: "Building2",
-    coverImage: "https://images.unsplash.com/photo-1545558014-8692077e9b5c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: "w2",
-    slug: "pendidikan",
-    title: "Pendidikan",
-    description: "Memperjuangkan akses pendidikan berkualitas untuk anak-anak di daerah terpencil, termasuk sekolah layang dan beasiswa.",
-    icon: "GraduationCap",
-    coverImage: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: "w3",
-    slug: "ekonomi-rakyat",
-    title: "Ekonomi Rakyat",
-    description: "Mendukung UMKM, nelayan, dan petani melalui advokasi kebijakan ekonomi yang berpihak pada rakyat kecil.",
-    icon: "TrendingUp",
-    coverImage: "https://images.unsplash.com/photo-1526406915894-7bcd65f60845?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: "w4",
-    slug: "pelayanan-publik",
-    title: "Pelayanan Publik",
-    description: "Mengawal kualitas pelayanan publik di bidang kesehatan, kependudukan, dan administrasi yang bersih.",
-    icon: "HeartHandshake",
-    coverImage: "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: "w5",
-    slug: "advokasi-hukum",
-    title: "Advokasi Hukum",
-    description: "Memberikan pendampingan hukum gratis bagi warga miskin dan rentan yang berhadapan dengan sistem hukum.",
-    icon: "Scale",
-    coverImage: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  },
+  { id: "w1", slug: "infrastruktur-publik", title: "Infrastruktur Publik", description: "Mengadvokasi percepatan pembangunan infrastruktur vital seperti jembatan, jalan, dan pelabuhan yang menentukan nasib ribuan warga.", icon: "Building2", coverImage: "https://images.unsplash.com/photo-1545558014-8692077e9b5c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" },
+  { id: "w2", slug: "pendidikan", title: "Pendidikan", description: "Memperjuangkan akses pendidikan berkualitas untuk anak-anak di daerah terpencil, termasuk sekolah layang dan beasiswa.", icon: "GraduationCap", coverImage: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" },
+  { id: "w3", slug: "ekonomi-rakyat", title: "Ekonomi Rakyat", description: "Mendukung UMKM, nelayan, dan petani melalui advokasi kebijakan ekonomi yang berpihak pada rakyat kecil.", icon: "TrendingUp", coverImage: "https://images.unsplash.com/photo-1526406915894-7bcd65f60845?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" },
+  { id: "w4", slug: "pelayanan-publik", title: "Pelayanan Publik", description: "Mengawal kualitas pelayanan publik di bidang kesehatan, kependudukan, dan administrasi yang bersih.", icon: "HeartHandshake", coverImage: "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" },
+  { id: "w5", slug: "advokasi-hukum", title: "Advokasi Hukum", description: "Memberikan pendampingan hukum gratis bagi warga miskin dan rentan yang berhadapan dengan sistem hukum.", icon: "Scale", coverImage: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" },
 ];
+
+// Demo admin accounts
+const adminAccounts = [
+  { email: "superadmin@petisibelarakyat.id", password: "pbr2026", role: "super_admin" as Role, displayName: "Super Admin" },
+  { email: "admin@petisibelarakyat.id", password: "pbr2026", role: "admin" as Role, displayName: "Admin" },
+  { email: "editor@petisibelarakyat.id", password: "pbr2026", role: "editor" as Role, displayName: "Editor" },
+];
+
+// ============ ROLE PERMISSIONS ============
+export const rolePermissions: Record<Role, string[]> = {
+  super_admin: ["*"], // all
+  admin: [
+    "dashboard", "homepage", "team", "pengurus", "orgstructure", "penasehat", "relawan",
+    "blog", "news", "campaigns", "supporters", "media", "transparency", "settings",
+  ],
+  editor: ["dashboard", "blog", "news"], // only blog & news
+};
+
+export function canAccess(role: Role, section: string): boolean {
+  const perms = rolePermissions[role];
+  return perms.includes("*") || perms.includes(section);
+}
 
 // ============ STORE ============
 interface AppState {
@@ -631,7 +769,11 @@ interface AppState {
 
   // Data
   settings: SiteSettings;
-  team: TeamMember[];
+  team: TeamMember[]; // legacy
+  pengurus: Pengurus[];
+  orgStructure: OrgNode[];
+  penasehat: Penasehat[];
+  relawan: Relawan[];
   blog: BlogPost[];
   news: NewsArticle[];
   campaigns: Campaign[];
@@ -641,10 +783,35 @@ interface AppState {
   transparency: TransparencyRecord[];
   reports: TransparencyReport[];
 
-  // Settings
+  // Settings update (deep merge for nested)
   updateSettings: (s: Partial<SiteSettings>) => void;
+  updateHomepage: (s: Partial<HomepageSettings>) => void;
+  updateAbout: (s: Partial<AboutSection>) => void;
+  updateContact: (s: Partial<ContactInfo>) => void;
+  updateSocials: (s: SocialLink[]) => void;
+  updateFooter: (s: Partial<FooterSettings>) => void;
 
-  // Team CRUD
+  // Pengurus CRUD
+  addPengurus: (m: Omit<Pengurus, "id">) => void;
+  updatePengurus: (id: string, m: Partial<Pengurus>) => void;
+  deletePengurus: (id: string) => void;
+
+  // OrgStructure CRUD
+  addOrgNode: (n: Omit<OrgNode, "key"> & { key?: string }) => void;
+  updateOrgNode: (key: string, n: Partial<OrgNode>) => void;
+  deleteOrgNode: (key: string) => void;
+
+  // Penasehat CRUD
+  addPenasehat: (p: Omit<Penasehat, "id">) => void;
+  updatePenasehat: (id: string, p: Partial<Penasehat>) => void;
+  deletePenasehat: (id: string) => void;
+
+  // Relawan CRUD
+  addRelawan: (r: Omit<Relawan, "id">) => void;
+  updateRelawan: (id: string, r: Partial<Relawan>) => void;
+  deleteRelawan: (id: string) => void;
+
+  // Team CRUD (legacy)
   addTeam: (m: Omit<TeamMember, "id">) => void;
   updateTeam: (id: string, m: Partial<TeamMember>) => void;
   deleteTeam: (id: string) => void;
@@ -688,22 +855,13 @@ const genId = () => Math.random().toString(36).slice(2, 10);
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
-// Demo admin accounts
-const adminAccounts = [
-  { email: "superadmin@petisibelarakyat.id", password: "pbr2026", role: "super_admin" as Role, displayName: "Super Admin" },
-  { email: "admin@petisibelarakyat.id", password: "pbr2026", role: "admin" as Role, displayName: "Admin" },
-  { email: "editor@petisibelarakyat.id", password: "pbr2026", role: "editor" as Role, displayName: "Editor" },
-];
-
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       currentUser: null,
 
       login: (email, password) => {
-        const acc = adminAccounts.find(
-          (a) => a.email === email && a.password === password
-        );
+        const acc = adminAccounts.find((a) => a.email === email && a.password === password);
         if (!acc) return false;
         set({
           currentUser: {
@@ -719,6 +877,10 @@ export const useStore = create<AppState>()(
 
       settings: seedSettings,
       team: seedTeam,
+      pengurus: seedPengurus,
+      orgStructure: seedOrgStructure,
+      penasehat: seedPenasehat,
+      relawan: seedRelawan,
       blog: seedBlog,
       news: seedNews,
       campaigns: seedCampaigns,
@@ -730,6 +892,66 @@ export const useStore = create<AppState>()(
 
       updateSettings: (s) =>
         set((state) => ({ settings: { ...state.settings, ...s } as SiteSettings })),
+      updateHomepage: (s) =>
+        set((state) => ({
+          settings: { ...state.settings, homepage: { ...state.settings.homepage, ...s } as HomepageSettings },
+        })),
+      updateAbout: (s) =>
+        set((state) => ({
+          settings: { ...state.settings, about: { ...state.settings.about, ...s } as AboutSection },
+        })),
+      updateContact: (s) =>
+        set((state) => ({
+          settings: { ...state.settings, contact: { ...state.settings.contact, ...s } as ContactInfo },
+        })),
+      updateSocials: (s) =>
+        set((state) => ({ settings: { ...state.settings, socials: s } })),
+      updateFooter: (s) =>
+        set((state) => ({
+          settings: { ...state.settings, footer: { ...state.settings.footer, ...s } as FooterSettings },
+        })),
+
+      addPengurus: (m) =>
+        set((state) => ({
+          pengurus: [...state.pengurus, { ...m, id: genId(), slug: m.slug || slugify(m.name) }],
+        })),
+      updatePengurus: (id, m) =>
+        set((state) => ({
+          pengurus: state.pengurus.map((t) => (t.id === id ? { ...t, ...m } : t)),
+        })),
+      deletePengurus: (id) =>
+        set((state) => ({ pengurus: state.pengurus.filter((t) => t.id !== id) })),
+
+      addOrgNode: (n) =>
+        set((state) => {
+          const key = n.key || slugify(n.label).replace(/-/g, "_");
+          if (state.orgStructure.some((x) => x.key === key)) return state;
+          return { orgStructure: [...state.orgStructure, { ...n, key } as OrgNode] };
+        }),
+      updateOrgNode: (key, n) =>
+        set((state) => ({
+          orgStructure: state.orgStructure.map((x) => (x.key === key ? { ...x, ...n } : x)),
+        })),
+      deleteOrgNode: (key) =>
+        set((state) => ({ orgStructure: state.orgStructure.filter((x) => x.key !== key) })),
+
+      addPenasehat: (p) =>
+        set((state) => ({ penasehat: [...state.penasehat, { ...p, id: genId() }] })),
+      updatePenasehat: (id, p) =>
+        set((state) => ({
+          penasehat: state.penasehat.map((t) => (t.id === id ? { ...t, ...p } : t)),
+        })),
+      deletePenasehat: (id) =>
+        set((state) => ({ penasehat: state.penasehat.filter((t) => t.id !== id) })),
+
+      addRelawan: (r) =>
+        set((state) => ({ relawan: [...state.relawan, { ...r, id: genId() }] })),
+      updateRelawan: (id, r) =>
+        set((state) => ({
+          relawan: state.relawan.map((t) => (t.id === id ? { ...t, ...r } : t)),
+        })),
+      deleteRelawan: (id) =>
+        set((state) => ({ relawan: state.relawan.filter((t) => t.id !== id) })),
 
       addTeam: (m) =>
         set((state) => ({
@@ -754,9 +976,7 @@ export const useStore = create<AppState>()(
         set((state) => ({ blog: state.blog.filter((b) => b.id !== id) })),
       incrementBlogView: (id) =>
         set((state) => ({
-          blog: state.blog.map((b) =>
-            b.id === id ? { ...b, views: b.views + 1 } : b
-          ),
+          blog: state.blog.map((b) => (b.id === id ? { ...b, views: b.views + 1 } : b)),
         })),
 
       addNews: (p) =>
@@ -771,9 +991,7 @@ export const useStore = create<AppState>()(
         set((state) => ({ news: state.news.filter((b) => b.id !== id) })),
       incrementNewsView: (id) =>
         set((state) => ({
-          news: state.news.map((b) =>
-            b.id === id ? { ...b, views: b.views + 1 } : b
-          ),
+          news: state.news.map((b) => (b.id === id ? { ...b, views: b.views + 1 } : b)),
         })),
 
       addCampaign: (c) =>
@@ -819,11 +1037,15 @@ export const useStore = create<AppState>()(
         set((state) => ({ reports: state.reports.filter((b) => b.id !== id) })),
     }),
     {
-      name: "pbr-storage-v1",
+      name: "pbr-storage-v2",
       partialize: (state) => ({
         currentUser: state.currentUser,
         settings: state.settings,
         team: state.team,
+        pengurus: state.pengurus,
+        orgStructure: state.orgStructure,
+        penasehat: state.penasehat,
+        relawan: state.relawan,
         blog: state.blog,
         news: state.news,
         campaigns: state.campaigns,

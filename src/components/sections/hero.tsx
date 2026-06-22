@@ -9,13 +9,14 @@ import { useNav } from "@/lib/nav";
 export function Hero() {
   const settings = useStore((s) => s.settings);
   const { navigate } = useNav();
+  const hero = settings.homepage.hero;
 
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
       {/* Background image */}
       <div className="absolute inset-0">
         <img
-          src={settings.hero.image}
+          src={hero.image}
           alt="Petisi Bela Rakyat — Suara Rakyat"
           className="h-full w-full object-cover"
           fetchPriority="high"
@@ -57,7 +58,7 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.1 }}
             className="font-heading text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-white leading-[1.05] tracking-tight"
           >
-            {settings.hero.headline}
+            {hero.headline}
           </motion.h1>
 
           <motion.p
@@ -66,7 +67,7 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.2 }}
             className="mt-6 text-base sm:text-lg md:text-xl text-white/85 leading-relaxed max-w-2xl"
           >
-            {settings.hero.subheadline}
+            {hero.subheadline}
           </motion.p>
 
           <motion.div
@@ -81,16 +82,16 @@ export function Hero() {
               onClick={() => navigate("campaigns")}
             >
               <PenLine className="h-5 w-5 mr-2" />
-              {settings.hero.primaryCta}
+              {hero.primaryCta}
             </Button>
             <Button
               size="lg"
               variant="outline"
               className="bg-white/5 border-white/30 text-white hover:bg-white/15 backdrop-blur rounded-full h-12 px-7"
-              onClick={() => navigate("about")}
+              onClick={() => navigate("about", { aboutSection: "sejarah" })}
             >
               <PlayCircle className="h-5 w-5 mr-2" />
-              {settings.hero.secondaryCta}
+              {hero.secondaryCta}
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </motion.div>
@@ -102,14 +103,10 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.4 }}
             className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl"
           >
-            {settings.stats.map((stat, i) => (
-              <div
-                key={i}
-                className="border-l-2 border-primary/60 pl-3"
-              >
+            {settings.homepage.stats.map((stat, i) => (
+              <div key={i} className="border-l-2 border-primary/60 pl-3">
                 <div className="font-heading text-2xl md:text-3xl font-bold text-white">
-                  {stat.value}
-                  {stat.suffix}
+                  {stat.value}{stat.suffix}
                 </div>
                 <div className="text-white/70 text-xs md:text-sm">{stat.label}</div>
               </div>
@@ -137,3 +134,4 @@ export function Hero() {
     </section>
   );
 }
+

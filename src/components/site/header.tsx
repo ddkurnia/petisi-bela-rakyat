@@ -2,16 +2,23 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, PenLine, Sun, Moon } from "lucide-react";
+import { Menu, X, PenLine, Sun, Moon, ChevronDown, Users, Building2, Crown, Heart, History } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Logo } from "@/components/logo";
 import { useNav, PublicRoute } from "@/lib/nav";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
-const menu: { label: string; route: PublicRoute }[] = [
+const mainMenu: { label: string; route: PublicRoute }[] = [
   { label: "Home", route: "home" },
-  { label: "Tentang Kami", route: "about" },
   { label: "Kerja Kami", route: "work" },
   { label: "Kampanye", route: "campaigns" },
   { label: "News", route: "news" },
@@ -21,15 +28,23 @@ const menu: { label: string; route: PublicRoute }[] = [
   { label: "Kontak", route: "contact" },
 ];
 
+const aboutSubmenu = [
+  { label: "Sejarah", section: "sejarah" as const, icon: History },
+  { label: "Visi & Misi", section: "visi-misi" as const, icon: Building2 },
+  { label: "Struktur Organisasi", section: "struktur" as const, icon: Building2 },
+  { label: "Pengurus", section: "pengurus" as const, icon: Users },
+  { label: "Dewan Penasehat", section: "penasehat" as const, icon: Crown },
+  { label: "Relawan", section: "relawan" as const, icon: Heart },
+];
+
 export function Header() {
-  const { route, navigate } = useNav();
+  const { route, aboutSection, navigate } = useNav();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Defer to avoid cascading renders per react-hooks/set-state-in-effect rule
     const id = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(id);
   }, []);
@@ -61,7 +76,41 @@ export function Header() {
 
         {/* Desktop nav */}
         <nav className="hidden xl:flex items-center gap-1">
-          {menu.map((item) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={`px-3.5 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-1 ${
+                  route === "about"
+                    ? "text-primary bg-primary/10"
+                    : "text-foreground/80 hover:text-primary hover:bg-primary/5"
+                }`}
+              >
+                Tentang Kami
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuLabel className="text-xs uppercase tracking-wider text-muted-foreground">
+                Tentang Kami
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {aboutSubmenu.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <DropdownMenuItem
+                    key={item.section}
+                    onClick={() => navigate("about", { aboutSection: item.section })}
+                    className="cursor-pointer p-2"
+                  >
+                    <Icon className="h-4 w-4 text-primary mr-2" />
+                    <span>{item.label}</span>
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {mainMenu.map((item) => (
             <button
               key={item.route}
               onClick={() => navigate(item.route)}
@@ -124,7 +173,34 @@ export function Header() {
                   </Button>
                 </div>
                 <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-                  {menu.map((item) => (
+                  {/* About with submenu */}
+                  <div className="space-y-1">
+                    <div className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Tentang Kami
+                    </div>
+                    {aboutSubmenu.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.section}
+                          onClick={() => {
+                            navigate("about", { aboutSection: item.section });
+                            setMobileOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
+                            route === "about" && aboutSection === item.section
+                              ? "bg-primary text-white"
+                              : "hover:bg-primary/10 text-foreground"
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="my-2 border-t border-border" />
+                  {mainMenu.map((item) => (
                     <button
                       key={item.route}
                       onClick={() => {

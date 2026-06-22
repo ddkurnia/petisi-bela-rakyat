@@ -6,7 +6,7 @@ import { Footer } from "@/components/site/footer";
 import { HomePage } from "@/components/sections/home-page";
 import { Hero } from "@/components/sections/hero";
 import { AboutPage } from "@/components/sections/about-page";
-import { TeamPage } from "@/components/sections/team-page";
+import { PengurusPage } from "@/components/sections/pengurus-page";
 import { WorkPage } from "@/components/sections/work-page";
 import { CampaignsPage } from "@/components/sections/campaigns-page";
 import { NewsPage } from "@/components/sections/news-page";
@@ -44,7 +44,7 @@ function Shell() {
       <Header />
       <main className="flex-1">
         {route === "about" && <AboutPage />}
-        {route === "team" && <TeamPage />}
+        {route === "pengurus" && <PengurusPage />}
         {route === "work" && <WorkPage />}
         {route === "campaigns" && <CampaignsPage />}
         {route === "news" && <NewsPage />}

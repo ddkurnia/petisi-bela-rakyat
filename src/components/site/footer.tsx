@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Facebook, Instagram, Twitter, Youtube, Mail, Phone, MapPin, ArrowRight } from "lucide-react";
+import { Facebook, Instagram, Twitter, Youtube, Mail, Phone, MapPin, ArrowRight, Clock, MessageCircle } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { useNav, PublicRoute } from "@/lib/nav";
 import { useStore } from "@/lib/store";
@@ -13,6 +13,7 @@ const socialIcon: Record<string, React.ElementType> = {
   instagram: Instagram,
   twitter: Twitter,
   youtube: Youtube,
+  tiktok: Youtube, // fallback — TikTok icon not in lucide
 };
 
 const footerMenu: { label: string; route: PublicRoute }[] = [
@@ -29,6 +30,8 @@ const footerMenu: { label: string; route: PublicRoute }[] = [
 export function Footer() {
   const { navigate } = useNav();
   const settings = useStore((s) => s.settings);
+  const year = new Date().getFullYear();
+  const copyright = settings.footer.copyrightText.replace("{year}", String(year));
 
   return (
     <footer className="mt-auto bg-foreground text-background">
@@ -43,7 +46,7 @@ export function Footer() {
               transition={{ duration: 0.6 }}
             >
               <h3 className="font-heading text-2xl md:text-3xl font-bold text-white">
-                Bersama membela rakyat, tanpa kompromi.
+                {settings.about.motto}
               </h3>
               <p className="mt-2 text-white/70 text-sm md:text-base">
                 Dapatkan kabar terbaru dari setiap kampanye dan peluang untuk berkontribusi.
@@ -78,9 +81,9 @@ export function Footer() {
               <Logo />
             </div>
             <p className="mt-5 text-white/70 text-sm leading-relaxed max-w-sm">
-              Gerakan masyarakat sipil independen yang memperjuangkan kepentingan rakyat melalui advokasi, partisipasi publik, dan aksi nyata.
+              {settings.footer.description}
             </p>
-            <div className="mt-5 flex items-center gap-2">
+            <div className="mt-5 flex items-center gap-2 flex-wrap">
               {settings.socials.map((s) => {
                 const Icon = socialIcon[s.icon] || Twitter;
                 return (
@@ -91,6 +94,7 @@ export function Footer() {
                     rel="noopener noreferrer"
                     className="h-10 w-10 rounded-full bg-white/5 hover:bg-primary flex items-center justify-center transition-colors"
                     aria-label={s.name}
+                    title={s.handle}
                   >
                     <Icon className="h-4 w-4" />
                   </a>
@@ -126,13 +130,21 @@ export function Footer() {
                 <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
                 <span>{settings.contact.address}</span>
               </li>
-              <li className="flex items-center gap-2.5 text-white/70">
-                <Phone className="h-4 w-4 shrink-0 text-primary" />
-                <span>{settings.contact.whatsapp}</span>
+              <li>
+                <a href={`https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-white/70 hover:text-primary transition-colors">
+                  <MessageCircle className="h-4 w-4 shrink-0 text-primary" />
+                  <span>{settings.contact.whatsapp}</span>
+                </a>
               </li>
-              <li className="flex items-center gap-2.5 text-white/70">
-                <Mail className="h-4 w-4 shrink-0 text-primary" />
-                <span>{settings.contact.email}</span>
+              <li>
+                <a href={`mailto:${settings.contact.email}`} className="flex items-center gap-2.5 text-white/70 hover:text-primary transition-colors">
+                  <Mail className="h-4 w-4 shrink-0 text-primary" />
+                  <span>{settings.contact.email}</span>
+                </a>
+              </li>
+              <li className="flex items-start gap-2.5 text-white/70">
+                <Clock className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                <span>{settings.contact.operationHours}</span>
               </li>
             </ul>
           </div>
@@ -144,20 +156,13 @@ export function Footer() {
             <p className="text-white/70 text-xs mb-3">
               Berlangganan untuk update bulanan.
             </p>
-            <form
-              onSubmit={(e) => e.preventDefault()}
-              className="flex flex-col gap-2"
-            >
+            <form onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-2">
               <Input
                 type="email"
                 placeholder="Email Anda"
                 className="bg-white/5 border-white/15 text-white placeholder:text-white/40"
               />
-              <Button
-                type="submit"
-                size="sm"
-                className="bg-primary hover:bg-primary/90 text-white rounded-full"
-              >
+              <Button type="submit" size="sm" className="bg-primary hover:bg-primary/90 text-white rounded-full">
                 Berlangganan
               </Button>
             </form>
@@ -166,12 +171,15 @@ export function Footer() {
 
         <div className="mt-12 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-white/50 text-xs text-center sm:text-left">
-            © {new Date().getFullYear()} Petisi Bela Rakyat. Hak cipta dilindungi. Dibangun untuk rakyat, oleh rakyat.
+            {copyright}
           </p>
-          <div className="flex items-center gap-4 text-xs text-white/50">
-            <button className="hover:text-primary transition-colors">Kebijakan Privasi</button>
-            <span className="opacity-30">•</span>
-            <button className="hover:text-primary transition-colors">Syarat & Ketentuan</button>
+          <div className="flex items-center gap-4 text-xs text-white/50 flex-wrap justify-center">
+            {settings.footer.legalLinks.map((link, i) => (
+              <span key={link.label} className="flex items-center gap-4">
+                <button className="hover:text-primary transition-colors">{link.label}</button>
+                {i < settings.footer.legalLinks.length - 1 && <span className="opacity-30">•</span>}
+              </span>
+            ))}
             <span className="opacity-30">•</span>
             <button
               onClick={() => navigate("admin")}

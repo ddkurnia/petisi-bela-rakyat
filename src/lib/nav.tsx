@@ -5,7 +5,10 @@ import { createContext, useContext, useState, useCallback, useEffect, ReactNode 
 export type PublicRoute =
   | "home"
   | "about"
-  | "team"
+  | "struktur"
+  | "pengurus"
+  | "penasehat"
+  | "relawan"
   | "work"
   | "campaigns"
   | "news"
@@ -17,7 +20,10 @@ export type PublicRoute =
 
 export interface NavState {
   route: PublicRoute;
+  // about sub-section
+  aboutSection?: "sejarah" | "visi-misi" | "struktur" | "pengurus" | "penasehat" | "relawan";
   // sub-route params
+  pengurusSlug?: string;
   teamSlug?: string;
   blogSlug?: string;
   newsSlug?: string;
@@ -49,23 +55,32 @@ export function NavProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return;
     const hash = window.location.hash.replace(/^#\/?/, "");
     if (!hash) return;
-    const valid: PublicRoute[] = ["home","about","team","work","campaigns","news","blog","media","transparency","contact","admin"];
-    if (valid.includes(hash as PublicRoute)) {
-      // Defer to avoid cascading renders per react-hooks/set-state-in-effect rule
-      const id = requestAnimationFrame(() =>
-        setState({ route: hash as PublicRoute })
-      );
+    const parts = hash.split("/");
+    const valid: PublicRoute[] = ["home","about","struktur","pengurus","penasehat","relawan","work","campaigns","news","blog","media","transparency","contact","admin"];
+    if (valid.includes(parts[0] as PublicRoute)) {
+      const route = parts[0] as PublicRoute;
+      const extra: Partial<NavState> = {};
+      if (parts[1] === "sejarah" || parts[1] === "visi-misi" || parts[1] === "struktur" || parts[1] === "pengurus" || parts[1] === "penasehat" || parts[1] === "relawan") {
+        if (route === "about") extra.aboutSection = parts[1];
+      }
+      if (parts[1] && route === "pengurus") extra.pengurusSlug = parts[1];
+      if (parts[1] && route === "blog") extra.blogSlug = parts[1];
+      if (parts[1] && route === "news") extra.newsSlug = parts[1];
+      if (parts[1] && route === "campaigns") extra.campaignSlug = parts[1];
+      if (parts[1] && route === "work") extra.workSlug = parts[1];
+      const id = requestAnimationFrame(() => setState({ route, ...extra }));
       return () => cancelAnimationFrame(id);
     }
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const newHash = `#/${state.route}`;
-    if (window.location.hash !== newHash) {
-      window.history.replaceState(null, "", newHash);
+    let hash = `#/${state.route}`;
+    if (state.route === "about" && state.aboutSection) hash = `#/about/${state.aboutSection}`;
+    if (window.location.hash !== hash) {
+      window.history.replaceState(null, "", hash);
     }
-  }, [state.route]);
+  }, [state.route, state.aboutSection]);
 
   return (
     <NavContext.Provider value={{ ...state, navigate }}>

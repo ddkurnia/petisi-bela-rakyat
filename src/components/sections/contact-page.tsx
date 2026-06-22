@@ -36,7 +36,7 @@ export function ContactPage() {
       title: "Sekretariat",
       value: settings.contact.address,
       action: "Lihat di Maps",
-      href: "https://maps.google.com",
+      href: settings.contact.mapLink || "https://maps.google.com",
     },
     {
       icon: MessageCircle,
@@ -55,7 +55,7 @@ export function ContactPage() {
     {
       icon: Clock,
       title: "Jam Operasional",
-      value: "Senin – Jumat, 09:00 – 17:00 WIB",
+      value: settings.contact.operationHours,
       action: null,
     },
   ];
