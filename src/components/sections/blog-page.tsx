@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Search, Calendar, User, Eye, Tag, Clock } from "lucide-react";
+import { ArrowLeft, ArrowRight, Search, Calendar, User, Eye, Tag, Clock, Share2 } from "lucide-react";
 import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
 import { useStore, formatDate } from "@/lib/store";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { ShareButtons } from "@/components/share-buttons";
 
 const blogCategories = [
   "all",
@@ -25,6 +26,7 @@ export function BlogPage() {
   const { navigate, blogSlug } = useNav();
   const blog = useStore((s) => s.blog);
   const incrementBlogView = useStore((s) => s.incrementBlogView);
+  const incrementBlogShare = useStore((s) => s.incrementBlogShare);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
 
@@ -102,8 +104,20 @@ export function BlogPage() {
                 <Eye className="h-4 w-4" /> {post.views} views
               </span>
               <span className="inline-flex items-center gap-1.5">
+                <Share2 className="h-4 w-4" /> {post.shares || 0} shares
+              </span>
+              <span className="inline-flex items-center gap-1.5">
                 <Clock className="h-4 w-4" /> 5 menit baca
               </span>
+            </div>
+            {/* Share buttons under title */}
+            <div className="mt-4">
+              <ShareButtons
+                title={post.title}
+                description={post.excerpt}
+                variant="inline"
+                onShare={() => incrementBlogShare(post.id)}
+              />
             </div>
           </Reveal>
 
@@ -144,6 +158,16 @@ export function BlogPage() {
                 <Badge key={t} variant="outline" className="rounded-full">{t}</Badge>
               ))}
             </div>
+          </div>
+
+          {/* Share buttons at end of article */}
+          <div className="mt-8 p-6 rounded-2xl bg-secondary/40 border border-border">
+            <ShareButtons
+              title={post.title}
+              description={post.excerpt}
+              variant="full"
+              onShare={() => incrementBlogShare(post.id)}
+            />
           </div>
 
           {/* Related */}

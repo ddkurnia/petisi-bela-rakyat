@@ -84,6 +84,7 @@ export interface BlogPost {
   metaDescription: string;
   status: "published" | "draft" | "scheduled";
   views: number;
+  shares: number;
 }
 
 export interface NewsArticle {
@@ -98,6 +99,7 @@ export interface NewsArticle {
   publishedAt: string;
   status: "published" | "draft";
   views: number;
+  shares: number;
 }
 
 export interface Campaign {
@@ -112,6 +114,7 @@ export interface Campaign {
   status: "active" | "won" | "lost" | "planned";
   location: string;
   startedAt: string;
+  shares: number;
 }
 
 export interface Supporter {
@@ -589,6 +592,7 @@ const seedBlog: BlogPost[] = [
     metaDescription: "Jembatan Panglima Sampul bukan sekadar infrastruktur — ia adalah penghubung harapan bagi ribuan warga Meranti.",
     status: "published",
     views: 1240,
+    shares: 45,
   },
   {
     id: "b2",
@@ -607,6 +611,7 @@ const seedBlog: BlogPost[] = [
     metaDescription: "Mengapa publik berhak tahu ke mana uang mereka pergi, dan bagaimana kami mengawalnya.",
     status: "published",
     views: 870,
+    shares: 32,
   },
   {
     id: "b3",
@@ -625,6 +630,7 @@ const seedBlog: BlogPost[] = [
     metaDescription: "Suara nelayan kecil Kepulauan Meranti yang tenggelam — kami dokumentasikan untuk menjadi catatan publik.",
     status: "published",
     views: 645,
+    shares: 18,
   },
   {
     id: "b4",
@@ -643,6 +649,7 @@ const seedBlog: BlogPost[] = [
     metaDescription: "Bagaimana kami mendampingi warga biasa yang berhadapan dengan sistem hukum yang kompleks.",
     status: "published",
     views: 512,
+    shares: 27,
   },
 ];
 
@@ -659,6 +666,7 @@ const seedNews: NewsArticle[] = [
     publishedAt: "2025-05-25",
     status: "published",
     views: 980,
+    shares: 51,
   },
   {
     id: "n2",
@@ -672,6 +680,7 @@ const seedNews: NewsArticle[] = [
     publishedAt: "2025-05-18",
     status: "published",
     views: 720,
+    shares: 22,
   },
   {
     id: "n3",
@@ -685,6 +694,7 @@ const seedNews: NewsArticle[] = [
     publishedAt: "2025-05-08",
     status: "published",
     views: 430,
+    shares: 15,
   },
 ];
 
@@ -701,6 +711,7 @@ const seedCampaigns: Campaign[] = [
     status: "active",
     location: "Kepulauan Meranti, Riau",
     startedAt: "2025-05-01",
+    shares: 89,
   },
   {
     id: "c2",
@@ -714,6 +725,7 @@ const seedCampaigns: Campaign[] = [
     status: "active",
     location: "Kepulauan Meranti, Riau",
     startedAt: "2025-05-05",
+    shares: 64,
   },
 ];
 
@@ -833,21 +845,24 @@ interface AppState {
   deleteTeam: (id: string) => void;
 
   // Blog CRUD
-  addBlog: (p: Omit<BlogPost, "id" | "views">) => void;
+  addBlog: (p: Omit<BlogPost, "id" | "views" | "shares">) => void;
   updateBlog: (id: string, p: Partial<BlogPost>) => void;
   deleteBlog: (id: string) => void;
   incrementBlogView: (id: string) => void;
+  incrementBlogShare: (id: string) => void;
 
   // News CRUD
-  addNews: (p: Omit<NewsArticle, "id" | "views">) => void;
+  addNews: (p: Omit<NewsArticle, "id" | "views" | "shares">) => void;
   updateNews: (id: string, p: Partial<NewsArticle>) => void;
   deleteNews: (id: string) => void;
   incrementNewsView: (id: string) => void;
+  incrementNewsShare: (id: string) => void;
 
   // Campaign CRUD
-  addCampaign: (c: Omit<Campaign, "id">) => void;
+  addCampaign: (c: Omit<Campaign, "id" | "shares">) => void;
   updateCampaign: (id: string, c: Partial<Campaign>) => void;
   deleteCampaign: (id: string) => void;
+  incrementCampaignShare: (id: string) => void;
 
   // Supporter CRUD
   addSupporter: (s: Omit<Supporter, "id">) => void;
@@ -968,7 +983,7 @@ export const useStore = create<AppState>()(
 
       addBlog: (p) =>
         set((state) => ({
-          blog: [{ ...p, id: genId(), slug: p.slug || slugify(p.title), views: 0 }, ...state.blog],
+          blog: [{ ...p, id: genId(), slug: p.slug || slugify(p.title), views: 0, shares: 0 }, ...state.blog],
         })),
       updateBlog: (id, p) =>
         set((state) => ({
@@ -980,10 +995,14 @@ export const useStore = create<AppState>()(
         set((state) => ({
           blog: state.blog.map((b) => (b.id === id ? { ...b, views: b.views + 1 } : b)),
         })),
+      incrementBlogShare: (id) =>
+        set((state) => ({
+          blog: state.blog.map((b) => (b.id === id ? { ...b, shares: b.shares + 1 } : b)),
+        })),
 
       addNews: (p) =>
         set((state) => ({
-          news: [{ ...p, id: genId(), slug: p.slug || slugify(p.title), views: 0 }, ...state.news],
+          news: [{ ...p, id: genId(), slug: p.slug || slugify(p.title), views: 0, shares: 0 }, ...state.news],
         })),
       updateNews: (id, p) =>
         set((state) => ({
@@ -995,10 +1014,14 @@ export const useStore = create<AppState>()(
         set((state) => ({
           news: state.news.map((b) => (b.id === id ? { ...b, views: b.views + 1 } : b)),
         })),
+      incrementNewsShare: (id) =>
+        set((state) => ({
+          news: state.news.map((b) => (b.id === id ? { ...b, shares: b.shares + 1 } : b)),
+        })),
 
       addCampaign: (c) =>
         set((state) => ({
-          campaigns: [{ ...c, id: genId(), slug: c.slug || slugify(c.title) }, ...state.campaigns],
+          campaigns: [{ ...c, id: genId(), slug: c.slug || slugify(c.title), shares: 0 }, ...state.campaigns],
         })),
       updateCampaign: (id, c) =>
         set((state) => ({
@@ -1006,6 +1029,10 @@ export const useStore = create<AppState>()(
         })),
       deleteCampaign: (id) =>
         set((state) => ({ campaigns: state.campaigns.filter((b) => b.id !== id) })),
+      incrementCampaignShare: (id) =>
+        set((state) => ({
+          campaigns: state.campaigns.map((b) => (b.id === id ? { ...b, shares: b.shares + 1 } : b)),
+        })),
 
       addSupporter: (s) =>
         set((state) => ({ supporters: [...state.supporters, { ...s, id: genId() }] })),
@@ -1039,7 +1066,7 @@ export const useStore = create<AppState>()(
         set((state) => ({ reports: state.reports.filter((b) => b.id !== id) })),
     }),
     {
-      name: "pbr-storage-v4",
+      name: "pbr-storage-v5",
       partialize: (state) => ({
         currentUser: state.currentUser,
         settings: state.settings,

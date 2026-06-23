@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Newspaper, Megaphone, Users, Image as ImageIcon, HeartHandshake, Eye, Crown, BarChart3 } from "lucide-react";
+import { FileText, Newspaper, Megaphone, Users, Image as ImageIcon, HeartHandshake, Eye, Crown, BarChart3, Share2, TrendingUp } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 
@@ -26,7 +26,17 @@ export function AdminDashboard() {
   ];
 
   const totalViews = [...blog, ...news].reduce((sum, item) => sum + (item.views || 0), 0);
+  const totalShares = [...blog, ...news, ...campaigns].reduce((sum, item) => sum + ((item as any).shares || 0), 0);
   const totalSupporters = campaigns.reduce((sum, c) => sum + c.supporters, 0);
+
+  // Top shared content (blog + news + campaigns sorted by shares)
+  const allContent = [
+    ...blog.map((b) => ({ id: b.id, title: b.title, type: "Blog", shares: b.shares || 0, views: b.views, coverImage: b.coverImage, category: b.category })),
+    ...news.map((n) => ({ id: n.id, title: n.title, type: "News", shares: n.shares || 0, views: n.views, coverImage: n.coverImage, category: n.category })),
+    ...campaigns.map((c) => ({ id: c.id, title: c.title, type: "Kampanye", shares: c.shares || 0, views: c.supporters, coverImage: c.coverImage, category: c.location })),
+  ].sort((a, b) => b.shares - a.shares).slice(0, 5);
+
+  const maxShares = Math.max(...allContent.map((c) => c.shares), 1);
 
   return (
     <div className="space-y-6">
@@ -85,11 +95,22 @@ export function AdminDashboard() {
             </div>
             <div>
               <div className="flex justify-between text-sm mb-1">
+                <span className="text-muted-foreground flex items-center gap-1">
+                  <Share2 className="h-3 w-3" /> Total Shares (Semua Konten)
+                </span>
+                <span className="font-bold">{totalShares.toLocaleString("id-ID")}</span>
+              </div>
+              <div className="h-2 rounded-full bg-secondary overflow-hidden">
+                <div className="h-full bg-green-600 rounded-full" style={{ width: `${Math.min(100, (totalShares / Math.max(totalViews, 1)) * 100)}%` }} />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
                 <span className="text-muted-foreground">Total Pendukung Kampanye</span>
                 <span className="font-bold">{totalSupporters.toLocaleString("id-ID")}</span>
               </div>
               <div className="h-2 rounded-full bg-secondary overflow-hidden">
-                <div className="h-full bg-green-600 rounded-full" style={{ width: "60%" }} />
+                <div className="h-full bg-blue-600 rounded-full" style={{ width: "60%" }} />
               </div>
             </div>
             <div>
@@ -98,7 +119,7 @@ export function AdminDashboard() {
                 <span className="font-bold">{Math.round(totalViews / Math.max(1, blog.length + news.length)).toLocaleString("id-ID")}</span>
               </div>
               <div className="h-2 rounded-full bg-secondary overflow-hidden">
-                <div className="h-full bg-blue-600 rounded-full" style={{ width: "45%" }} />
+                <div className="h-full bg-amber-600 rounded-full" style={{ width: "45%" }} />
               </div>
             </div>
           </div>
@@ -106,22 +127,39 @@ export function AdminDashboard() {
 
         <Card className="p-6 border-0 shadow-lg shadow-foreground/5">
           <h3 className="font-heading font-bold mb-4 flex items-center gap-2">
-            <Megaphone className="h-4 w-4 text-primary" />
-            Kampanye Teratas
+            <TrendingUp className="h-4 w-4 text-primary" />
+            Konten Paling Banyak Dibagikan
           </h3>
           <div className="space-y-3">
-            {campaigns.map((c) => (
+            {allContent.map((c, i) => (
               <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/40">
-                <img src={c.coverImage} alt="" className="h-10 w-10 rounded-lg object-cover" />
+                <div className="h-8 w-8 shrink-0 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-heading font-bold text-sm">
+                  {i + 1}
+                </div>
+                <img src={c.coverImage} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold truncate">{c.title}</div>
-                  <div className="text-xs text-muted-foreground">{c.supporters} pendukung</div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">{c.type}</span>
+                    <span className="flex items-center gap-0.5">
+                      <Share2 className="h-2.5 w-2.5" /> {c.shares}
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-0.5">
+                      <Eye className="h-2.5 w-2.5" /> {c.views}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-xs font-bold text-primary">{Math.round((c.supporters / c.goal) * 100)}%</span>
+                <div className="w-12 h-12 shrink-0 flex items-center justify-center">
+                  <div
+                    className="h-1.5 rounded-full bg-primary"
+                    style={{ width: `${Math.max(8, (c.shares / maxShares) * 100)}%` }}
+                  />
+                </div>
               </div>
             ))}
-            {campaigns.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">Belum ada kampanye</p>
+            {allContent.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">Belum ada data share</p>
             )}
           </div>
         </Card>
@@ -136,8 +174,12 @@ export function AdminDashboard() {
               <img src={b.coverImage} alt="" className="h-10 w-10 rounded-lg object-cover" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold truncate">{b.title}</div>
-                <div className="text-xs text-muted-foreground">
-                  {b.category} • {b.views || 0} views
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <span>{b.category}</span>
+                  <span>•</span>
+                  <span className="flex items-center gap-0.5"><Eye className="h-2.5 w-2.5" /> {b.views || 0}</span>
+                  <span>•</span>
+                  <span className="flex items-center gap-0.5"><Share2 className="h-2.5 w-2.5" /> {b.shares || 0}</span>
                 </div>
               </div>
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${

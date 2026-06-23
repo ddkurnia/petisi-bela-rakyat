@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Search, Calendar, User, Eye, Tag } from "lucide-react";
+import { ArrowLeft, ArrowRight, Search, Calendar, User, Eye, Tag, Share2 } from "lucide-react";
 import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
 import { useStore, formatDate } from "@/lib/store";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { ShareButtons } from "@/components/share-buttons";
 import {
   Pagination,
   PaginationContent,
@@ -26,6 +27,7 @@ export function NewsPage() {
   const { navigate, newsSlug } = useNav();
   const news = useStore((s) => s.news);
   const incrementNewsView = useStore((s) => s.incrementNewsView);
+  const incrementNewsShare = useStore((s) => s.incrementNewsShare);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [page, setPage] = useState(1);
@@ -129,6 +131,19 @@ export function NewsPage() {
               })}
             </div>
           </Reveal>
+
+          {/* Share buttons at end of news article */}
+          <div className="mt-8 p-6 rounded-2xl bg-secondary/40 border border-border">
+            <p className="text-sm font-semibold mb-3 text-center">
+              📢 Bagikan berita ini kepada masyarakat
+            </p>
+            <ShareButtons
+              title={article.title}
+              description={article.excerpt}
+              variant="full"
+              onShare={() => incrementNewsShare(article.id)}
+            />
+          </div>
 
           {/* Related */}
           <div className="mt-16 pt-10 border-t border-border">

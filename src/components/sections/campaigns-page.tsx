@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, PenLine, Users, MapPin, Calendar, Share2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, PenLine, Users, MapPin, Calendar, Share2, CheckCircle2, Megaphone } from "lucide-react";
 import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
 import { useStore } from "@/lib/store";
@@ -10,6 +10,7 @@ import { useNav } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ShareButtons } from "@/components/share-buttons";
 import { formatDate } from "@/lib/store";
 import { toast } from "sonner";
 
@@ -24,6 +25,7 @@ export function CampaignsPage() {
   const { navigate, campaignSlug } = useNav();
   const campaigns = useStore((s) => s.campaigns);
   const updateCampaign = useStore((s) => s.updateCampaign);
+  const incrementCampaignShare = useStore((s) => s.incrementCampaignShare);
   const [filter, setFilter] = useState<string>("all");
 
   // Detail view
@@ -140,21 +142,18 @@ export function CampaignsPage() {
                       <PenLine className="h-4 w-4 mr-2" />
                       Tandatangani Petisi
                     </Button>
-                    <Button
-                      variant="outline"
-                      className="mt-2 w-full rounded-full"
-                      onClick={() => {
-                        if (navigator.share) {
-                          navigator.share({ title: c.title, text: c.description });
-                        } else {
-                          navigator.clipboard.writeText(window.location.href);
-                          toast.success("Link disalin ke clipboard");
-                        }
-                      }}
-                    >
-                      <Share2 className="h-4 w-4 mr-2" />
-                      Bagikan Petisi
-                    </Button>
+                    {/* Big share button - Sebarkan Petisi */}
+                    <div className="mt-3 p-4 rounded-2xl bg-primary/5 border border-primary/20">
+                      <p className="text-xs font-bold text-center mb-3 text-primary uppercase tracking-wide">
+                        📢 Sebarkan Petisi Ini
+                      </p>
+                      <ShareButtons
+                        title={c.title}
+                        description={c.description}
+                        variant="full"
+                        onShare={() => incrementCampaignShare(c.id)}
+                      />
+                    </div>
                     <div className="mt-6 pt-6 border-t border-border space-y-3 text-sm">
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Status</span>

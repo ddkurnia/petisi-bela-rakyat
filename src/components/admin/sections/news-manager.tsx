@@ -28,7 +28,7 @@ export function NewsManager() {
   const [editing, setEditing] = useState<NewsArticle | null>(null);
   const [open, setOpen] = useState(false);
 
-  const blank: Omit<NewsArticle, "id" | "views"> = {
+  const blank: Omit<NewsArticle, "id" | "views" | "shares"> = {
     slug: "", title: "", excerpt: "", content: "", coverImage: "",
     category: "Kampanye", author: "Admin", publishedAt: new Date().toISOString().split("T")[0],
     status: "draft",
@@ -64,7 +64,7 @@ export function NewsManager() {
                   </Badge>
                 </div>
                 <h3 className="font-semibold text-sm mt-1 truncate">{p.title}</h3>
-                <p className="text-xs text-muted-foreground">{p.views} views • {p.publishedAt}</p>
+                <p className="text-xs text-muted-foreground">{p.views} views • {p.shares || 0} shares • {p.publishedAt}</p>
               </div>
               <div className="flex gap-1">
                 <Button size="icon" variant="ghost" className="rounded-full" onClick={() => { setEditing(p); setOpen(true); }}>

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Mail, Phone, MessageCircle, Award, Briefcase, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, Mail, Phone, MessageCircle, Award, Briefcase, User, Share2 } from "lucide-react";
 import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
 import { useStore, getInitials } from "@/lib/store";
@@ -9,6 +9,7 @@ import { useNav } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ShareButtons } from "@/components/share-buttons";
 
 export function PengurusPage() {
   const { navigate, pengurusSlug } = useNav();
@@ -168,6 +169,17 @@ export function PengurusPage() {
                       Kirim Email
                     </a>
                   </Button>
+                </div>
+              </Reveal>
+
+              {/* Share profile */}
+              <Reveal delay={0.45}>
+                <div className="mt-6 p-5 rounded-2xl bg-secondary/40 border border-border">
+                  <ShareButtons
+                    title={`${member.name} — ${member.jabatan} | Petisi Bela Rakyat`}
+                    description={member.bio}
+                    variant="full"
+                  />
                 </div>
               </Reveal>
             </div>

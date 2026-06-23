@@ -26,7 +26,7 @@ export function CampaignManager() {
   const [editing, setEditing] = useState<Campaign | null>(null);
   const [open, setOpen] = useState(false);
 
-  const blank: Omit<Campaign, "id"> = {
+  const blank: Omit<Campaign, "id" | "shares"> = {
     slug: "", title: "", description: "", coverImage: "", petitionLink: "#",
     supporters: 0, goal: 1000, status: "active", location: "",
     startedAt: new Date().toISOString().split("T")[0],

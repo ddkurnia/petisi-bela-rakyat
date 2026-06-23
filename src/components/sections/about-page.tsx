@@ -11,6 +11,7 @@ import { useStore } from "@/lib/store";
 import { useNav } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ShareButtons } from "@/components/share-buttons";
 import { StrukturOrganisasiPage } from "./struktur-page";
 import { PengurusPage } from "./pengurus-page";
 import { PenasehatPage, RelawanPage } from "./penasehat-relawan-page";
@@ -242,6 +243,19 @@ export function AboutPage() {
                     </div>
                   </div>
                 </Reveal>
+              </div>
+            </div>
+          </section>
+
+          {/* Share Sejarah */}
+          <section className="py-8 md:py-12 bg-background">
+            <div className="container-x">
+              <div className="max-w-3xl mx-auto p-6 rounded-2xl bg-secondary/40 border border-border">
+                <ShareButtons
+                  title="Sejarah Petisi Bela Rakyat — Dari Meranti Berdarah 2016 hingga Hari Ini"
+                  description="Petisi Bela Rakyat bukanlah gerakan yang lahir secara tiba-tiba. Inilah kisahnya."
+                  variant="full"
+                />
               </div>
             </div>
           </section>
