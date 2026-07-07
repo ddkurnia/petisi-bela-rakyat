@@ -18,16 +18,23 @@ export function ContactPage() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", subject: "", message: "" });
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const addMessage = useStore((s) => s.addMessage);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      toast.success("Pesan terkirim!", {
-        description: "Tim kami akan menghubungi Anda dalam 1-2 hari kerja.",
+    try {
+      addMessage({
+        name: form.name, email: form.email, phone: form.phone,
+        subject: form.subject, message: form.message,
       });
+      toast.success("Pesan terkirim!", { description: "Tim kami akan menghubungi Anda dalam 1-2 hari kerja." });
       setForm({ name: "", email: "", phone: "", subject: "", message: "" });
-    }, 1200);
+    } catch {
+      toast.error("Gagal mengirim pesan. Silakan coba lagi.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const channels = [

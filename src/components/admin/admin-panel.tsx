@@ -87,9 +87,10 @@ export function AdminPanel() {
               <p className="text-sm text-muted-foreground mt-1">Petisi Bela Rakyat</p>
             </div>
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                if (login(email, password)) {
+                const ok = await login(email, password);
+                if (ok) {
                   toast.success("Login berhasil");
                 } else {
                   toast.error("Email atau password salah");

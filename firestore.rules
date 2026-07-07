@@ -1,0 +1,84 @@
+rules_version = '2';
+
+// Petisi Bela Rakyat - Firestore Security Rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function isSuperAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserRole() == 'super_admin';
+    }
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (getUserRole() == 'super_admin' || getUserRole() == 'admin' || getUserRole() == 'editor');
+    }
+
+    // Public content - read published, admin write
+    match /blog/{id} {
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+    match /news/{id} {
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+    match /campaigns/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    match /pengurus/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    match /penasehat/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    match /relawan/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    match /supporters/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    match /gallery/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    match /work/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    match /transparency/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    match /reports/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    match /settings/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    match /media/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    match /messages/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Users - role management
+    match /users/{id} {
+      allow read: if isSignedIn() && (request.auth.uid == id || isAdmin());
+      allow create: if isSignedIn() && (request.auth.uid == id || isSuperAdmin());
+      allow update: if isSuperAdmin() || (isSignedIn() && request.auth.uid == id && !('role' in request.resource.data.diff(resource.data).affectedKeys()));
+      allow delete: if isSuperAdmin();
+    }
+  }
+}

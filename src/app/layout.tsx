@@ -45,16 +45,6 @@ export const metadata: Metadata = {
   publisher: "Petisi Bela Rakyat",
   applicationName: siteName,
   category: "Civil Society Organization",
-  keywords: [
-    "Petisi Bela Rakyat",
-    "NGO Indonesia",
-    "advokasi rakyat",
-    "hak warga negara",
-    "transparansi",
-    "kampanye sosial",
-    "masyarakat sipil",
-    "Kepulauan Meranti",
-  ],
   alternates: {
     canonical: "/",
   },

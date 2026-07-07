@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    { "collectionGroup": "blog", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "status", "order": "ASCENDING" },
+      { "fieldPath": "publishedAt", "order": "DESCENDING" }
+    ]},
+    { "collectionGroup": "news", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "status", "order": "ASCENDING" },
+      { "fieldPath": "publishedAt", "order": "DESCENDING" }
+    ]},
+    { "collectionGroup": "campaigns", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "status", "order": "ASCENDING" },
+      { "fieldPath": "startedAt", "order": "DESCENDING" }
+    ]},
+    { "collectionGroup": "pengurus", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "status", "order": "ASCENDING" },
+      { "fieldPath": "order", "order": "ASCENDING" }
+    ]}
+  ],
+  "fieldOverrides": []
+}

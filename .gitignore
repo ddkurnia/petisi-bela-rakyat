@@ -65,3 +65,7 @@ mini-services/*/
 examples/
 agent-ctx/
 worklog.md
+
+# Firebase / Cloudinary secrets
+.env.local
+.env*.local
