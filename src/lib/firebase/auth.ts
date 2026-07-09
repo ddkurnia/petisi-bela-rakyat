@@ -50,7 +50,8 @@ import { getFirestore as fbGetFirestore, doc as fbDoc, getDocFromServer as fbGet
 let freshApp: FbApp | null = null;
 let freshDb: FbFirestore | null = null;
 
-function getFreshDb(): FbFirestore | null {
+// Export so store.ts can use the SAME instance that readUserRole uses
+export function getFreshDb(): FbFirestore | null {
   if (freshDb) return freshDb;
   const config = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,

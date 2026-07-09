@@ -21,7 +21,7 @@ import {
 } from "@/lib/firebase/config";
 import {
   onAuthChange, loginWithEmail, loginWithGoogle, logout as fbLogout,
-  setCurrentRoleGetter, getCurrentFirebaseUser,
+  setCurrentRoleGetter, getCurrentFirebaseUser, getFreshDb,
   type AppUser, type Role,
 } from "@/lib/firebase/auth";
 import {
@@ -31,52 +31,17 @@ import {
   transparencyService, reportService, settingsService, messageService,
 } from "@/services";
 import {
-  initializeApp as fbInitApp, type FirebaseApp as FbApp,
-} from "firebase/app";
-import {
-  getFirestore as fbGetFirestore, collection as fsCollection, doc as fsDoc,
+  collection as fsCollection, doc as fsDoc,
   addDoc as fsAddDoc, setDoc as fsSetDoc, updateDoc as fsUpdateDoc,
-  deleteDoc as fsDeleteDoc, type Firestore as FbFirestore,
+  deleteDoc as fsDeleteDoc,
 } from "firebase/firestore";
 
 // ============================================================
-// FRESH Firestore instance for WRITES — EXACT copy of readUserRole pattern
+// Write helper — uses getFreshDb() from auth.ts (SAME instance as readUserRole)
 // ============================================================
-// readUserRole in auth.ts WORKS. It uses:
-//   1. CACHED fresh instance (created once, reused)
-//   2. NO getAuth() call on fresh instance
-//   3. NO delay (no 300ms wait)
-//   4. getIdToken(true) called on MAIN app BEFORE using fresh instance
-//
-// Previous writer attempts failed because:
-//   - Attempt 1: reused instance named 'writer-app' (cached) — FAILED
-//   - Attempt 2: new instance per write + getAuth + 300ms delay — FAILED
-//
-// This attempt copies readUserRole EXACTLY:
-//   1. Cached fresh instance (module-level, created once)
-//   2. NO getAuth()
-//   3. NO delay
-//   4. getIdToken(true) on main app before write
+// readUserRole uses getFreshDb() and WORKS (872ms). We now use
+// the EXACT SAME instance for writes. No separate writer instance.
 // ============================================================
-let writeApp: FbApp | null = null;
-let writeDb: FbFirestore | null = null;
-
-function getWriteDb(): FbFirestore | null {
-  if (writeDb) return writeDb;
-  const config = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  };
-  if (!config.apiKey || !config.projectId) return null;
-  writeApp = fbInitApp(config as any, 'writer-' + Date.now());
-  writeDb = fbGetFirestore(writeApp);
-  console.log('%c[PBR-STORE] created fresh Firestore for writes (cached)', 'color:#9333ea;font-weight:bold');
-  return writeDb;
-}
 
 function withTimeout<T>(promise: Promise<T>, ms = 8000, label = 'operation'): Promise<T> {
   return Promise.race([
@@ -88,7 +53,7 @@ function withTimeout<T>(promise: Promise<T>, ms = 8000, label = 'operation'): Pr
 }
 
 async function writeCreate(collectionName: string, data: any): Promise<string> {
-  const wdb = getWriteDb();
+  const wdb = getFreshDb();
   if (!wdb) throw new Error('Firestore not available');
   const { id, ...rest } = data;
   console.log('[PBR-WRITE] addDoc', collectionName);
@@ -106,7 +71,7 @@ async function writeCreate(collectionName: string, data: any): Promise<string> {
 }
 
 async function writeSet(collectionName: string, docId: string, data: any, merge = true): Promise<void> {
-  const wdb = getWriteDb();
+  const wdb = getFreshDb();
   if (!wdb) throw new Error('Firestore not available');
   const { id, ...rest } = data;
   console.log('[PBR-WRITE] setDoc', collectionName, docId);
@@ -122,7 +87,7 @@ async function writeSet(collectionName: string, docId: string, data: any, merge 
 }
 
 async function writeUpdate(collectionName: string, id: string, data: any): Promise<void> {
-  const wdb = getWriteDb();
+  const wdb = getFreshDb();
   if (!wdb) throw new Error('Firestore not available');
   const { id: _, ...rest } = data;
   console.log('[PBR-WRITE] updateDoc', collectionName, id);
@@ -138,7 +103,7 @@ async function writeUpdate(collectionName: string, id: string, data: any): Promi
 }
 
 async function writeDelete(collectionName: string, id: string): Promise<void> {
-  const wdb = getWriteDb();
+  const wdb = getFreshDb();
   if (!wdb) throw new Error('Firestore not available');
   console.log('[PBR-WRITE] deleteDoc', collectionName, id);
   await withTimeout(
