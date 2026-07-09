@@ -176,7 +176,18 @@ const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").repla
 
 const handleErr = (err: any, msg = "Operasi gagal") => {
   console.error("[store]", err);
-  toast.error(msg);
+  const code = err?.code || '';
+  let detail = msg;
+  if (code === 'permission-denied') {
+    detail = msg + " (Permission denied — cek Firestore rules atau login ulang)";
+  } else if (code === 'unavailable') {
+    detail = msg + " (Firestore tidak tersedia — cek koneksi)";
+  } else if (code === 'not-found') {
+    detail = msg + " (Dokumen tidak ditemukan)";
+  } else if (err?.message) {
+    detail = msg + ": " + err.message;
+  }
+  toast.error(detail, { duration: 8000 });
 };
 
 let state: AppState = {
@@ -210,11 +221,19 @@ let state: AppState = {
   updateSettings: (s) => {
     const merged = { ...state.settings, ...s } as SiteSettings;
     storeSet({ settings: merged });
+    console.log('%c[PBR-STORE] updateSettings', 'color:#16a34a;font-weight:bold', s);
     settingsService.get().then((doc) => {
       const settingsDoc = doc as (SiteSettings & { id?: string }) | null;
-      if (settingsDoc?.id) settingsService.update(settingsDoc.id, s).catch((e) => handleErr(e));
-      else settingsService.create(merged).catch((e) => handleErr(e));
-    });
+      if (settingsDoc?.id) {
+        settingsService.update(settingsDoc.id, s).then(() => {
+          toast.success("Pengaturan tersimpan");
+        }).catch((e) => handleErr(e, "Gagal menyimpan pengaturan"));
+      } else {
+        settingsService.create(merged).then(() => {
+          toast.success("Pengaturan tersimpan");
+        }).catch((e) => handleErr(e, "Gagal menyimpan pengaturan"));
+      }
+    }).catch((e) => handleErr(e, "Gagal membaca pengaturan"));
   },
   updateHomepage: (s) => state.updateSettings({ homepage: { ...state.settings.homepage, ...s } as any }),
   updateAbout: (s) => state.updateSettings({ about: { ...state.settings.about, ...s } as any }),
@@ -222,56 +241,56 @@ let state: AppState = {
   updateSocials: (s) => state.updateSettings({ socials: s }),
   updateFooter: (s) => state.updateSettings({ footer: { ...state.settings.footer, ...s } as any }),
 
-  addPengurus: (m) => { pengurusService.create({ ...m, slug: m.slug || slugify(m.name) } as any).catch((e) => handleErr(e)); },
-  updatePengurus: (id, m) => { pengurusService.update(id, m).catch((e) => handleErr(e)); },
-  deletePengurus: (id) => { pengurusService.delete(id).catch((e) => handleErr(e)); },
+  addPengurus: (m) => { pengurusService.create({ ...m, slug: m.slug || slugify(m.name) } as any).then(() => toast.success("Pengurus ditambahkan")).catch((e) => handleErr(e, "Gagal tambah pengurus")); },
+  updatePengurus: (id, m) => { pengurusService.update(id, m).then(() => toast.success("Pengurus diperbarui")).catch((e) => handleErr(e, "Gagal update pengurus")); },
+  deletePengurus: (id) => { pengurusService.delete(id).then(() => toast.success("Pengurus dihapus")).catch((e) => handleErr(e, "Gagal hapus pengurus")); },
 
-  addPenasehat: (p) => { penasehatService.create(p as any).catch((e) => handleErr(e)); },
-  updatePenasehat: (id, p) => { penasehatService.update(id, p).catch((e) => handleErr(e)); },
-  deletePenasehat: (id) => { penasehatService.delete(id).catch((e) => handleErr(e)); },
+  addPenasehat: (p) => { penasehatService.create(p as any).then(() => toast.success("Penasehat ditambahkan")).catch((e) => handleErr(e, "Gagal tambah penasehat")); },
+  updatePenasehat: (id, p) => { penasehatService.update(id, p).then(() => toast.success("Penasehat diperbarui")).catch((e) => handleErr(e, "Gagal update penasehat")); },
+  deletePenasehat: (id) => { penasehatService.delete(id).then(() => toast.success("Penasehat dihapus")).catch((e) => handleErr(e, "Gagal hapus penasehat")); },
 
-  addRelawan: (r) => { relawanService.create(r as any).catch((e) => handleErr(e)); },
-  updateRelawan: (id, r) => { relawanService.update(id, r).catch((e) => handleErr(e)); },
-  deleteRelawan: (id) => { relawanService.delete(id).catch((e) => handleErr(e)); },
+  addRelawan: (r) => { relawanService.create(r as any).then(() => toast.success("Relawan ditambahkan")).catch((e) => handleErr(e, "Gagal tambah relawan")); },
+  updateRelawan: (id, r) => { relawanService.update(id, r).then(() => toast.success("Relawan diperbarui")).catch((e) => handleErr(e, "Gagal update relawan")); },
+  deleteRelawan: (id) => { relawanService.delete(id).then(() => toast.success("Relawan dihapus")).catch((e) => handleErr(e, "Gagal hapus relawan")); },
 
-  addTeam: (m) => { /* legacy - route to pengurus */ pengurusService.create({ ...m, slug: m.slug || slugify(m.name), gelar: "", jabatan: m.position, parentId: null, whatsapp: "", email: "", status: "active" } as any).catch((e) => handleErr(e)); },
-  updateTeam: (id, m) => { pengurusService.update(id, m as any).catch((e) => handleErr(e)); },
-  deleteTeam: (id) => { pengurusService.delete(id).catch((e) => handleErr(e)); },
+  addTeam: (m) => { pengurusService.create({ ...m, slug: m.slug || slugify(m.name), gelar: "", jabatan: m.position, parentId: null, whatsapp: "", email: "", status: "active" } as any).then(() => toast.success("Tim ditambahkan")).catch((e) => handleErr(e, "Gagal tambah tim")); },
+  updateTeam: (id, m) => { pengurusService.update(id, m as any).then(() => toast.success("Tim diperbarui")).catch((e) => handleErr(e, "Gagal update tim")); },
+  deleteTeam: (id) => { pengurusService.delete(id).then(() => toast.success("Tim dihapus")).catch((e) => handleErr(e, "Gagal hapus tim")); },
 
-  addBlog: (p) => { blogService.create({ ...p, slug: p.slug || slugify(p.title), views: 0, shares: 0 } as any).catch((e) => handleErr(e)); },
-  updateBlog: (id, p) => { blogService.update(id, p).catch((e) => handleErr(e)); },
-  deleteBlog: (id) => { blogService.delete(id).catch((e) => handleErr(e)); },
+  addBlog: (p) => { blogService.create({ ...p, slug: p.slug || slugify(p.title), views: 0, shares: 0 } as any).then(() => toast.success("Blog ditambahkan")).catch((e) => handleErr(e, "Gagal tambah blog")); },
+  updateBlog: (id, p) => { blogService.update(id, p).then(() => toast.success("Blog diperbarui")).catch((e) => handleErr(e, "Gagal update blog")); },
+  deleteBlog: (id) => { blogService.delete(id).then(() => toast.success("Blog dihapus")).catch((e) => handleErr(e, "Gagal hapus blog")); },
   incrementBlogView: (id) => { blogService.incrementView(id).catch(() => {}); },
   incrementBlogShare: (id) => { blogService.incrementShare(id).catch(() => {}); },
 
-  addNews: (p) => { newsService.create({ ...p, slug: p.slug || slugify(p.title), views: 0, shares: 0 } as any).catch((e) => handleErr(e)); },
-  updateNews: (id, p) => { newsService.update(id, p).catch((e) => handleErr(e)); },
-  deleteNews: (id) => { newsService.delete(id).catch((e) => handleErr(e)); },
+  addNews: (p) => { newsService.create({ ...p, slug: p.slug || slugify(p.title), views: 0, shares: 0 } as any).then(() => toast.success("Berita ditambahkan")).catch((e) => handleErr(e, "Gagal tambah berita")); },
+  updateNews: (id, p) => { newsService.update(id, p).then(() => toast.success("Berita diperbarui")).catch((e) => handleErr(e, "Gagal update berita")); },
+  deleteNews: (id) => { newsService.delete(id).then(() => toast.success("Berita dihapus")).catch((e) => handleErr(e, "Gagal hapus berita")); },
   incrementNewsView: (id) => { newsService.incrementView(id).catch(() => {}); },
   incrementNewsShare: (id) => { newsService.incrementShare(id).catch(() => {}); },
 
-  addCampaign: (c) => { campaignService.create({ ...c, slug: c.slug || slugify(c.title), shares: 0 } as any).catch((e) => handleErr(e)); },
-  updateCampaign: (id, c) => { campaignService.update(id, c).catch((e) => handleErr(e)); },
-  deleteCampaign: (id) => { campaignService.delete(id).catch((e) => handleErr(e)); },
+  addCampaign: (c) => { campaignService.create({ ...c, slug: c.slug || slugify(c.title), shares: 0 } as any).then(() => toast.success("Kampanye ditambahkan")).catch((e) => handleErr(e, "Gagal tambah kampanye")); },
+  updateCampaign: (id, c) => { campaignService.update(id, c).then(() => toast.success("Kampanye diperbarui")).catch((e) => handleErr(e, "Gagal update kampanye")); },
+  deleteCampaign: (id) => { campaignService.delete(id).then(() => toast.success("Kampanye dihapus")).catch((e) => handleErr(e, "Gagal hapus kampanye")); },
   incrementCampaignShare: (id) => { campaignService.incrementShare(id).catch(() => {}); },
 
-  addSupporter: (s) => { supporterService.create(s as any).catch((e) => handleErr(e)); },
-  updateSupporter: (id, s) => { supporterService.update(id, s).catch((e) => handleErr(e)); },
-  deleteSupporter: (id) => { supporterService.delete(id).catch((e) => handleErr(e)); },
+  addSupporter: (s) => { supporterService.create(s as any).then(() => toast.success("Tokoh ditambahkan")).catch((e) => handleErr(e, "Gagal tambah tokoh")); },
+  updateSupporter: (id, s) => { supporterService.update(id, s).then(() => toast.success("Tokoh diperbarui")).catch((e) => handleErr(e, "Gagal update tokoh")); },
+  deleteSupporter: (id) => { supporterService.delete(id).then(() => toast.success("Tokoh dihapus")).catch((e) => handleErr(e, "Gagal hapus tokoh")); },
 
-  addGallery: (g) => { galleryService.create(g as any).catch((e) => handleErr(e)); },
-  updateGallery: (id, g) => { galleryService.update(id, g).catch((e) => handleErr(e)); },
-  deleteGallery: (id) => { galleryService.delete(id).catch((e) => handleErr(e)); },
+  addGallery: (g) => { galleryService.create(g as any).then(() => toast.success("Media ditambahkan")).catch((e) => handleErr(e, "Gagal tambah media")); },
+  updateGallery: (id, g) => { galleryService.update(id, g).then(() => toast.success("Media diperbarui")).catch((e) => handleErr(e, "Gagal update media")); },
+  deleteGallery: (id) => { galleryService.delete(id).then(() => toast.success("Media dihapus")).catch((e) => handleErr(e, "Gagal hapus media")); },
 
-  addTransparency: (t) => { transparencyService.create(t as any).catch((e) => handleErr(e)); },
-  updateTransparency: (id, t) => { transparencyService.update(id, t).catch((e) => handleErr(e)); },
-  deleteTransparency: (id) => { transparencyService.delete(id).catch((e) => handleErr(e)); },
-  addReport: (r) => { reportService.create(r as any).catch((e) => handleErr(e)); },
-  deleteReport: (id) => { reportService.delete(id).catch((e) => handleErr(e)); },
+  addTransparency: (t) => { transparencyService.create(t as any).then(() => toast.success("Transparansi ditambahkan")).catch((e) => handleErr(e, "Gagal tambah transparansi")); },
+  updateTransparency: (id, t) => { transparencyService.update(id, t).then(() => toast.success("Transparansi diperbarui")).catch((e) => handleErr(e, "Gagal update transparansi")); },
+  deleteTransparency: (id) => { transparencyService.delete(id).then(() => toast.success("Transparansi dihapus")).catch((e) => handleErr(e, "Gagal hapus transparansi")); },
+  addReport: (r) => { reportService.create(r as any).then(() => toast.success("Laporan ditambahkan")).catch((e) => handleErr(e, "Gagal tambah laporan")); },
+  deleteReport: (id) => { reportService.delete(id).then(() => toast.success("Laporan dihapus")).catch((e) => handleErr(e, "Gagal hapus laporan")); },
 
-  addWork: (w) => { workService.create({ ...w, slug: w.slug || slugify(w.title) } as any).catch((e) => handleErr(e)); },
-  updateWork: (id, w) => { workService.update(id, w).catch((e) => handleErr(e)); },
-  deleteWork: (id) => { workService.delete(id).catch((e) => handleErr(e)); },
+  addWork: (w) => { workService.create({ ...w, slug: w.slug || slugify(w.title) } as any).then(() => toast.success("Kategori kerja ditambahkan")).catch((e) => handleErr(e, "Gagal tambah kategori")); },
+  updateWork: (id, w) => { workService.update(id, w).then(() => toast.success("Kategori kerja diperbarui")).catch((e) => handleErr(e, "Gagal update kategori")); },
+  deleteWork: (id) => { workService.delete(id).then(() => toast.success("Kategori kerja dihapus")).catch((e) => handleErr(e, "Gagal hapus kategori")); },
 
   addMessage: (m) => { messageService.create(m).catch((e) => handleErr(e, "Gagal mengirim pesan")); },
 };
