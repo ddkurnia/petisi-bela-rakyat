@@ -1,12 +1,14 @@
 // Firebase Authentication - Email/Password + Google
 // ============================================================
-// INSTRUMENTED VERSION — logging stays in for diagnosis.
+// INSTRUMENTED VERSION with TELEMETRY — logs to Firestore
+// debug_logs collection so user can see in Firebase Console
+// without opening DevTools.
 // ============================================================
 import {
   getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider,
   signOut, onAuthStateChanged, onIdTokenChanged, type User,
 } from 'firebase/auth';
-import { doc, getDocFromServer } from 'firebase/firestore';
+import { doc, getDocFromServer, collection, addDoc } from 'firebase/firestore';
 import { app } from './firebase';
 import { isFirebaseConfigured, COLLECTIONS } from './config';
 import { db } from './firestore';
@@ -27,11 +29,50 @@ export interface AppUser {
 export interface AuthResult { success: boolean; user?: AppUser; error?: string; }
 
 let logSeq = 0;
+const telemetryLogs: any[] = [];
+let telemetrySessionId = '';
+
 function log(tag: string, ...args: any[]) {
   const seq = ++logSeq;
   const ts = new Date().toISOString().split('T')[1];
+  const entry = { seq, ts, tag, args };
+  telemetryLogs.push(entry);
+  // Keep only last 100 entries to avoid memory bloat
+  if (telemetryLogs.length > 100) telemetryLogs.shift();
   console.log(`%c[PBR-AUTH #${seq} ${ts}]`, 'color:#d62828;font-weight:bold', tag, ...args);
   return seq;
+}
+
+// ============================================================
+// flushTelemetry — write all collected logs to Firestore
+// debug_logs collection. Called at end of login flow.
+// ============================================================
+export async function flushTelemetry(sessionUid: string, finalRole: string) {
+  if (!db) return;
+  try {
+    telemetrySessionId = `session-${Date.now()}`;
+    await addDoc(collection(db, 'debug_logs'), {
+      type: 'login_attempt',
+      sessionId: telemetrySessionId,
+      uid: sessionUid,
+      finalRole,
+      timestamp: new Date().toISOString(),
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      logs: telemetryLogs.map(l => ({
+        seq: l.seq,
+        ts: l.ts,
+        tag: l.tag,
+        args: JSON.stringify(l.args, (key, val) => {
+          if (typeof val === 'function') return '[Function]';
+          if (val instanceof Error) return { name: val.name, message: val.message, code: (val as any).code };
+          return val;
+        }),
+      })),
+    });
+    log('telemetry FLUSHED to debug_logs', { sessionId: telemetrySessionId, logCount: telemetryLogs.length });
+  } catch (err: any) {
+    log('telemetry FLUSH FAILED', err?.code || err?.message);
+  }
 }
 
 // ============================================================
@@ -183,9 +224,15 @@ export async function loginWithEmail(email: string, password: string): Promise<A
     const user = await mapUser(cred.user, 'loginWithEmail');
     log('loginWithEmail RETURN', { success: true, role: user.role });
 
+    // Flush telemetry to Firestore debug_logs so user can see in
+    // Firebase Console what happened during login (without DevTools)
+    await flushTelemetry(cred.user.uid, user.role);
+
     return { success: true, user };
   } catch (err: any) {
     log('loginWithEmail FAILED', { code: err?.code, message: err?.message });
+    // Also flush on failure
+    try { await flushTelemetry('unknown', 'error'); } catch {}
     return { success: false, error: translateError(err?.code || '') };
   }
 }

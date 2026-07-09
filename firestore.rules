@@ -91,6 +91,12 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
+    // Debug logs — allow signed-in users to create (for login telemetry)
+    match /debug_logs/{id} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isAdmin();
+    }
+
     // ----------------------------------------------------------
     // Users - role management
     // ----------------------------------------------------------
