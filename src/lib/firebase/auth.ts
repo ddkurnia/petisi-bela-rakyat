@@ -37,22 +37,16 @@ function log(tag: string, ...args: any[]) {
 // ============================================================
 // readUserRole — read role via REST API (bypass Firestore SDK)
 // ============================================================
-// WHY REST API: Firestore SDK in web app has internal state that
-// causes getDocFromServer to hang for 26 seconds (connection queue,
-// auth token sync issues). The test script (which creates a FRESH
-// Firebase instance) works in 872ms, but the web app's long-running
-// SDK instance doesn't.
+// Uses fetch() directly to Firestore REST API with the user's
+// ID token. Bypasses Firestore SDK entirely (no internal state,
+// no connection pool, no cache).
 //
-// REST API bypass: use fetch() directly with the user's ID token.
-// No SDK internal state, no connection pooling, no cache. This is
-// guaranteed to work because we have a valid ID token from
-// getIdToken() just before calling this.
-//
-// This is EXACTLY what verify-firestore-access.mjs does (and it
-// works in <1s).
+// FALLBACK: if REST API fails (403/404/timeout), fall back to
+// 'editor'. The storeSet guard prevents editor from overwriting
+// an existing super_admin/admin.
 // ============================================================
 async function readUserRole(fbUser: User): Promise<Role> {
-  log('readUserRole START (REST API)', { uid: fbUser.uid });
+  log('readUserRole START (REST API)', { uid: fbUser.uid, email: fbUser.email });
   const t0 = Date.now();
 
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
@@ -66,13 +60,11 @@ async function readUserRole(fbUser: User): Promise<Role> {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       // Get fresh ID token
-      log('readUserRole getIdToken', { attempt });
       const idToken = await fbUser.getIdToken(true);
-      log('readUserRole got token', { attempt, tokenLen: idToken.length });
+      log('readUserRole attempt', { attempt, tokenLen: idToken.length });
 
       // REST API call — bypass Firestore SDK entirely
       const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${fbUser.uid}`;
-      log('readUserRole fetch REST', { attempt, url });
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -88,33 +80,32 @@ async function readUserRole(fbUser: User): Promise<Role> {
 
       clearTimeout(timeoutId);
       const elapsed = Date.now() - t0;
-      log('readUserRole REST response', { attempt, status: response.status, elapsed_ms: elapsed });
+      log('readUserRole response', { attempt, status: response.status, elapsed_ms: elapsed });
 
       if (response.status === 200) {
         const doc = await response.json();
-        log('readUserRole REST doc', { fields: Object.keys(doc.fields || {}) });
+        log('readUserRole 200 OK', { fields: doc.fields });
 
         const roleField = doc.fields?.role;
         if (roleField?.stringValue) {
-          log('readUserRole ACCEPTED', { role: roleField.stringValue, attempt });
-          return roleField.stringValue as Role;
+          const role = roleField.stringValue as Role;
+          log('readUserRole ACCEPTED', { role, attempt });
+          return role;
         }
-        log('readUserRole role field missing', { roleField });
+        log('readUserRole role field missing in 200 response', { roleField });
       } else if (response.status === 404) {
-        log('readUserRole NOT FOUND (404)', { attempt });
+        log('readUserRole 404 NOT FOUND', { attempt, uid: fbUser.uid });
       } else if (response.status === 403) {
-        log('readUserRole PERMISSION DENIED (403)', { attempt });
-        // Retry with fresh token
+        log('readUserRole 403 PERMISSION DENIED', { attempt });
       } else {
         const text = await response.text();
-        log('readUserRole unexpected status', { status: response.status, body: text.substring(0, 200) });
+        log('readUserRole unexpected status', { status: response.status, body: text.substring(0, 300) });
       }
     } catch (err: any) {
-      log('readUserRole FAILED', { attempt, error: err?.name || err?.code || err?.message });
+      log('readUserRole exception', { attempt, error: err?.name || err?.code || err?.message });
     }
 
     if (attempt < MAX_ATTEMPTS) {
-      log('readUserRole retrying', { delay_ms: 500 });
       await new Promise((r) => setTimeout(r, 500));
     }
   }

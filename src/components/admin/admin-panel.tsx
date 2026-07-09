@@ -103,15 +103,24 @@ export function AdminPanel() {
                 const ok = await login(email, password);
                 const elapsed = Date.now() - t0;
                 if (ok) {
-                  // Use setTimeout to read state after re-render
+                  // Read role directly from store after login
+                  // Use a small delay to let storeSet complete
                   setTimeout(() => {
-                    const role = (window as any).__pbr_currentRole || 'loading...';
-                    setLoginDebug(`✅ Login OK (${elapsed}ms) — check dashboard for role`);
-                  }, 100);
-                  toast.success(`Login berhasil (${elapsed}ms)`, {
-                    description: 'Cek Firestore → messages (type=debug_telemetry)',
-                    duration: 10000,
-                  });
+                    // Access store state directly
+                    const storeState = (window as any).__pbr_storeState;
+                    const role = storeState?.currentUser?.role || 'unknown';
+                    setLoginDebug(`✅ Login OK (${elapsed}ms) — Role: ${role}`);
+                    if (role === 'editor') {
+                      toast.error(`⚠️ Role: editor (${elapsed}ms)`, {
+                        description: 'REST API mungkin gagal. Buka DevTools Console (F12) untuk lihat [PBR-AUTH] logs.',
+                        duration: 15000,
+                      });
+                    } else {
+                      toast.success(`✅ Role: ${role} (${elapsed}ms)`, {
+                        duration: 5000,
+                      });
+                    }
+                  }, 500);
                 } else {
                   setLoginDebug(`❌ Login failed (${elapsed}ms)`);
                   toast.error(`Email atau password salah (${elapsed}ms)`, {
