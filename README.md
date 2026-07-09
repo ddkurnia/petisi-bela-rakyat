@@ -83,14 +83,44 @@ dan memiliki dokumen role di Firestore collection `users`.
 **Setup admin pertama:**
 
 1. Buat user di Firebase Console → Authentication → Add user
-2. Jalankan: `bun run setup-admin <email> "<DisplayName>"`
-   Script ini membuat dokumen `users/{uid}` dengan role `super_admin`
-   (Document ID = Auth UID, penting agar app bisa membaca role)
+2. Jalankan setup-admin script:
+
+   **Di Termux (Android) — gunakan node (bun tidak support):**
+   ```bash
+   pkg install nodejs          # jika belum ada node
+   node scripts/setup-admin.mjs admin@belarakyat.org "Administrator"
+   ```
+
+   **Di PC/Mac — bisa gunakan bun atau node:**
+   ```bash
+   bun run setup-admin admin@belarakyat.org "Administrator"
+   # atau
+   node scripts/setup-admin.mjs admin@belarakyat.org "Administrator"
+   ```
+
+   Script ini membuat dokumen `users/{uid}` dengan:
+   - Document ID = Auth UID (PENTING agar app bisa baca role)
+   - Field `role: "super_admin"`
+
 3. Login di `/admin` dengan email & password yang dibuat
+
+**Verifikasi setup berhasil:**
+
+```bash
+# Di Termux (node):
+node scripts/verify-firestore-access.mjs admin@belarakyat.org Kapal7890@
+
+# Di PC (bun atau node):
+bun run verify-admin admin@belarakyat.org Kapal7890@
+```
+
+Script ini akan sign in ke Firebase Auth, baca `users/{uid}` via
+`getDocFromServer`, dan report apakah dokumen ada dengan role benar.
 
 **Menambah admin/editor lain:**
 - Super admin bisa membuat dokumen `users/{uid}` baru via Firebase Console
   dengan field `role: "admin"` atau `role: "editor"`
+  (PASTIKAN Document ID = Auth UID user tersebut)
 
 ## 🗂️ Struktur Project
 
