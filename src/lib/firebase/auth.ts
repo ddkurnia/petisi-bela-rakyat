@@ -8,10 +8,8 @@ import {
   getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider,
   signOut, onAuthStateChanged, type User,
 } from 'firebase/auth';
-import { doc, getDocFromServer } from 'firebase/firestore';
 import { app } from './firebase';
 import { isFirebaseConfigured, COLLECTIONS } from './config';
-import { db } from './firestore';
 
 const auth = isFirebaseConfigured && app ? getAuth(app) : null;
 const googleProvider = new GoogleAuthProvider();
@@ -37,64 +35,87 @@ function log(tag: string, ...args: any[]) {
 }
 
 // ============================================================
-// getDocWithTimeout
+// readUserRole — read role via REST API (bypass Firestore SDK)
 // ============================================================
-async function getDocWithTimeout(ref: any, timeoutMs = 4000): Promise<any> {
-  return Promise.race([
-    getDocFromServer(ref),
-    new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error(`timeout ${timeoutMs}ms`)), timeoutMs);
-    }),
-  ]);
-}
-
-// ============================================================
-// readUserRole — read role from Firestore (synchronous, blocking)
-// ============================================================
-// Test script proved this works in 872ms with correct result.
+// WHY REST API: Firestore SDK in web app has internal state that
+// causes getDocFromServer to hang for 26 seconds (connection queue,
+// auth token sync issues). The test script (which creates a FRESH
+// Firebase instance) works in 872ms, but the web app's long-running
+// SDK instance doesn't.
+//
+// REST API bypass: use fetch() directly with the user's ID token.
+// No SDK internal state, no connection pooling, no cache. This is
+// guaranteed to work because we have a valid ID token from
+// getIdToken() just before calling this.
+//
+// This is EXACTLY what verify-firestore-access.mjs does (and it
+// works in <1s).
 // ============================================================
 async function readUserRole(fbUser: User): Promise<Role> {
-  log('readUserRole START', { uid: fbUser.uid });
+  log('readUserRole START (REST API)', { uid: fbUser.uid });
   const t0 = Date.now();
 
-  // Wait 500ms for Firestore SDK to process auth token
-  await new Promise((r) => setTimeout(r, 500));
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  if (!projectId) {
+    log('readUserRole ERROR', 'NEXT_PUBLIC_FIREBASE_PROJECT_ID not set');
+    return 'editor';
+  }
 
-  const MAX_ATTEMPTS = 4;
-  const DOC_TIMEOUT_MS = 4000;
+  const MAX_ATTEMPTS = 3;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      if (!db) { log('readUserRole ERROR', 'db null'); break; }
+      // Get fresh ID token
+      log('readUserRole getIdToken', { attempt });
+      const idToken = await fbUser.getIdToken(true);
+      log('readUserRole got token', { attempt, tokenLen: idToken.length });
 
-      if (attempt > 1) {
-        log('readUserRole forceRefresh', { attempt });
-        await fbUser.getIdToken(true);
-        await new Promise((r) => setTimeout(r, 500));
-      }
+      // REST API call — bypass Firestore SDK entirely
+      const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${fbUser.uid}`;
+      log('readUserRole fetch REST', { attempt, url });
 
-      const ref = doc(db, COLLECTIONS.USERS, fbUser.uid);
-      log('readUserRole getDocFromServer', { attempt, path: `users/${fbUser.uid}` });
-      const snap = await getDocWithTimeout(ref, DOC_TIMEOUT_MS);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
       const elapsed = Date.now() - t0;
-      log('readUserRole RESULT', { attempt, elapsed_ms: elapsed, exists: snap.exists(), fromCache: snap.metadata?.fromCache });
+      log('readUserRole REST response', { attempt, status: response.status, elapsed_ms: elapsed });
 
-      if (snap.exists()) {
-        const data = snap.data();
-        const docRole = data.role;
-        log('readUserRole DATA', { role: docRole, keys: Object.keys(data) });
-        if (typeof docRole === 'string' && docRole.length > 0) {
-          log('readUserRole ACCEPTED', { role: docRole, attempt });
-          return docRole as Role;
+      if (response.status === 200) {
+        const doc = await response.json();
+        log('readUserRole REST doc', { fields: Object.keys(doc.fields || {}) });
+
+        const roleField = doc.fields?.role;
+        if (roleField?.stringValue) {
+          log('readUserRole ACCEPTED', { role: roleField.stringValue, attempt });
+          return roleField.stringValue as Role;
         }
+        log('readUserRole role field missing', { roleField });
+      } else if (response.status === 404) {
+        log('readUserRole NOT FOUND (404)', { attempt });
+      } else if (response.status === 403) {
+        log('readUserRole PERMISSION DENIED (403)', { attempt });
+        // Retry with fresh token
       } else {
-        log('readUserRole NOT FOUND', { attempt });
+        const text = await response.text();
+        log('readUserRole unexpected status', { status: response.status, body: text.substring(0, 200) });
       }
     } catch (err: any) {
-      log('readUserRole FAILED', { attempt, error: err?.code || err?.message });
-      if (attempt < MAX_ATTEMPTS) {
-        await new Promise((r) => setTimeout(r, 500));
-      }
+      log('readUserRole FAILED', { attempt, error: err?.name || err?.code || err?.message });
+    }
+
+    if (attempt < MAX_ATTEMPTS) {
+      log('readUserRole retrying', { delay_ms: 500 });
+      await new Promise((r) => setTimeout(r, 500));
     }
   }
 
