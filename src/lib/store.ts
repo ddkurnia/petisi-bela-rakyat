@@ -21,6 +21,7 @@ import {
 } from "@/lib/firebase/config";
 import {
   onAuthChange, loginWithEmail, loginWithGoogle, logout as fbLogout,
+  setCurrentRoleGetter,
   type AppUser, type Role,
 } from "@/lib/firebase/auth";
 import {
@@ -293,6 +294,10 @@ function storeSet(partial: Partial<AppState>) {
 function init() {
   if (initialized || !isFirebaseConfigured) return;
   initialized = true;
+
+  // Register role getter so onAuthChange's guard can check the
+  // currently-set role before overwriting it with an editor fallback.
+  setCurrentRoleGetter(() => state.currentUser?.role ?? null);
 
   // Auth
   onAuthChange((user) => storeSet({ currentUser: user }));

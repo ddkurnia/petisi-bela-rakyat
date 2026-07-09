@@ -3,9 +3,10 @@ import {
   getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider,
   signOut, onAuthStateChanged, type User,
 } from 'firebase/auth';
+import { doc, getDoc, getDocFromServer } from 'firebase/firestore';
 import { app } from './firebase';
 import { isFirebaseConfigured, COLLECTIONS } from './config';
-import { getById } from './firestore';
+import { getById, db } from './firestore';
 
 const auth = isFirebaseConfigured && app ? getAuth(app) : null;
 const googleProvider = new GoogleAuthProvider();
@@ -25,50 +26,54 @@ export interface AuthResult { success: boolean; user?: AppUser; error?: string; 
 // ============================================================
 // mapUser — read user's Firestore document to get role.
 // ============================================================
-// ROOT CAUSE of the original bug:
-//   signInWithEmailAndPassword() resolves BEFORE the Firestore SDK
-//   has received the new auth token. The Firestore SDK has an
-//   internal listener that subscribes to Firebase Auth state
-//   changes, but token propagation is asynchronous. When
-//   getById() (which calls getDoc()) is invoked immediately after
-//   sign-in, the Firestore SDK may still be using a stale
-//   (anonymous/null) token.
+// ROOT CAUSE of the persistent 'editor' bug (after prior fixes):
 //
-//   Two failure modes follow:
-//     (a) If Firestore evaluates the read with a null token,
-//         request.auth is null → isSignedIn() returns false →
-//         PERMISSION_DENIED (terminal — no retry).
-//     (b) If the Firestore SDK detects that auth state is in
-//         flux, it queues the read waiting for the token to
-//         settle. If the token never settles in time, the read
-//         hangs until the default Firestore timeout (60 seconds).
+//   The Firestore client SDK maintains an in-memory + IndexedDB
+//   cache of documents it has read. When getDoc() is called, the
+//   SDK FIRST checks the cache. If the document is in cache
+//   (even with stale data from BEFORE the user was signed in —
+//   e.g. a cached permission-denied or a cached "not found"),
+//   getDoc() returns the CACHED result WITHOUT hitting the
+//   server.
 //
-//   Both modes result in getById() throwing. The original catch
-//   block silently fell back to role 'editor'. Because BOTH
-//   loginWithEmail() and the onAuthChange() listener hit the
-//   same race, BOTH mapUser() calls produced 'editor' — that is
-//   why the role was always 'editor' even though the Firestore
-//   document correctly contains 'super_admin'.
+//   Before login, the /admin page mounts. init() registers the
+//   onAuthChange listener, which fires immediately with null
+//   (no user). At this point NO users/{uid} read happens (good).
+//   BUT — the page may also trigger other Firestore reads (e.g.
+//   settingsService.subscribe, blogService.subscribe). Those
+//   reads do not touch users/{uid}, so they don't pollute the
+//   user-doc cache.
 //
-//   The ~1 minute delay is mode (b): the Firestore read hanging
-//   until its 60-second timeout.
+//   However, after signInWithEmailAndPassword() + getIdToken(),
+//   the FIRST mapUser() call (from loginWithEmail) does
+//   getDoc(users/{uid}). This reads from SERVER (cache miss),
+//   gets the correct role, returns super_admin. storeSet happens
+//   via onAuthChange. So far so good.
 //
-// FIX (three layers, all targeting the root cause):
-//   1. Force token refresh after sign-in via getIdToken(). This
-//      synchronously emits the new token to all internal Auth
-//      subscribers — including the Firestore SDK's listener —
-//      so Firestore's auth state is fresh before we read.
-//   2. Retry getById() with short backoff (3 attempts, 300ms gap)
-//      to cover the brief async window of token propagation.
-//      Even with getIdToken(), there can be a sub-second delay
-//      before Firestore's listener processes the event.
-//   3. login() no longer sets currentUser itself — it just
-//      returns true after sign-in succeeds. The onAuthChange()
-//      listener (registered once in init()) is the single source
-//      of truth for currentUser. This eliminates the race where
-//      loginWithEmail's mapUser() (which may still fall back to
-//      'editor' if all retries fail) overwrites the correct role
-//      set by onAuthChange().
+//   BUT THEN onAuthStateChanged fires AGAIN (token refresh,
+//   Firebase Auth fires multiple events during sign-in). The
+//   second mapUser() call hits getDoc(users/{uid}) — this time
+//   the doc IS in cache. The cache may contain a stale snapshot
+//   from a PREVIOUS session (different user, or same user but
+//   before role was set to super_admin). The stale snapshot has
+//   role=undefined or role=editor. mapUser returns editor.
+//   storeSet({ currentUser: editor }) overwrites super_admin.
+//
+//   Net effect: even though loginWithEmail's mapUser returned
+//   super_admin, the SECOND onAuthChange fire (seconds later)
+//   overwrites with editor. The user sees editor menu.
+//
+// FIX:
+//   1. Use getDocFromServer() for user-role reads. This BYPASSES
+//      the cache entirely and always fetches fresh from server.
+//      This guarantees we read the CURRENT role value, not a
+//      stale cached copy.
+//   2. Guard against overwrite: onAuthChange's mapUser only sets
+//      currentUser if the new role is at least as authoritative
+//      as the current one. If we already have super_admin, do not
+//      let a transient editor-fallback overwrite it.
+//   3. Keep the retry loop as defense-in-depth (covers brief
+//      network blips), but the primary fix is getDocFromServer.
 // ============================================================
 async function mapUser(fbUser: User): Promise<AppUser> {
   let role: Role = 'editor';
@@ -79,17 +84,48 @@ async function mapUser(fbUser: User): Promise<AppUser> {
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      const userDoc = await getById<AppUser & { role?: Role }>(COLLECTIONS.USERS, fbUser.uid);
+      // CRITICAL: use getDocFromServer() to bypass the Firestore
+      // SDK's local cache. The cache may contain a stale snapshot
+      // of users/{uid} from before the current sign-in (e.g. from
+      // a previous session, or from a transient read that returned
+      // permission-denied). getDoc() would return the cached value
+      // without hitting the server, causing role to be undefined
+      // or stale. getDocFromServer() forces a fresh server read.
+      let userDoc: { role?: Role; displayName?: string } | null = null;
+      if (db) {
+        const ref = doc(db, COLLECTIONS.USERS, fbUser.uid);
+        const snap = await getDocFromServer(ref);
+        if (snap.exists()) {
+          userDoc = snap.data() as { role?: Role; displayName?: string };
+        }
+      } else {
+        // Fallback to getById if db not available (shouldn't happen)
+        userDoc = await getById<{ role?: Role; displayName?: string }>(COLLECTIONS.USERS, fbUser.uid);
+      }
+
       if (userDoc) {
-        role = userDoc.role || 'editor';
+        // Be strict: only accept role if it's a non-empty string.
+        // If role field is missing/empty/undefined, fall back to
+        // 'editor' but DO log so we can diagnose.
+        const docRole = userDoc.role;
+        if (typeof docRole === 'string' && docRole.length > 0) {
+          role = docRole as Role;
+        } else {
+          console.warn('[auth] users/{uid} document exists but role field is missing or invalid. Got:', docRole, 'Full doc:', userDoc);
+        }
         if (userDoc.displayName) displayName = userDoc.displayName;
+      } else {
+        // Document does not exist. This is a real problem — the
+        // user is authenticated but has no Firestore user doc.
+        console.warn('[auth] users/' + fbUser.uid + ' document does NOT exist. Run: bun run setup-admin ' + fbUser.email);
       }
       break; // success — exit retry loop
     } catch (err) {
+      console.warn('[auth] mapUser attempt', attempt, 'failed:', err);
       if (attempt < MAX_ATTEMPTS) {
         await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
       } else {
-        console.warn('[auth] role lookup failed after', MAX_ATTEMPTS, 'attempts:', err);
+        console.warn('[auth] role lookup failed after', MAX_ATTEMPTS, 'attempts');
       }
     }
   }
@@ -102,13 +138,10 @@ export async function loginWithEmail(email: string, password: string): Promise<A
   try {
     const cred = await signInWithEmailAndPassword(auth, email, password);
 
-    // CRITICAL: force Firestore to pick up the new auth token.
-    // signInWithEmailAndPassword() resolves before the Firestore SDK's
-    // internal auth listener has processed the new token. Calling
-    // getIdToken() forces Auth to emit the token, which Firestore's
-    // listener receives via its internal subscription. Without this,
-    // the subsequent getById() may hang for up to 60 seconds (Firestore
-    // default timeout) waiting for auth state to settle.
+    // Force Firestore to pick up the new auth token. Without this,
+    // the Firestore SDK's internal auth listener may still use a
+    // stale token, causing the subsequent user-doc read to hang
+    // for up to 60 seconds (Firestore default timeout).
     await cred.user.getIdToken();
 
     const user = await mapUser(cred.user);
@@ -130,12 +163,50 @@ export async function loginWithGoogle(): Promise<AuthResult> {
 
 export async function logout(): Promise<void> { if (auth) await signOut(auth); }
 
+// ============================================================
+// onAuthChange — single source of truth for currentUser.
+// ============================================================
+// GUARD: if the new mapUser() result has a fallback role 'editor'
+// but the current store already has a more authoritative role
+// (super_admin or admin), DO NOT overwrite. This prevents a
+// transient onAuthStateChanged fire (e.g. token refresh mid-
+// sign-in) from clobbering the correct role with the editor
+// fallback.
+//
+// The guard is implemented via an optional "currentRoleGetter"
+// callback so onAuthChange can ask the store what role is
+// currently set before deciding to overwrite.
+// ============================================================
+let currentRoleGetter: (() => Role | null) | null = null;
+
+export function setCurrentRoleGetter(getter: () => Role | null) {
+  currentRoleGetter = getter;
+}
+
 export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
   if (!auth) { cb(null); return () => {}; }
   return onAuthStateChanged(auth, async (fbUser) => {
     if (fbUser) {
-      try { cb(await mapUser(fbUser)); }
-      catch { cb(null); }
+      try {
+        const user = await mapUser(fbUser);
+
+        // Guard against editor-fallback overwriting a real role.
+        // If the store already has super_admin or admin, and the
+        // new mapUser returned 'editor' (the fallback), skip the
+        // callback — the existing role is more authoritative.
+        if (user.role === 'editor' && currentRoleGetter) {
+          const existing = currentRoleGetter();
+          if (existing === 'super_admin' || existing === 'admin') {
+            console.warn('[auth] onAuthChange: skipping overwrite of', existing, 'with editor fallback');
+            return;
+          }
+        }
+
+        cb(user);
+      } catch (err) {
+        console.warn('[auth] onAuthChange mapUser threw:', err);
+        cb(null);
+      }
     } else {
       cb(null);
     }
