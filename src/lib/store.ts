@@ -32,15 +32,7 @@ import {
 } from "@/services";
 
 // ============================================================
-// Write helper — uses MAIN Firestore instance (has auth) with timeout
-// ============================================================
-// The fresh instance approach FAILED because the fresh app instance
-// does NOT share Auth state with the main app. All writes were
-// permission-denied silently (no auth = no isAdmin() = rejected).
-//
-// Fix: use MAIN instance services (which have the authenticated user)
-// but wrap with 10s timeout to prevent hanging. The hanging was only
-// on READS (getDocFromServer), not on writes (addDoc/updateDoc/deleteDoc).
+// Write helper — REST API with fresh ID token (force refresh)
 // ============================================================
 function withTimeout<T>(promise: Promise<T>, ms = 10000): Promise<T> {
   return Promise.race([
@@ -51,37 +43,46 @@ function withTimeout<T>(promise: Promise<T>, ms = 10000): Promise<T> {
   ]);
 }
 
-async function ensureAuthReady(): Promise<void> {
+// Get a FRESH token with forceRefresh=true — never use cached
+async function getFreshToken(): Promise<string> {
   const fbUser = getCurrentFirebaseUser();
-  if (fbUser) {
-    await fbUser.getIdToken(true);
-  }
+  if (!fbUser) throw new Error('Not authenticated');
+  return fbUser.getIdToken(true);
+}
+
+// Convert JS value to Firestore REST API field format
+function toFirestoreValue(v: any): any {
+  if (typeof v === 'string') return { stringValue: v };
+  if (typeof v === 'number') return { integerValue: String(v) };
+  if (typeof v === 'boolean') return { booleanValue: v };
+  if (Array.isArray(v)) return { arrayValue: { values: v.map(i => typeof i === 'string' ? { stringValue: i } : { stringValue: JSON.stringify(i) }) } };
+  if (v === null || v === undefined) return { nullValue: null };
+  return { stringValue: JSON.stringify(v) };
+}
+
+// Convert Firestore REST field to JS value
+function fromFirestoreValue(v: any): any {
+  return v.stringValue || v.integerValue || v.booleanValue || v.doubleValue || v.nullValue || null;
 }
 
 async function writeCreate(collectionName: string, data: any): Promise<string> {
-  await ensureAuthReady();
+  const token = await getFreshToken();
   const { id, ...rest } = data;
+  const fields: Record<string, any> = {};
+  const fullData = { ...rest, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  for (const [k, v] of Object.entries(fullData)) {
+    fields[k] = toFirestoreValue(v);
+  }
   const result = await withTimeout(
     fetch(`https://firestore.googleapis.com/v1/projects/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/databases/(default)/documents/${collectionName}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${await getCurrentFirebaseUser()!.getIdToken()}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        fields: Object.fromEntries(
-          Object.entries({ ...rest, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }).map(([k, v]) => {
-            if (typeof v === 'string') return [k, { stringValue: v }];
-            if (typeof v === 'number') return [k, { integerValue: String(v) }];
-            if (typeof v === 'boolean') return [k, { booleanValue: v }];
-            if (Array.isArray(v)) return [k, { arrayValue: { values: v.map(i => typeof i === 'string' ? { stringValue: i } : { stringValue: JSON.stringify(i) }) } }];
-            if (v === null || v === undefined) return [k, { nullValue: null }];
-            return [k, { stringValue: JSON.stringify(v) }];
-          })
-        ),
-      }),
+      body: JSON.stringify({ fields }),
     }).then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      if (!r.ok) return r.text().then(t => { throw new Error(`HTTP ${r.status}: ${t.substring(0, 200)}`); });
       return r.json();
     })
   );
@@ -89,56 +90,46 @@ async function writeCreate(collectionName: string, data: any): Promise<string> {
 }
 
 async function writeUpdate(collectionName: string, id: string, data: any): Promise<void> {
-  await ensureAuthReady();
+  const token = await getFreshToken();
   const { id: _, ...rest } = data;
-  const fields = Object.fromEntries(
-    Object.entries({ ...rest, updatedAt: new Date().toISOString() }).map(([k, v]) => {
-      if (typeof v === 'string') return [k, { stringValue: v }];
-      if (typeof v === 'number') return [k, { integerValue: String(v) }];
-      if (typeof v === 'boolean') return [k, { booleanValue: v }];
-      if (Array.isArray(v)) return [k, { arrayValue: { values: v.map(i => typeof i === 'string' ? { stringValue: i } : { stringValue: JSON.stringify(i) }) } }];
-      if (v === null || v === undefined) return [k, { nullValue: null }];
-      return [k, { stringValue: JSON.stringify(v) }];
-    })
-  );
-  // Use PATCH with fieldMask to update specific fields
+  const fields: Record<string, any> = {};
+  const fullData = { ...rest, updatedAt: new Date().toISOString() };
+  for (const [k, v] of Object.entries(fullData)) {
+    fields[k] = toFirestoreValue(v);
+  }
   const fieldMask = Object.keys(fields).map(f => `updateMask.fieldPaths=${f}`).join('&');
   await withTimeout(
     fetch(`https://firestore.googleapis.com/v1/projects/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/databases/(default)/documents/${collectionName}/${id}?${fieldMask}`, {
       method: 'PATCH',
       headers: {
-        'Authorization': `Bearer ${await getCurrentFirebaseUser()!.getIdToken()}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ fields }),
     }).then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      if (!r.ok) return r.text().then(t => { throw new Error(`HTTP ${r.status}: ${t.substring(0, 200)}`); });
     })
   );
 }
 
 async function writeDelete(collectionName: string, id: string): Promise<void> {
-  await ensureAuthReady();
+  const token = await getFreshToken();
   await withTimeout(
     fetch(`https://firestore.googleapis.com/v1/projects/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/databases/(default)/documents/${collectionName}/${id}`, {
       method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${await getCurrentFirebaseUser()!.getIdToken()}`,
-      },
+      headers: { 'Authorization': `Bearer ${token}` },
     }).then(r => {
-      if (!r.ok && r.status !== 404) throw new Error(`HTTP ${r.status}`);
+      if (!r.ok && r.status !== 404) return r.text().then(t => { throw new Error(`HTTP ${r.status}: ${t.substring(0, 200)}`); });
     })
   );
 }
 
 async function writeGetAll(collectionName: string): Promise<any[]> {
-  await ensureAuthReady();
+  const token = await getFreshToken();
   const response = await withTimeout(
     fetch(`https://firestore.googleapis.com/v1/projects/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/databases/(default)/documents/${collectionName}`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${await getCurrentFirebaseUser()!.getIdToken()}`,
-      },
+      headers: { 'Authorization': `Bearer ${token}` },
     }).then(r => r.json())
   );
   if (!response.documents) return [];
@@ -146,7 +137,7 @@ async function writeGetAll(collectionName: string): Promise<any[]> {
     const id = doc.name?.split('/').pop() || '';
     const fields: any = {};
     for (const [k, v] of Object.entries(doc.fields || {})) {
-      fields[k] = (v as any).stringValue || (v as any).integerValue || (v as any).booleanValue || (v as any).doubleValue;
+      fields[k] = fromFirestoreValue(v);
     }
     return { id, ...fields };
   });
