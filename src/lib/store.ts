@@ -31,23 +31,47 @@ import {
   transparencyService, reportService, settingsService, messageService,
 } from "@/services";
 import {
-  collection as fsCollection, doc as fsDoc, addDoc as fsAddDoc,
-  setDoc as fsSetDoc, updateDoc as fsUpdateDoc, deleteDoc as fsDeleteDoc,
-  getDoc as fsGetDoc, getDocs as fsGetDocs,
+  initializeApp as fbInitApp, type FirebaseApp as FbApp,
+} from "firebase/app";
+import {
+  getFirestore as fbGetFirestore, collection as fsCollection, doc as fsDoc,
+  addDoc as fsAddDoc, setDoc as fsSetDoc, updateDoc as fsUpdateDoc,
+  deleteDoc as fsDeleteDoc, type Firestore as FbFirestore,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase/firestore";
 
 // ============================================================
-// Write helper — Firestore SDK with timeout, NO reads before writes
+// FRESH Firestore instance for WRITES
 // ============================================================
-// The main Firestore SDK instance hangs on READS (getDocs, getDoc,
-// getDocFromServer). But WRITES (addDoc, setDoc, updateDoc, deleteDoc)
-// work fine — they don't depend on the same internal state.
+// The main Firestore instance (from firestore.ts) is COMPLETELY
+// broken — both reads AND writes hang. Even with only 1 onSnapshot
+// listener, setDoc/addDoc timeout after 8s.
 //
-// CRITICAL: never call read (writeGetAll) before write. Use setDoc
-// with merge for settings (no read needed). Use addDoc for collections
-// (no read needed). This avoids the hang entirely.
+// readUserRole in auth.ts ALREADY uses a fresh instance and WORKS
+// (872ms). Firebase Auth shares state across app instances via
+// IndexedDB (keyed by apiKey+authDomain, NOT app name). So the
+// fresh instance picks up the logged-in user automatically.
+//
+// This is the SAME approach. It works for reads, it will work
+// for writes.
 // ============================================================
+let writeApp: FbApp | null = null;
+let writeDb: FbFirestore | null = null;
+
+function getWriteDb(): FbFirestore {
+  if (writeDb) return writeDb;
+  const config = {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  };
+  writeApp = fbInitApp(config as any, 'writer-app');
+  writeDb = fbGetFirestore(writeApp);
+  console.log('%c[PBR-STORE] created FRESH Firestore instance for writes', 'color:#9333ea;font-weight:bold');
+  return writeDb;
+}
 
 function withTimeout<T>(promise: Promise<T>, ms = 8000, label = 'operation'): Promise<T> {
   return Promise.race([
@@ -59,10 +83,11 @@ function withTimeout<T>(promise: Promise<T>, ms = 8000, label = 'operation'): Pr
 }
 
 async function writeCreate(collectionName: string, data: any): Promise<string> {
+  const wdb = getWriteDb();
   const { id, ...rest } = data;
-  console.log('[PBR-WRITE] addDoc', collectionName);
+  console.log('[PBR-WRITE] addDoc (fresh)', collectionName);
   const ref = await withTimeout(
-    fsAddDoc(fsCollection(db!, collectionName), {
+    fsAddDoc(fsCollection(wdb, collectionName), {
       ...rest,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -74,12 +99,12 @@ async function writeCreate(collectionName: string, data: any): Promise<string> {
   return ref.id;
 }
 
-// setDoc with merge — no read needed, creates or updates
 async function writeSet(collectionName: string, docId: string, data: any, merge = true): Promise<void> {
+  const wdb = getWriteDb();
   const { id, ...rest } = data;
-  console.log('[PBR-WRITE] setDoc', collectionName, docId, 'merge:', merge);
+  console.log('[PBR-WRITE] setDoc (fresh)', collectionName, docId);
   await withTimeout(
-    fsSetDoc(fsDoc(db!, collectionName, docId), {
+    fsSetDoc(fsDoc(wdb, collectionName, docId), {
       ...rest,
       updatedAt: new Date().toISOString(),
     }, { merge }),
@@ -90,10 +115,11 @@ async function writeSet(collectionName: string, docId: string, data: any, merge 
 }
 
 async function writeUpdate(collectionName: string, id: string, data: any): Promise<void> {
+  const wdb = getWriteDb();
   const { id: _, ...rest } = data;
-  console.log('[PBR-WRITE] updateDoc', collectionName, id);
+  console.log('[PBR-WRITE] updateDoc (fresh)', collectionName, id);
   await withTimeout(
-    fsUpdateDoc(fsDoc(db!, collectionName, id), {
+    fsUpdateDoc(fsDoc(wdb, collectionName, id), {
       ...rest,
       updatedAt: new Date().toISOString(),
     } as any),
@@ -104,9 +130,10 @@ async function writeUpdate(collectionName: string, id: string, data: any): Promi
 }
 
 async function writeDelete(collectionName: string, id: string): Promise<void> {
-  console.log('[PBR-WRITE] deleteDoc', collectionName, id);
+  const wdb = getWriteDb();
+  console.log('[PBR-WRITE] deleteDoc (fresh)', collectionName, id);
   await withTimeout(
-    fsDeleteDoc(fsDoc(db!, collectionName, id)),
+    fsDeleteDoc(fsDoc(wdb, collectionName, id)),
     8000,
     'deleteDoc'
   );
