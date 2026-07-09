@@ -176,10 +176,19 @@ export async function logout(): Promise<void> {
 // ============================================================
 // onAuthChange — for page reload (restore session)
 // ============================================================
+// During login flow, onAuthChange is BLOCKED entirely via
+// loginPhaseActive flag. Only fires for page reload (restore).
+// ============================================================
 let currentRoleGetter: (() => Role | null) | null = null;
+let loginPhaseActive = false;
 
 export function setCurrentRoleGetter(getter: () => Role | null) {
   currentRoleGetter = getter;
+}
+
+export function setLoginPhaseActive(active: boolean) {
+  loginPhaseActive = active;
+  log('setLoginPhaseActive', { active });
 }
 
 export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
@@ -189,6 +198,12 @@ export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
     return () => {};
   }
   return onAuthStateChanged(auth, async (fbUser) => {
+    // CRITICAL: block entirely during login phase
+    if (loginPhaseActive) {
+      log('onAuthChange SKIP (loginPhaseActive)');
+      return;
+    }
+
     if (fbUser) {
       try {
         // Read role from Firestore

@@ -22,6 +22,7 @@ import {
 import {
   onAuthChange, loginWithEmail, loginWithGoogle, logout as fbLogout,
   setCurrentRoleGetter, fetchUserRoleAndUpdate, getCurrentFirebaseUser,
+  setLoginPhaseActive,
   type AppUser, type Role,
 } from "@/lib/firebase/auth";
 import {
@@ -182,20 +183,21 @@ const handleErr = (err: any, msg = "Operasi gagal") => {
 let state: AppState = {
   currentUser: null,
   login: async (email, password) => {
-    // SIMPLIFIED: like admin dummy — set currentUser IMMEDIATELY
-    // after signIn, then fetch real role in background.
+    // TWO-PHASE LOGIN:
+    // Phase 1 (instant): signIn + set currentUser with temp role
+    // Phase 2 (background): fetch real role, update currentUser
     //
-    // loginWithEmail now returns quickly with temp role 'editor'.
-    // We set currentUser immediately (UI updates, user enters dashboard).
-    // Then we fetch the REAL role from Firestore in background and
-    // update currentUser when role is available.
+    // loginPhaseActive flag blocks onAuthChange from firing during
+    // both phases, preventing it from overwriting with editor fallback.
     const res = await loginWithEmail(email, password);
     if (res.success && res.user) {
       // Set currentUser IMMEDIATELY — UI updates, user enters dashboard
       storeSet({ currentUser: res.user });
 
+      // Activate login phase — block onAuthChange entirely
+      setLoginPhaseActive(true);
+
       // Fetch real role in BACKGROUND (non-blocking)
-      // getCurrentFirebaseUser() returns the Firebase Auth user
       const fbUser = getCurrentFirebaseUser();
       if (fbUser) {
         fetchUserRoleAndUpdate(fbUser, (role) => {
@@ -203,11 +205,17 @@ let state: AppState = {
           const current = state.currentUser;
           if (current && current.uid === res.user!.uid) {
             storeSet({ currentUser: { ...current, role } });
-            console.log('%c[PBR-STORE] role updated', 'color:#16a34a;font-weight:bold', role);
+            console.log('%c[PBR-STORE] role updated to', 'color:#16a34a;font-weight:bold', role);
+            toast.success(`Role: ${role}`, { duration: 3000 });
           }
+          // Deactivate login phase — allow onAuthChange for future events
+          setLoginPhaseActive(false);
         }).catch((err) => {
           console.error('[PBR-STORE] fetchUserRoleAndUpdate failed:', err);
+          setLoginPhaseActive(false);
         });
+      } else {
+        setLoginPhaseActive(false);
       }
 
       return true;
