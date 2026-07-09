@@ -182,14 +182,12 @@ const handleErr = (err: any, msg = "Operasi gagal") => {
 let state: AppState = {
   currentUser: null,
   login: async (email, password) => {
-    // SYNCHRONOUS login: loginWithEmail does signIn + getIdToken +
-    // readUserRole (blocking). Returns user with CORRECT role.
-    // Test script proved readUserRole works in 872ms.
-    // Total login: ~2s. No background fetch, no race condition.
     const res = await loginWithEmail(email, password);
     if (res.success && res.user) {
       storeSet({ currentUser: res.user });
       console.log('%c[PBR-STORE] login set currentUser', 'color:#16a34a;font-weight:bold', { role: res.user.role });
+      // Register Firestore subscribers now that user is logged in
+      initDataSubscribers();
       return true;
     }
     return false;
@@ -304,20 +302,35 @@ function storeSet(partial: Partial<AppState>) {
 function init() {
   if (initialized || !isFirebaseConfigured) return;
   initialized = true;
-  console.log('%c[PBR-STORE init]', 'color:#2563eb;font-weight:bold', 'initializing store, registering listeners');
+  console.log('%c[PBR-STORE init]', 'color:#2563eb;font-weight:bold', 'initializing store — auth listener ONLY');
 
-  // Register role getter so onAuthChange's guard can check the
-  // currently-set role before overwriting it with an editor fallback.
+  // Register role getter
   setCurrentRoleGetter(() => state.currentUser?.role ?? null);
 
-  // Auth — wrap callback to log before storeSet
+  // ONLY register auth listener — NO Firestore subscribers yet.
+  // Firestore subscribers are registered in initDataSubscribers()
+  // AFTER login completes. This prevents 12+ onSnapshot listeners
+  // from firing with permission-denied (user not logged in yet),
+  // which overloads Firestore SDK and causes readUserRole to hang
+  // for 21+ seconds during login.
   onAuthChange((user) => {
-    console.log('%c[PBR-STORE onAuthChange callback]', 'color:#2563eb;font-weight:bold', 'received user', {
+    console.log('%c[PBR-STORE onAuthChange callback]', 'color:#2563eb;font-weight:bold', {
       uid: user?.uid ?? 'null',
       role: user?.role ?? 'null',
     });
     storeSet({ currentUser: user });
+    // After login, register Firestore subscribers
+    if (user) {
+      initDataSubscribers();
+    }
   });
+}
+
+let dataSubscribersInitialized = false;
+function initDataSubscribers() {
+  if (dataSubscribersInitialized) return;
+  dataSubscribersInitialized = true;
+  console.log('%c[PBR-STORE initDataSubscribers]', 'color:#2563eb;font-weight:bold', 'registering Firestore listeners');
 
   // Settings (realtime)
   settingsService.subscribe((s) => storeSet({ settings: s || DEFAULT_SETTINGS }));
