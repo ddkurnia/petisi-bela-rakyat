@@ -65,7 +65,9 @@ async function readUserRole(fbUser: User): Promise<{ role: Role; error?: string 
     log('readUserRole API idToken obtained', { tokenLen: idToken.length });
 
     const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 10000);
+    // 20s timeout — Next.js dev mode compiles API routes on first
+    // request, which can take 10-15s. Production is ~200ms.
+    const timeout = setTimeout(() => ctrl.abort(), 20000);
 
     const res = await fetch('/api/get-role', {
       method: 'POST',

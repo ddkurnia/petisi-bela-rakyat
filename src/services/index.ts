@@ -9,7 +9,7 @@
 import {
   getAll, getById, getFirstByField, createItem, updateItem, deleteItem,
   incrementField, setItemMerged, subscribeToCollection, subscribeToFirstDoc,
-  where, limit,
+  subscribeToDoc, where, limit,
 } from '@/lib/firebase/firestore';
 import { COLLECTIONS } from '@/lib/firebase/config';
 import type {
@@ -20,8 +20,9 @@ import type {
 
 const now = () => new Date().toISOString();
 
-// Settings singleton — uses fixed doc ID 'main' for consistency
-const SETTINGS_DOC_ID = 'main';
+// Settings singleton — uses fixed doc ID 'main' for consistency.
+// Both save() and subscribe() target this specific doc by ID.
+export const SETTINGS_DOC_ID = 'main';
 
 // ============================================================
 // Blog
@@ -175,14 +176,21 @@ export const reportService = {
 // ============================================================
 // Settings — singleton document with ID 'main'
 // ============================================================
+// CRITICAL: subscribe() targets the SPECIFIC doc 'settings/main',
+// NOT the first doc in the collection. If we used subscribeToFirstDoc,
+// and there were multiple settings docs (e.g. from old setup-admin.mjs
+// that used .add() with random ID), the homepage might listen to
+// the WRONG doc while admin saves to 'main'. This caused realtime
+// updates to not appear on the public homepage.
+// ============================================================
 export const settingsService = {
   // One-off read
   get: async (): Promise<SiteSettings | null> => getById<SiteSettings>(COLLECTIONS.SETTINGS, SETTINGS_DOC_ID),
   // Write (creates or merges) — always to doc ID 'main'
   save: (data: Partial<SiteSettings>) => setItemMerged(COLLECTIONS.SETTINGS, SETTINGS_DOC_ID, data as any),
-  // Realtime subscribe to the singleton settings doc
+  // Realtime subscribe to the SPECIFIC 'main' doc
   subscribe: (cb: (s: SiteSettings | null) => void) =>
-    subscribeToFirstDoc<SiteSettings>(COLLECTIONS.SETTINGS, cb),
+    subscribeToDoc<SiteSettings>(COLLECTIONS.SETTINGS, SETTINGS_DOC_ID, cb),
 };
 
 // ============================================================

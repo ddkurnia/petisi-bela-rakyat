@@ -445,6 +445,17 @@ function init() {
   // This ensures public visitors see content without logging in.
   initPublicSubscribers();
 
+  // Warmup: trigger dev server to compile /api/get-role route.
+  // In Next.js dev mode, API routes are compiled on first request
+  // (can take 10-15s). By calling /api/ping now, we pre-compile
+  // the route BEFORE the user tries to login, so the login flow
+  // doesn't hit a 10s+ cold compile.
+  if (typeof window !== 'undefined') {
+    fetch('/api/ping').then(() => {
+      console.log('%c[PBR-STORE warmup] /api/ping OK — routes pre-compiled', 'color:#16a34a;font-weight:bold');
+    }).catch(() => {});
+  }
+
   // Register auth listener — handles login state + page reload
   onAuthChange((user) => {
     console.log('%c[PBR-STORE onAuthChange callback]', 'color:#2563eb;font-weight:bold', {
