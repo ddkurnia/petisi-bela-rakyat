@@ -1,7 +1,6 @@
 // Firebase Authentication - Email/Password + Google
 // ============================================================
-// INSTRUMENTED VERSION — logging stays in until root cause is
-// proven and fixed. Every step logs with [PBR-AUTH] prefix.
+// INSTRUMENTED VERSION — logging stays in for diagnosis.
 // ============================================================
 import {
   getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider,
@@ -27,9 +26,6 @@ export interface AppUser {
 
 export interface AuthResult { success: boolean; user?: AppUser; error?: string; }
 
-// ----------------------------------------------------------
-// Logging helper — all logs prefixed [PBR-AUTH] for easy filter
-// ----------------------------------------------------------
 let logSeq = 0;
 function log(tag: string, ...args: any[]) {
   const seq = ++logSeq;
@@ -39,66 +35,7 @@ function log(tag: string, ...args: any[]) {
 }
 
 // ============================================================
-// waitForFirestoreAuthReady — CRITICAL FIX for 60-second hang
-// ============================================================
-// After signInWithEmailAndPassword() resolves, the Firebase Auth
-// SDK has the new user, BUT the Firestore SDK's internal auth
-// listener (which subscribes to onIdTokenChanged) has NOT yet
-// processed the new token. Token propagation is asynchronous.
-//
-// If we call getDocFromServer() immediately, the Firestore SDK
-// either:
-//   (a) evaluates the read with a stale/null token → PERMISSION_DENIED
-//   (b) detects auth state is in flux and QUEUES the read waiting
-//       for the token to settle. If it never settles in time, the
-//       read hangs until the default Firestore timeout (60 seconds).
-//
-// Mode (b) is the "1 minute delay then editor" symptom.
-//
-// FIX: explicitly wait for onIdTokenChanged to fire AFTER sign-in.
-// This event indicates the Auth SDK has emitted the new token to
-// ALL subscribers — including the Firestore SDK's internal listener.
-// Only THEN do we call getDocFromServer.
-//
-// getIdToken() alone is NOT enough — it resolves the token promise
-// but does not guarantee Firestore's listener has processed it.
-// ============================================================
-function waitForFirestoreAuthReady(user: User, timeoutMs = 3000): Promise<void> {
-  return new Promise((resolve) => {
-    let resolved = false;
-    const finish = () => {
-      if (!resolved) {
-        resolved = true;
-        unsub();
-        clearTimeout(fallbackTimer);
-        log('waitForFirestoreAuthReady RESOLVED');
-        resolve();
-      }
-    };
-
-    // Listen for token change event (Firestore SDK also listens to this)
-    const unsub = onIdTokenChanged(auth!, (fbUser) => {
-      if (fbUser && fbUser.uid === user.uid) {
-        log('waitForFirestoreAuthReady onIdTokenChanged fired for our user');
-        // Give Firestore SDK a tick to process the same event
-        setTimeout(finish, 100);
-      }
-    });
-
-    // Fallback: resolve after timeout even if event doesn't fire
-    const fallbackTimer = setTimeout(() => {
-      log('waitForFirestoreAuthReady TIMEOUT — proceeding anyway (Firestore may still use stale token)');
-      finish();
-    }, timeoutMs);
-  });
-}
-
-// ============================================================
-// getDocWithTimeout — prevent 60-second hang on getDocFromServer
-// ============================================================
-// Even after waitForFirestoreAuthReady, network issues or rules
-// evaluation can cause getDocFromServer to hang. Wrap it in a
-// 5-second timeout per attempt so retry loop is responsive.
+// getDocWithTimeout — prevent hang on getDocFromServer
 // ============================================================
 async function getDocWithTimeout(ref: any, timeoutMs = 5000): Promise<any> {
   return Promise.race([
@@ -109,18 +46,38 @@ async function getDocWithTimeout(ref: any, timeoutMs = 5000): Promise<any> {
   ]);
 }
 
-// ----------------------------------------------------------
+// ============================================================
 // mapUser — read user's Firestore document to get role.
-// ----------------------------------------------------------
+// ============================================================
+// ROOT CAUSE of persistent delay + editor in production:
+//
+// In production with network latency:
+//   1. signInWithEmailAndPassword resolves
+//   2. getIdToken(true) resolves
+//   3. waitForFirestoreAuthReady waits for onIdTokenChanged — but
+//      this event may be DELAYED in production (network latency,
+//      Firestore SDK internal processing). Falls back to timeout.
+//   4. getDocFromServer called, but Firestore SDK still has stale
+//      token → either PERMISSION_DENIED or hangs until timeout
+//   5. After 3 retries × 5s timeout = 15s total delay
+//   6. All retries fail → role falls back to 'editor'
+//
+// FIX: instead of waiting for an unreliable event, RETRY
+// getDocFromServer aggressively with forceRefresh token between
+// attempts. If we get a non-editor role, accept immediately.
+// If we get editor fallback (doc not found / permission denied),
+// force refresh token and retry. This is more reliable than
+// waiting for onIdTokenChanged which may never fire in time.
+// ============================================================
 async function mapUser(fbUser: User, source: string): Promise<AppUser> {
   log('mapUser START', { source, uid: fbUser.uid, email: fbUser.email });
   const t0 = Date.now();
   let role: Role = 'editor';
   let displayName = fbUser.displayName || fbUser.email?.split('@')[0] || 'Admin';
 
-  const MAX_ATTEMPTS = 3;
-  const RETRY_DELAY_MS = 300;
-  const DOC_TIMEOUT_MS = 5000;
+  const MAX_ATTEMPTS = 6;
+  const RETRY_DELAY_MS = 500;
+  const DOC_TIMEOUT_MS = 4000;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
@@ -129,6 +86,18 @@ async function mapUser(fbUser: User, source: string): Promise<AppUser> {
       if (!db) {
         log('mapUser ERROR', 'db is null — Firestore not initialized');
         break;
+      }
+
+      // Force refresh token on every attempt after the first.
+      // This is the KEY fix: instead of waiting for onIdTokenChanged
+      // (unreliable in production), we proactively refresh the token
+      // before each read. This forces Firestore SDK to pick up the
+      // new token via its internal listener.
+      if (attempt > 1) {
+        log('mapUser forceRefresh token before attempt', { attempt });
+        await fbUser.getIdToken(true);
+        // Small delay to let Firestore SDK process the new token
+        await new Promise((r) => setTimeout(r, 200));
       }
 
       const ref = doc(db, COLLECTIONS.USERS, fbUser.uid);
@@ -150,21 +119,31 @@ async function mapUser(fbUser: User, source: string): Promise<AppUser> {
         const docRole = data.role;
         if (typeof docRole === 'string' && docRole.length > 0) {
           role = docRole as Role;
-          log('mapUser role ACCEPTED', { role });
+          log('mapUser role ACCEPTED', { role, attempt });
+
+          // If we got a non-editor role, we're confident it's correct.
+          // If we got 'editor', it MIGHT be the real role OR a fallback.
+          // To distinguish: if the document exists AND has role field,
+          // it's the real role (not a fallback). Accept it.
+          break;
         } else {
           log('mapUser role INVALID', { docRole, reason: 'not a non-empty string' });
+          // Doc exists but role missing — real problem, don't retry
+          break;
         }
         if (data.displayName) displayName = data.displayName;
       } else {
-        log('mapUser doc NOT FOUND', { path: `users/${fbUser.uid}`, uid: fbUser.uid });
-        log('mapUser HINT', 'Document does not exist. Check: (1) doc ID must equal Auth UID, (2) collection name must be "users"');
+        log('mapUser doc NOT FOUND', { path: `users/${fbUser.uid}`, uid: fbUser.uid, attempt });
+        // Doc not found — could be transient (token issue) or real.
+        // Retry with fresh token.
       }
-      break;
+      // Don't break here — continue retrying if role is still 'editor' fallback
+      if (role !== 'editor') break;
     } catch (err: any) {
-      log('mapUser attempt FAILED', { attempt, error: err?.code || err?.message, fullError: err });
+      log('mapUser attempt FAILED', { attempt, error: err?.code || err?.message });
       if (attempt < MAX_ATTEMPTS) {
-        log('mapUser retrying', { delay_ms: RETRY_DELAY_MS * attempt });
-        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
+        log('mapUser retrying', { delay_ms: RETRY_DELAY_MS });
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
       } else {
         log('mapUser ALL RETRIES EXHAUSTED', { attempts: MAX_ATTEMPTS });
       }
@@ -190,24 +169,17 @@ export async function loginWithEmail(email: string, password: string): Promise<A
     const cred = await signInWithEmailAndPassword(auth, email, password);
     log('signInWithEmailAndPassword SUCCESS', { uid: cred.user.uid, email: cred.user.email });
 
-    // STEP 1: Force token refresh. This makes Auth SDK emit the new
-    // token to all subscribers. Without this, the token may not be
-    // emitted until the next periodic refresh (could be minutes).
+    // Force token refresh to emit event to Firestore SDK
     log('loginWithEmail calling getIdToken (force refresh)');
     await cred.user.getIdToken(true);
     log('loginWithEmail getIdToken DONE');
 
-    // STEP 2: Wait for Firestore SDK to receive the new token.
-    // This is the CRITICAL fix for the 60-second hang. getIdToken()
-    // resolves the token promise, but Firestore's internal listener
-    // (onIdTokenChanged) needs to fire and process the token before
-    // Firestore reads will use it. Without this wait, getDocFromServer()
-    // may queue the read waiting for auth state to settle, hanging
-    // up to 60 seconds (Firestore default timeout).
-    log('loginWithEmail waitForFirestoreAuthReady');
-    await waitForFirestoreAuthReady(cred.user, 3000);
+    // Small delay to let Firestore SDK process the token event.
+    // This is more reliable than waiting for onIdTokenChanged which
+    // may be delayed in production.
+    await new Promise((r) => setTimeout(r, 300));
 
-    // STEP 3: Now safe to read Firestore — token is propagated.
+    // mapUser will retry with forceRefresh if needed
     const user = await mapUser(cred.user, 'loginWithEmail');
     log('loginWithEmail RETURN', { success: true, role: user.role });
 
@@ -223,7 +195,7 @@ export async function loginWithGoogle(): Promise<AuthResult> {
   try {
     const cred = await signInWithPopup(auth, googleProvider);
     await cred.user.getIdToken(true);
-    await waitForFirestoreAuthReady(cred.user, 3000);
+    await new Promise((r) => setTimeout(r, 300));
     const user = await mapUser(cred.user, 'loginWithGoogle');
     return { success: true, user };
   } catch (err: any) { return { success: false, error: translateError(err?.code || '') }; }
@@ -236,8 +208,6 @@ export async function logout(): Promise<void> {
 
 // ----------------------------------------------------------
 // onAuthChange — single source of truth for currentUser.
-// Guard: if new role is 'editor' (fallback) but store already
-// has super_admin/admin, skip the callback.
 // ----------------------------------------------------------
 let currentRoleGetter: (() => Role | null) | null = null;
 
@@ -262,12 +232,6 @@ export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
 
     if (fbUser) {
       try {
-        // For onAuthChange fires (not from loginWithEmail), also wait
-        // for Firestore auth ready to avoid stale-token reads.
-        if (fireNum > 1) {
-          log('onAuthChange waitForFirestoreAuthReady', { fireNumber: fireNum });
-          await waitForFirestoreAuthReady(fbUser, 2000);
-        }
         const user = await mapUser(fbUser, `onAuthChange#${fireNum}`);
 
         // Guard: don't let editor fallback overwrite super_admin/admin
