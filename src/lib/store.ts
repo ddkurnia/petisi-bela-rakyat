@@ -186,8 +186,7 @@ let state: AppState = {
     if (res.success && res.user) {
       storeSet({ currentUser: res.user });
       console.log('%c[PBR-STORE] login set currentUser', 'color:#16a34a;font-weight:bold', { role: res.user.role });
-      // Register Firestore subscribers now that user is logged in
-      initDataSubscribers();
+      // initDataSubscribers() already called in init() — no need to call again
       return true;
     }
     return false;
@@ -315,26 +314,34 @@ function storeSet(partial: Partial<AppState>) {
 function init() {
   if (initialized || !isFirebaseConfigured) return;
   initialized = true;
-  console.log('%c[PBR-STORE init]', 'color:#2563eb;font-weight:bold', 'initializing store — auth listener ONLY');
+  console.log('%c[PBR-STORE init]', 'color:#2563eb;font-weight:bold', 'initializing store');
 
   // Register role getter
   setCurrentRoleGetter(() => state.currentUser?.role ?? null);
 
-  // ONLY register auth listener — NO Firestore subscribers yet.
-  // Firestore subscribers are registered in initDataSubscribers()
-  // AFTER login completes. This prevents 12+ onSnapshot listeners
-  // from firing with permission-denied (user not logged in yet),
-  // which overloads Firestore SDK and causes readUserRole to hang
-  // for 21+ seconds during login.
+  // Register Firestore subscribers IMMEDIATELY for ALL pages.
+  // Firestore rules allow public read for:
+  //   - settings, campaigns, pengurus, penasehat, relawan,
+  //     supporters, gallery, work, transparency, reports
+  //   - blog, news: only published items (status == 'published')
+  // So onSnapshot will NOT get permission-denied for public content.
+  // Admin-only content (drafts, etc.) will be visible only after login
+  // because rules require isAdmin() for those.
+  initDataSubscribers();
+
+  // Register auth listener (for login state + page reload)
   onAuthChange((user) => {
     console.log('%c[PBR-STORE onAuthChange callback]', 'color:#2563eb;font-weight:bold', {
       uid: user?.uid ?? 'null',
       role: user?.role ?? 'null',
     });
     storeSet({ currentUser: user });
-    // After login, register Firestore subscribers
+    // After login, re-subscribe to get admin-only data (drafts, etc.)
     if (user) {
-      initDataSubscribers();
+      // Re-subscribe to blog/news to get ALL items (including drafts)
+      // now that user is authenticated as admin
+      blogService.subscribe((items) => storeSet({ blog: items }));
+      newsService.subscribe((items) => storeSet({ news: items }));
     }
   });
 }
@@ -345,10 +352,11 @@ function initDataSubscribers() {
   dataSubscribersInitialized = true;
   console.log('%c[PBR-STORE initDataSubscribers]', 'color:#2563eb;font-weight:bold', 'registering Firestore listeners');
 
-  // Settings (realtime)
+  // Settings (realtime — public read allowed)
   settingsService.subscribe((s) => storeSet({ settings: s || DEFAULT_SETTINGS }));
 
-  // Collections (realtime)
+  // Collections (realtime — public read allowed for all except
+  // blog/news which only show published items to non-authenticated users)
   blogService.subscribe((items) => storeSet({ blog: items }));
   newsService.subscribe((items) => storeSet({ news: items }));
   campaignService.subscribe((items) => storeSet({ campaigns: items }));
