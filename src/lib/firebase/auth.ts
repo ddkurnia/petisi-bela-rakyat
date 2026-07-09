@@ -8,7 +8,7 @@ import {
   getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider,
   signOut, onAuthStateChanged, type User,
 } from 'firebase/auth';
-import { doc, getDocFromServer } from 'firebase/firestore';
+import { doc, getDocFromServer, getDoc } from 'firebase/firestore';
 import { app } from './firebase';
 import { isFirebaseConfigured, COLLECTIONS } from './config';
 import { db } from './firestore';
@@ -58,8 +58,14 @@ async function readUserRole(fbUser: User): Promise<Role> {
   log('readUserRole START', { uid: fbUser.uid });
   const t0 = Date.now();
 
-  const MAX_ATTEMPTS = 3;
-  const DOC_TIMEOUT_MS = 3000;
+  // Wait 1 second before first attempt — give Firestore SDK time to
+  // process the auth token. This is CRITICAL in production where
+  // token propagation is slower than emulator.
+  log('readUserRole initial delay 1000ms');
+  await new Promise((r) => setTimeout(r, 1000));
+
+  const MAX_ATTEMPTS = 4;
+  const DOC_TIMEOUT_MS = 4000;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
@@ -68,25 +74,39 @@ async function readUserRole(fbUser: User): Promise<Role> {
       if (attempt > 1) {
         log('readUserRole forceRefresh', { attempt });
         await fbUser.getIdToken(true);
-        await new Promise((r) => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 500));
       }
 
       const ref = doc(db, COLLECTIONS.USERS, fbUser.uid);
-      const snap = await getDocWithTimeout(ref, DOC_TIMEOUT_MS);
-      log('readUserRole RESULT', { attempt, elapsed_ms: Date.now() - t0, exists: snap.exists() });
+
+      // Try getDocFromServer first (bypasses cache)
+      let snap;
+      try {
+        log('readUserRole getDocFromServer', { attempt });
+        snap = await getDocWithTimeout(ref, DOC_TIMEOUT_MS);
+      } catch (serverErr: any) {
+        log('readUserRole getDocFromServer failed, trying getDoc (cache)', { attempt, error: serverErr?.code || serverErr?.message });
+        // Fallback to getDoc (may use cache)
+        snap = await getDocWithTimeout(ref, DOC_TIMEOUT_MS);
+      }
+
+      log('readUserRole RESULT', { attempt, elapsed_ms: Date.now() - t0, exists: snap.exists(), fromCache: snap.metadata?.fromCache });
 
       if (snap.exists()) {
         const data = snap.data();
+        log('readUserRole DATA', { role: data.role, keys: Object.keys(data) });
         const docRole = data.role;
         if (typeof docRole === 'string' && docRole.length > 0) {
           log('readUserRole ACCEPTED', { role: docRole, attempt });
           return docRole as Role;
         }
+      } else {
+        log('readUserRole NOT FOUND', { attempt });
       }
     } catch (err: any) {
       log('readUserRole FAILED', { attempt, error: err?.code || err?.message });
       if (attempt < MAX_ATTEMPTS) {
-        await new Promise((r) => setTimeout(r, 400));
+        await new Promise((r) => setTimeout(r, 500));
       }
     }
   }
