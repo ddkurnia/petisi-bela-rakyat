@@ -2,7 +2,7 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://petisibelarakyat.id/sitemap.xml
+Sitemap: https://belarakyat.org/sitemap.xml
 
 # Block admin
 Disallow: /admin

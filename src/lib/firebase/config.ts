@@ -34,7 +34,7 @@ export const isCloudinaryConfigured = Boolean(
 );
 
 export const siteConfig = {
-  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://petisibelarakyat.id',
+  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://belarakyat.org',
   name: 'Petisi Bela Rakyat',
 };
 

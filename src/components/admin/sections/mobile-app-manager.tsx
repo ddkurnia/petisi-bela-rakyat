@@ -41,7 +41,7 @@ export function MobileAppManager() {
           `In production, this would be a real Android APK built with Bubblewrap (TWA).\n\n` +
           `To build a real APK:\n` +
           `1. Install Bubblewrap CLI: npm i -g @bubblewrap/cli\n` +
-          `2. Initialize: bubblewrap init --manifest=https://petisibelarakyat.id/manifest.webmanifest\n` +
+          `2. Initialize: bubblewrap init --manifest=https://belarakyat.org/manifest.webmanifest\n` +
           `3. Build: bubblewrap build\n` +
           `4. The signed APK will be in app-release-signed.apk\n`,
       ],
@@ -61,7 +61,7 @@ export function MobileAppManager() {
   const handleCopyCommand = () => {
     const cmd = `# Build APK dengan Bubblewrap (TWA)
 npm i -g @bubblewrap/cli
-bubblewrap init --manifest=https://petisibelarakyat.id/manifest.webmanifest
+bubblewrap init --manifest=https://belarakyat.org/manifest.webmanifest
 bubblewrap build
 # Output: app-release-signed.apk`;
     navigator.clipboard.writeText(cmd);
@@ -255,7 +255,7 @@ npm i -g @bubblewrap/cli
 
 # 2. Initialize project dari PWA manifest
 bubblewrap init \\
-  --manifest=https://petisibelarakyat.id/manifest.webmanifest
+  --manifest=https://belarakyat.org/manifest.webmanifest
 
 # 3. Build APK (signed)
 bubblewrap build
@@ -287,7 +287,7 @@ bubblewrap build
         <div className="flex flex-col items-center">
           <div className="p-4 bg-white rounded-2xl shadow-lg">
             <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://petisibelarakyat.id`}
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://belarakyat.org`}
               alt="QR Code Petisi Bela Rakyat"
               className="h-48 w-48"
             />

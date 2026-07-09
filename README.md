@@ -218,7 +218,7 @@ collections:
    CLOUDINARY_API_KEY=...
    CLOUDINARY_API_SECRET=...
 
-   NEXT_PUBLIC_SITE_URL=https://petisibelarakyat.id
+   NEXT_PUBLIC_SITE_URL=https://belarakyat.org
    ```
 
 3. **Deploy Firestore rules:**
@@ -270,4 +270,4 @@ bun run start
 
 ## 🤝 Kontribusi
 
-Hubungi: halo@petisibelarakyat.id
+Hubungi: halo@belarakyat.org

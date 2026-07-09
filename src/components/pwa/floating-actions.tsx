@@ -30,7 +30,7 @@ export function FloatingActions() {
     const shareData = {
       title: "Petisi Bela Rakyat",
       text: "Bersama membela rakyat, tanpa kompromi. Tandatangani petisi sekarang!",
-      url: typeof window !== "undefined" ? window.location.href : "https://petisibelarakyat.id",
+      url: typeof window !== "undefined" ? window.location.href : (process.env.NEXT_PUBLIC_SITE_URL || "https://belarakyat.org"),
     };
     if (navigator.share) {
       try {

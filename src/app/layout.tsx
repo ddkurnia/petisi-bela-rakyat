@@ -19,7 +19,7 @@ const manrope = Manrope({
   weight: ["400", "500", "600", "700", "800"],
 });
 
-const siteUrl = "https://petisibelarakyat.id";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://belarakyat.org";
 const siteName = "Petisi Bela Rakyat";
 
 export const metadata: Metadata = {
@@ -125,7 +125,7 @@ const organizationSchema = {
   contactPoint: {
     "@type": "ContactPoint",
     contactType: "customer support",
-    email: "halo@petisibelarakyat.id",
+    email: "halo@belarakyat.org",
     telephone: "+62-812-0000-0000",
     availableLanguage: ["Indonesian"],
   },
