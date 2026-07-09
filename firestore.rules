@@ -1,21 +1,39 @@
 rules_version = '2';
 
+// ============================================================
 // Petisi Bela Rakyat - Firestore Security Rules
+// ============================================================
+// IMPORTANT: The users/{uid} collection has a special read rule
+// to avoid circular dependency:
+//   1. A signed-in user can ALWAYS read their OWN document
+//      (request.auth.uid == id) — no role lookup needed.
+//   2. Reading OTHER users' documents requires admin role,
+//      which calls getUserRole() — but that reads the caller's
+//      OWN document (already allowed by rule #1), so no cycle.
+// ============================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
     function isSignedIn() { return request.auth != null; }
+
+    // Reads the caller's OWN user document to get their role.
+    // Safe because users/{uid} read rule allows request.auth.uid == id.
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
+
     function isSuperAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserRole() == 'super_admin';
     }
+
     function isAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (getUserRole() == 'super_admin' || getUserRole() == 'admin' || getUserRole() == 'editor');
     }
 
+    // ----------------------------------------------------------
     // Public content - read published, admin write
+    // ----------------------------------------------------------
     match /blog/{id} {
       allow read: if resource.data.status == 'published' || isAdmin();
       allow create, update, delete: if isAdmin();
@@ -73,7 +91,19 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
+    // ----------------------------------------------------------
     // Users - role management
+    // ----------------------------------------------------------
+    // CRITICAL: read is split into two OR branches to avoid
+    // circular dependency:
+    //   - Self-read (request.auth.uid == id): NO role lookup,
+    //     so getUserRole() can safely read the caller's own doc
+    //     later when evaluating isAdmin() for other operations.
+    //   - Admin-read (isAdmin()): allowed for reading other
+    //     users' documents. isAdmin() calls getUserRole() which
+    //     reads the CALLER's own doc — already permitted by the
+    //     self-read branch above. No cycle.
+    // ----------------------------------------------------------
     match /users/{id} {
       allow read: if isSignedIn() && (request.auth.uid == id || isAdmin());
       allow create: if isSignedIn() && (request.auth.uid == id || isSuperAdmin());

@@ -5,7 +5,7 @@ import {
 } from 'firebase/auth';
 import { app } from './firebase';
 import { isFirebaseConfigured, COLLECTIONS } from './config';
-import { getFirstByField } from './firestore';
+import { getById } from './firestore';
 
 const auth = isFirebaseConfigured && app ? getAuth(app) : null;
 const googleProvider = new GoogleAuthProvider();
@@ -26,7 +26,13 @@ async function mapUser(fbUser: User): Promise<AppUser> {
   let role: Role = 'editor';
   let displayName = fbUser.displayName || fbUser.email?.split('@')[0] || 'Admin';
   try {
-    const userDoc = await getFirstByField<AppUser>(COLLECTIONS.USERS, 'uid', fbUser.uid);
+    // Read the user's own document by ID (= Firebase Auth UID).
+    // This is permitted by Firestore rules because the self-read
+    // branch (request.auth.uid == id) does not invoke isAdmin(),
+    // avoiding the circular dependency that would occur if we
+    // queried by 'uid' field (which would need a collection read
+    // gated by isAdmin() → getUserRole() → read users/{uid}).
+    const userDoc = await getById<AppUser & { role?: Role }>(COLLECTIONS.USERS, fbUser.uid);
     if (userDoc) {
       role = userDoc.role || 'editor';
       if (userDoc.displayName) displayName = userDoc.displayName;

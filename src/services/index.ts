@@ -151,7 +151,12 @@ export const messageService = {
 // Users (admin role management)
 export const userService = {
   getAll: () => getAll<User>(COLLECTIONS.USERS),
-  getByUid: (uid: string) => getFirstByField<User>(COLLECTIONS.USERS, 'uid', uid),
+  // Use getById (doc ID = UID) instead of getFirstByField('uid', uid).
+  // Querying by 'uid' field requires a collection read gated by
+  // isAdmin() in Firestore rules → circular dependency. Reading by
+  // document ID uses the self-read branch (request.auth.uid == id)
+  // which has no role lookup.
+  getByUid: (uid: string) => getById<User>(COLLECTIONS.USERS, uid),
   create: (data: User) => createItem(COLLECTIONS.USERS, data as any),
   update: (id: string, data: Partial<User>) => updateItem(COLLECTIONS.USERS, id, data),
   delete: (id: string) => deleteItem(COLLECTIONS.USERS, id),
