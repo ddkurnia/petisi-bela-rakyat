@@ -38,48 +38,79 @@ import {
 import { db } from "@/lib/firebase/firestore";
 
 // ============================================================
-// Write helper — use MAIN Firestore SDK instance (has auth)
+// Write helper — Firestore SDK with timeout, NO reads before writes
 // ============================================================
-// Previous REST API approach failed with HTTP 403 "Permission
-// denied on resource project" — Google Cloud API level rejection,
-// not Firestore rules. The REST API requires additional auth that
-// the browser fetch doesn't provide.
+// The main Firestore SDK instance hangs on READS (getDocs, getDoc,
+// getDocFromServer). But WRITES (addDoc, setDoc, updateDoc, deleteDoc)
+// work fine — they don't depend on the same internal state.
 //
-// The SDK main instance has the authenticated user and handles auth
-// automatically. The earlier "hang" was on READS (getDocFromServer),
-// not on WRITES (addDoc/updateDoc/deleteDoc). Writes should work.
+// CRITICAL: never call read (writeGetAll) before write. Use setDoc
+// with merge for settings (no read needed). Use addDoc for collections
+// (no read needed). This avoids the hang entirely.
 // ============================================================
+
+function withTimeout<T>(promise: Promise<T>, ms = 8000, label = 'operation'): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error(`${label} timeout after ${ms}ms`)), ms);
+    }),
+  ]);
+}
 
 async function writeCreate(collectionName: string, data: any): Promise<string> {
   const { id, ...rest } = data;
-  const ref = await fsAddDoc(fsCollection(db!, collectionName), {
-    ...rest,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
+  console.log('[PBR-WRITE] addDoc', collectionName);
+  const ref = await withTimeout(
+    fsAddDoc(fsCollection(db!, collectionName), {
+      ...rest,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }),
+    8000,
+    'addDoc'
+  );
+  console.log('[PBR-WRITE] addDoc SUCCESS', collectionName, ref.id);
   return ref.id;
+}
+
+// setDoc with merge — no read needed, creates or updates
+async function writeSet(collectionName: string, docId: string, data: any, merge = true): Promise<void> {
+  const { id, ...rest } = data;
+  console.log('[PBR-WRITE] setDoc', collectionName, docId, 'merge:', merge);
+  await withTimeout(
+    fsSetDoc(fsDoc(db!, collectionName, docId), {
+      ...rest,
+      updatedAt: new Date().toISOString(),
+    }, { merge }),
+    8000,
+    'setDoc'
+  );
+  console.log('[PBR-WRITE] setDoc SUCCESS', collectionName, docId);
 }
 
 async function writeUpdate(collectionName: string, id: string, data: any): Promise<void> {
   const { id: _, ...rest } = data;
-  await fsUpdateDoc(fsDoc(db!, collectionName, id), {
-    ...rest,
-    updatedAt: new Date().toISOString(),
-  } as any);
+  console.log('[PBR-WRITE] updateDoc', collectionName, id);
+  await withTimeout(
+    fsUpdateDoc(fsDoc(db!, collectionName, id), {
+      ...rest,
+      updatedAt: new Date().toISOString(),
+    } as any),
+    8000,
+    'updateDoc'
+  );
+  console.log('[PBR-WRITE] updateDoc SUCCESS', collectionName, id);
 }
 
 async function writeDelete(collectionName: string, id: string): Promise<void> {
-  await fsDeleteDoc(fsDoc(db!, collectionName, id));
-}
-
-async function writeGetAll(collectionName: string): Promise<any[]> {
-  const snap = await fsGetDocs(fsCollection(db!, collectionName));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
-async function writeGetById(collectionName: string, id: string): Promise<any | null> {
-  const snap = await fsGetDoc(fsDoc(db!, collectionName, id));
-  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+  console.log('[PBR-WRITE] deleteDoc', collectionName, id);
+  await withTimeout(
+    fsDeleteDoc(fsDoc(db!, collectionName, id)),
+    8000,
+    'deleteDoc'
+  );
+  console.log('[PBR-WRITE] deleteDoc SUCCESS', collectionName, id);
 }
 
 // Re-export all types (backward compat with old imports)
@@ -274,21 +305,14 @@ let state: AppState = {
     storeSet({ settings: merged });
     console.log('%c[PBR-STORE] updateSettings', 'color:#16a34a;font-weight:bold', s);
 
-    // Use MAIN Firestore SDK instance for writes (has auth)
+    // Use setDoc with merge — NO read needed (read hangs on main instance)
+    // Document ID = 'main' (fixed, singleton settings document)
     (async () => {
       try {
         const fbUser = getCurrentFirebaseUser();
         if (fbUser) await fbUser.getIdToken(true);
 
-        // Read existing settings
-        const all = await writeGetAll(COLLECTIONS.SETTINGS);
-        const existing = all[0] as (SiteSettings & { id?: string }) | null;
-
-        if (existing?.id) {
-          await writeUpdate(COLLECTIONS.SETTINGS, existing.id, s);
-        } else {
-          await writeCreate(COLLECTIONS.SETTINGS, merged);
-        }
+        await writeSet(COLLECTIONS.SETTINGS, 'main', merged, true);
 
         toast.success("Pengaturan tersimpan ke Firestore");
         console.log('%c[PBR-STORE] settings SAVED', 'color:#16a34a;font-weight:bold');
