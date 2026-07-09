@@ -115,7 +115,7 @@ export function AdminPanel() {
                     type="email"
                     required
                     className="pl-10 rounded-xl"
-                    placeholder="admin@petisibelarakyat.id"
+                    placeholder="email@admin.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -141,12 +141,16 @@ export function AdminPanel() {
               </Button>
             </form>
             <div className="mt-6 p-4 rounded-xl bg-secondary/60 border border-border">
-              <p className="text-xs font-semibold mb-2">Akun Demo (password: <code className="bg-background px-1 rounded">pbr2026</code>):</p>
-              <ul className="space-y-1 text-xs text-muted-foreground">
-                <li>• <code>superadmin@petisibelarakyat.id</code> (akses penuh)</li>
-                <li>• <code>admin@petisibelarakyat.id</code> (semua kecuali settings)</li>
-                <li>• <code>editor@petisibelarakyat.id</code> (hanya blog & news)</li>
-              </ul>
+              <p className="text-xs font-semibold mb-1.5">Akses Admin</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Login menggunakan akun yang sudah terdaftar di Firebase Authentication
+                dan memiliki dokumen role di Firestore collection <code className="bg-background px-1 rounded">users</code>.
+              </p>
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                Belum punya akun admin? Hubungi Super Admin atau jalankan{" "}
+                <code className="bg-background px-1 rounded">bun run setup-admin &lt;email&gt;</code>{" "}
+                untuk mendaftarkan admin baru.
+              </p>
             </div>
             <Button variant="ghost" className="w-full mt-4" onClick={() => router.push("/")}>
               ← Kembali ke Website

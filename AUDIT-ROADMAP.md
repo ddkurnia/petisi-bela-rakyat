@@ -107,12 +107,13 @@ dashboard, homepage-manager, pengurus-manager, penasehat-manager, relawan-manage
 ### 3.1 🔴 BUG & RISiko Keamanan
 
 #### B-1. Login admin hardcoded plaintext
-**File:** `src/lib/store.ts` baris ~798
+**File:** `src/lib/store.ts` baris ~798 (sudah dihapus di commit migrasi Firebase)
 ```ts
+// CONTOH kode lama yang sudah dihapus (jangan gunakan):
 const adminAccounts = [
-  { email: "superadmin@petisibelarakyat.id", password: "pbr2026", role: "super_admin" ... },
-  { email: "admin@petisibelarakyat.id", password: "pbr2026", ... },
-  { email: "editor@petisibelarakyat.id", password: "pbr2026", ... },
+  { email: "...", password: "...", role: "super_admin" ... },
+  { email: "...", password: "...", ... },
+  { email: "...", password: "...", ... },
 ];
 ```
 **Risk:** Siapa pun yang baca source code (public repo!) punya kredensial admin. Tidak ada verifikasi server-side.

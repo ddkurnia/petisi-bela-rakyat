@@ -73,15 +73,24 @@ bun run start
 
 Buka [http://localhost:3000](http://localhost:3000) di browser.
 
-## 🔐 Admin Access (Demo)
+## 🔐 Admin Access
 
 Akses admin panel di footer website → tombol "Admin".
 
-| Role | Email | Password |
-|------|-------|----------|
-| Super Admin | `superadmin@petisibelarakyat.id` | `pbr2026` |
-| Admin | `admin@petisibelarakyat.id` | `pbr2026` |
-| Editor | `editor@petisibelarakyat.id` | `pbr2026` |
+Login menggunakan akun yang sudah terdaftar di Firebase Authentication
+dan memiliki dokumen role di Firestore collection `users`.
+
+**Setup admin pertama:**
+
+1. Buat user di Firebase Console → Authentication → Add user
+2. Jalankan: `bun run setup-admin <email> "<DisplayName>"`
+   Script ini membuat dokumen `users/{uid}` dengan role `super_admin`
+   (Document ID = Auth UID, penting agar app bisa membaca role)
+3. Login di `/admin` dengan email & password yang dibuat
+
+**Menambah admin/editor lain:**
+- Super admin bisa membuat dokumen `users/{uid}` baru via Firebase Console
+  dengan field `role: "admin"` atau `role: "editor"`
 
 ## 🗂️ Struktur Project
 
