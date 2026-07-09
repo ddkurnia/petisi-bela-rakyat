@@ -31,8 +31,9 @@ import {
   transparencyService, reportService, settingsService, messageService,
 } from "@/services";
 import {
-  initializeApp as fbInitApp, type FirebaseApp as FbApp,
+  initializeApp as fbInitApp, deleteApp as fbDeleteApp, type FirebaseApp as FbApp,
 } from "firebase/app";
+import { getAuth as fbGetAuth } from "firebase/auth";
 import {
   getFirestore as fbGetFirestore, collection as fsCollection, doc as fsDoc,
   addDoc as fsAddDoc, setDoc as fsSetDoc, updateDoc as fsUpdateDoc,
@@ -40,38 +41,19 @@ import {
 } from "firebase/firestore";
 
 // ============================================================
-// FRESH Firestore instance for WRITES
+// FRESH Firestore instance for EACH write — exact copy of readUserRole
 // ============================================================
-// The main Firestore instance (from firestore.ts) is COMPLETELY
-// broken — both reads AND writes hang. Even with only 1 onSnapshot
-// listener, setDoc/addDoc timeout after 8s.
+// readUserRole in auth.ts WORKS because it creates a NEW Firebase
+// app instance (with timestamp name) for EACH call. The previous
+// writer used a SINGLE reused instance ('writer-app') which also
+// accumulated bad state.
 //
-// readUserRole in auth.ts ALREADY uses a fresh instance and WORKS
-// (872ms). Firebase Auth shares state across app instances via
-// IndexedDB (keyed by apiKey+authDomain, NOT app name). So the
-// fresh instance picks up the logged-in user automatically.
+// Fix: create a BRAND NEW instance for EACH write operation, use
+// it once, then delete it. This is EXACTLY what readUserRole does.
 //
-// This is the SAME approach. It works for reads, it will work
-// for writes.
+// Firebase Auth shares state via IndexedDB (keyed by apiKey+authDomain),
+// so each fresh instance automatically picks up the logged-in user.
 // ============================================================
-let writeApp: FbApp | null = null;
-let writeDb: FbFirestore | null = null;
-
-function getWriteDb(): FbFirestore {
-  if (writeDb) return writeDb;
-  const config = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  };
-  writeApp = fbInitApp(config as any, 'writer-app');
-  writeDb = fbGetFirestore(writeApp);
-  console.log('%c[PBR-STORE] created FRESH Firestore instance for writes', 'color:#9333ea;font-weight:bold');
-  return writeDb;
-}
 
 function withTimeout<T>(promise: Promise<T>, ms = 8000, label = 'operation'): Promise<T> {
   return Promise.race([
@@ -82,62 +64,79 @@ function withTimeout<T>(promise: Promise<T>, ms = 8000, label = 'operation'): Pr
   ]);
 }
 
+// Create a fresh Firebase app + Firestore for a single operation
+async function withFreshInstance<T>(
+  fn: (wdb: FbFirestore) => Promise<T>,
+  label: string
+): Promise<T> {
+  const config = {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  };
+
+  // Create fresh instance with UNIQUE name (like readUserRole does)
+  const app = fbInitApp(config as any, `write-${Date.now()}-${Math.random()}`);
+  const wdb = fbGetFirestore(app);
+
+  // Also initialize Auth on this instance — triggers IndexedDB state load
+  const wAuth = fbGetAuth(app);
+
+  // Wait briefly for Auth state to load from IndexedDB
+  // (readUserRole works without this, but writes may need it)
+  await new Promise((r) => setTimeout(r, 300));
+
+  console.log(`[PBR-WRITE] ${label} (fresh instance)`);
+
+  try {
+    const result = await withTimeout(fn(wdb), 8000, label);
+    console.log(`[PBR-WRITE] ${label} SUCCESS`);
+    return result;
+  } finally {
+    // Clean up the instance to avoid memory leaks
+    try { await fbDeleteApp(app); } catch {}
+  }
+}
+
 async function writeCreate(collectionName: string, data: any): Promise<string> {
-  const wdb = getWriteDb();
   const { id, ...rest } = data;
-  console.log('[PBR-WRITE] addDoc (fresh)', collectionName);
-  const ref = await withTimeout(
-    fsAddDoc(fsCollection(wdb, collectionName), {
+  return withFreshInstance(async (wdb) => {
+    const ref = await fsAddDoc(fsCollection(wdb, collectionName), {
       ...rest,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    }),
-    8000,
-    'addDoc'
-  );
-  console.log('[PBR-WRITE] addDoc SUCCESS', collectionName, ref.id);
-  return ref.id;
+    });
+    return ref.id;
+  }, `addDoc ${collectionName}`);
 }
 
 async function writeSet(collectionName: string, docId: string, data: any, merge = true): Promise<void> {
-  const wdb = getWriteDb();
   const { id, ...rest } = data;
-  console.log('[PBR-WRITE] setDoc (fresh)', collectionName, docId);
-  await withTimeout(
-    fsSetDoc(fsDoc(wdb, collectionName, docId), {
+  await withFreshInstance(async (wdb) => {
+    await fsSetDoc(fsDoc(wdb, collectionName, docId), {
       ...rest,
       updatedAt: new Date().toISOString(),
-    }, { merge }),
-    8000,
-    'setDoc'
-  );
-  console.log('[PBR-WRITE] setDoc SUCCESS', collectionName, docId);
+    }, { merge });
+  }, `setDoc ${collectionName}/${docId}`);
 }
 
 async function writeUpdate(collectionName: string, id: string, data: any): Promise<void> {
-  const wdb = getWriteDb();
   const { id: _, ...rest } = data;
-  console.log('[PBR-WRITE] updateDoc (fresh)', collectionName, id);
-  await withTimeout(
-    fsUpdateDoc(fsDoc(wdb, collectionName, id), {
+  await withFreshInstance(async (wdb) => {
+    await fsUpdateDoc(fsDoc(wdb, collectionName, id), {
       ...rest,
       updatedAt: new Date().toISOString(),
-    } as any),
-    8000,
-    'updateDoc'
-  );
-  console.log('[PBR-WRITE] updateDoc SUCCESS', collectionName, id);
+    } as any);
+  }, `updateDoc ${collectionName}/${id}`);
 }
 
 async function writeDelete(collectionName: string, id: string): Promise<void> {
-  const wdb = getWriteDb();
-  console.log('[PBR-WRITE] deleteDoc (fresh)', collectionName, id);
-  await withTimeout(
-    fsDeleteDoc(fsDoc(wdb, collectionName, id)),
-    8000,
-    'deleteDoc'
-  );
-  console.log('[PBR-WRITE] deleteDoc SUCCESS', collectionName, id);
+  await withFreshInstance(async (wdb) => {
+    await fsDeleteDoc(fsDoc(wdb, collectionName, id));
+  }, `deleteDoc ${collectionName}/${id}`);
 }
 
 // Re-export all types (backward compat with old imports)
