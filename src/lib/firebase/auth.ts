@@ -3,32 +3,26 @@
 // Two flows:
 //   1. LOGIN (user types email+password):
 //      signInWithEmailAndPassword → getIdToken → readUserRole → return
-//      Uses the MAIN Firestore instance (already authenticated).
+//      readUserRole calls /api/get-role (server-side, bulletproof)
 //
 //   2. PAGE RELOAD (user already signed in via Firebase session):
 //      onAuthStateChanged fires → readUserRole → cb(user)
-//      Same main instance, same auth context.
 //
-// CRITICAL: We use the MAIN Firestore instance (from firebase.ts),
-// NOT a separate "fresh" instance. Previous code created a fresh
-// Firebase app for writes/reads, but that app was NOT authenticated
-// (Firebase Auth is per-app-instance), so all reads/writes were
-// silently denied by Firestore rules → fell back to 'editor'.
+// CRITICAL: readUserRole uses /api/get-role API route (server-side
+// firebase-admin) instead of client-side Firestore SDK. This avoids
+// all issues with client Firestore state (listeners, cache, hang).
+// The server uses firebase-admin which bypasses security rules and
+// reads users/{uid} directly.
 // ============================================================
 import {
   getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider,
   signOut, onAuthStateChanged, type User,
 } from 'firebase/auth';
-import { getFirestore, doc, getDoc, type Firestore } from 'firebase/firestore';
 import { app } from './firebase';
 import { isFirebaseConfigured, COLLECTIONS } from './config';
 
 const auth = isFirebaseConfigured && app ? getAuth(app) : null;
 const googleProvider = new GoogleAuthProvider();
-
-// Main Firestore instance — authenticated via the main app's Auth.
-// All reads and writes go through this instance.
-const mainDb: Firestore | null = isFirebaseConfigured && app ? getFirestore(app) : null;
 
 export type Role = 'super_admin' | 'admin' | 'editor';
 
@@ -53,32 +47,65 @@ function log(tag: string, ...args: any[]) {
 }
 
 // ============================================================
-// readUserRole — read role from users/{uid} via MAIN Firestore
+// readUserRole — calls /api/get-role (server-side firebase-admin)
 // ============================================================
-// The user is signed in on the main app, so the main Firestore
-// instance is authenticated. Firestore rules allow self-read:
-//   allow read: if isSignedIn() && (request.auth.uid == id || isAdmin());
+// PRIMARY: POST idToken to /api/get-role. Server verifies token
+//          and reads users/{uid} via admin SDK (bypasses rules).
+//          Fast (~200-500ms), no client SDK issues.
 //
-// We use getDoc (cache-first) instead of getDocFromServer because:
-//   - For a freshly logged-in user, cache is empty → goes to server
-//   - For page reload, cache may have the doc → instant read
-//
-// Timeout: 8s (single attempt). If it fails, return 'editor' as
-// safe default — admin operations will be denied by Firestore rules.
+// FALLBACK: If API route fails (e.g. dev server not running, admin
+//          SDK not configured), try direct Firestore getDoc on main
+//          instance. Slow but works for development.
 // ============================================================
-async function readUserRole(fbUser: User): Promise<Role> {
-  log('readUserRole START', { uid: fbUser.uid, email: fbUser.email });
-  const t0 = Date.now();
-
-  if (!mainDb) {
-    log('readUserRole ERROR', 'mainDb is null — Firebase not configured');
-    return 'editor';
-  }
-
-  const ref = doc(mainDb, COLLECTIONS.USERS, fbUser.uid);
-  log('readUserRole getDoc', { path: `users/${fbUser.uid}` });
-
+async function readUserRoleViaApi(fbUser: User): Promise<Role | null> {
   try {
+    const idToken = await fbUser.getIdToken(false); // false = allow cache
+    log('readUserRole API idToken obtained', { tokenLen: idToken.length });
+
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 8000);
+
+    const res = await fetch('/api/get-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      log('readUserRole API HTTP error', { status: res.status, error: errBody?.error });
+      return null;
+    }
+
+    const data = await res.json();
+    log('readUserRole API response', { role: data.role, uid: data.uid, warning: data.warning });
+
+    if (data.warning) {
+      // Server returned a warning (e.g. doc doesn't exist, invalid role)
+      console.warn('[PBR-AUTH] readUserRole warning:', data.warning);
+    }
+
+    if (data.role === 'super_admin' || data.role === 'admin' || data.role === 'editor') {
+      return data.role;
+    }
+    return null;
+  } catch (err: any) {
+    log('readUserRole API failed', { error: err?.name || err?.code || err?.message });
+    return null;
+  }
+}
+
+async function readUserRoleViaFirestore(fbUser: User): Promise<Role> {
+  // Fallback: direct Firestore read on main instance
+  log('readUserRole FALLBACK to direct Firestore');
+  try {
+    const { getFirestore, doc, getDoc } = await import('firebase/firestore');
+    if (!app) return 'editor';
+    const db = getFirestore(app);
+    const ref = doc(db, COLLECTIONS.USERS, fbUser.uid);
+
     const snap = await Promise.race([
       getDoc(ref),
       new Promise<never>((_, reject) => {
@@ -86,31 +113,40 @@ async function readUserRole(fbUser: User): Promise<Role> {
       }),
     ]);
 
-    const elapsed = Date.now() - t0;
-    log('readUserRole RESULT', { elapsed_ms: elapsed, exists: snap.exists(), fromCache: snap.metadata?.fromCache });
-
     if (snap.exists()) {
-      const data = snap.data();
-      const docRole = data.role;
-      log('readUserRole DATA', { role: docRole, keys: Object.keys(data) });
-      if (docRole === 'super_admin' || docRole === 'admin' || docRole === 'editor') {
-        log('readUserRole ACCEPTED', { role: docRole });
-        return docRole;
+      const role = snap.data().role;
+      if (role === 'super_admin' || role === 'admin' || role === 'editor') {
+        log('readUserRole FALLBACK success', { role });
+        return role;
       }
-      log('readUserRole INVALID_ROLE', { role: docRole, expected: 'super_admin|admin|editor' });
-    } else {
-      log('readUserRole NOT_FOUND', { path: `users/${fbUser.uid}` });
-      // Document doesn't exist at users/{uid}. Common cause:
-      // the document was created via Firebase Console with an
-      // auto-generated ID instead of the Auth UID.
-      // Run: node scripts/verify-firestore-access.mjs <email> <password>
     }
+    log('readUserRole FALLBACK: doc missing or role invalid');
     return 'editor';
   } catch (err: any) {
-    const elapsed = Date.now() - t0;
-    log('readUserRole FAILED', { elapsed_ms: elapsed, error: err?.code || err?.message });
+    log('readUserRole FALLBACK failed', { error: err?.code || err?.message });
     return 'editor';
   }
+}
+
+async function readUserRole(fbUser: User): Promise<Role> {
+  log('readUserRole START', { uid: fbUser.uid, email: fbUser.email });
+  const t0 = Date.now();
+
+  // PRIMARY: API route (server-side firebase-admin)
+  const apiRole = await readUserRoleViaApi(fbUser);
+  const apiElapsed = Date.now() - t0;
+  log('readUserRole API done', { role: apiRole, elapsed_ms: apiElapsed });
+
+  if (apiRole) {
+    log('readUserRole ACCEPTED via API', { role: apiRole, elapsed_ms: apiElapsed });
+    return apiRole;
+  }
+
+  // FALLBACK: direct Firestore (only if API failed)
+  log('readUserRole falling back to Firestore', { apiElapsed_ms: apiElapsed });
+  const fsRole = await readUserRoleViaFirestore(fbUser);
+  log('readUserRole FALLBACK done', { role: fsRole, total_elapsed_ms: Date.now() - t0 });
+  return fsRole;
 }
 
 // ============================================================
@@ -122,8 +158,6 @@ export async function loginWithEmail(email: string, password: string): Promise<A
     return { success: false, error: 'Firebase Auth tidak terkonfigurasi. Set NEXT_PUBLIC_FIREBASE_* di .env.local' };
   }
 
-  // Set flag BEFORE signIn — onAuthStateChanged will fire when signIn
-  // resolves, and we want onAuthChange to SKIP during login flow.
   loginInProgress = true;
   log('loginInProgress = true');
 
@@ -132,12 +166,6 @@ export async function loginWithEmail(email: string, password: string): Promise<A
     const cred = await signInWithEmailAndPassword(auth, email, password);
     log('signIn SUCCESS', { uid: cred.user.uid });
 
-    log('loginWithEmail getIdToken(true)');
-    await cred.user.getIdToken(true);
-    log('getIdToken DONE');
-
-    // Read role SYNCHRONOUSLY — blocks until role is read
-    log('loginWithEmail readUserRole');
     const role = await readUserRole(cred.user);
     log('loginWithEmail role', { role });
 
@@ -165,7 +193,6 @@ export async function loginWithGoogle(): Promise<AuthResult> {
   loginInProgress = true;
   try {
     const cred = await signInWithPopup(auth, googleProvider);
-    await cred.user.getIdToken(true);
     const role = await readUserRole(cred.user);
     const user: AppUser = {
       uid: cred.user.uid,
@@ -190,13 +217,6 @@ export async function logout(): Promise<void> {
 // ============================================================
 // onAuthChange — fires on page reload AND login
 // ============================================================
-// CRITICAL: We DO call readUserRole here. This is needed because:
-//   - On page reload, Firebase session is restored but role is not.
-//   - We MUST read role from Firestore to know if user is admin.
-//
-// The loginInProgress flag prevents double-calling during the
-// login flow (loginWithEmail already reads role synchronously).
-// ============================================================
 let currentRoleGetter: (() => Role | null) | null = null;
 let loginInProgress = false;
 
@@ -212,21 +232,18 @@ export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
   }
   return onAuthStateChanged(auth, async (fbUser) => {
     if (fbUser) {
-      // Skip during login flow — loginWithEmail handles role reading
       if (loginInProgress) {
         log('onAuthChange SKIP (loginInProgress)');
         return;
       }
 
-      // Skip if currentUser already set (login already handled this)
       const existingRole = currentRoleGetter ? currentRoleGetter() : null;
       if (existingRole !== null) {
         log('onAuthChange SKIP (currentUser already set)', { existingRole });
         return;
       }
 
-      // Page reload case — read role from Firestore
-      log('onAuthChange page restore — reading role from Firestore', { email: fbUser.email });
+      log('onAuthChange page restore — reading role', { email: fbUser.email });
       const role = await readUserRole(fbUser);
       log('onAuthChange role resolved', { role });
 
@@ -240,7 +257,6 @@ export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
       log('onAuthChange CALLBACK', { role: user.role });
       cb(user);
     } else {
-      // User signed out
       log('onAuthChange signed out');
       cb(null);
     }
@@ -248,9 +264,6 @@ export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
 }
 
 export function getCurrentFirebaseUser(): User | null { return auth?.currentUser || null; }
-
-// Expose mainDb for firestore.ts to use for writes (same authenticated instance)
-export function getMainDb(): Firestore | null { return mainDb; }
 
 function translateError(code: string): string {
   const map: Record<string, string> = {

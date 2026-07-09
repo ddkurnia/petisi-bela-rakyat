@@ -1,22 +1,18 @@
 // ============================================================
 // diagnose-login.mjs
 // ============================================================
-// Run this in Termux to diagnose why login returns wrong role
-// or takes too long.
+// Run this in Termux to diagnose why login returns wrong role.
 //
 // Usage:
 //   node scripts/diagnose-login.mjs admin@belarakyat.org Kapal7890@
 //
-// This script simulates EXACTLY what the app does during login:
-//   1. Initialize Firebase (client SDK, same as browser)
-//   2. signInWithEmailAndPassword
-//   3. getIdToken(true)
-//   4. getDoc(users/{uid})  ← the role read
-//   5. Reports timing + result for each step
-//
-// If step 4 succeeds here but fails in the browser, the issue
-// is in the browser code (auth.ts). If it fails here too, the
-// issue is in Firestore rules or the document itself.
+// This script does THREE checks:
+//   1. Client-side: signIn → getIdToken → getDoc(users/{uid})
+//      (simulates what the browser does as fallback)
+//   2. Server-side: same flow but via firebase-admin
+//      (simulates what /api/get-role does — bulletproof)
+//   3. Direct Admin SDK: read users/{uid} by email
+//      (verifies document exists with correct ID = Auth UID)
 // ============================================================
 
 import { initializeApp } from 'firebase/app';
@@ -56,16 +52,23 @@ const firebaseConfig = {
 };
 
 console.log('\n========================================');
-console.log('  PBR Login Diagnostics');
+console.log('  PBR Login Diagnostics (Full)');
 console.log('========================================\n');
 
 console.log('=== Firebase Config ===');
 console.log('  apiKey:', firebaseConfig.apiKey ? firebaseConfig.apiKey.substring(0, 20) + '...' : 'MISSING');
 console.log('  projectId:', firebaseConfig.projectId || 'MISSING');
-console.log('  appId:', firebaseConfig.appId ? firebaseConfig.appId.substring(0, 20) + '...' : 'MISSING');
+
+const adminProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID || firebaseConfig.projectId;
+const adminClientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+const adminPrivateKey = (process.env.FIREBASE_ADMIN_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+
+console.log('  admin.projectId:', adminProjectId || 'MISSING');
+console.log('  admin.clientEmail:', adminClientEmail || 'MISSING');
+console.log('  admin.privateKey:', adminPrivateKey ? '[REDACTED:' + adminPrivateKey.length + ' chars]' : 'MISSING');
 
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  console.error('\n❌ Firebase config tidak lengkap. Cek NEXT_PUBLIC_FIREBASE_* di .env.local');
+  console.error('\n❌ Firebase client config tidak lengkap.');
   process.exit(1);
 }
 
@@ -74,103 +77,121 @@ const password = process.argv[3];
 
 if (!email || !password) {
   console.error('\nUsage: node scripts/diagnose-login.mjs <email> <password>');
-  console.error('   Example: node scripts/diagnose-login.mjs admin@belarakyat.org Kapal7890@');
   process.exit(1);
 }
 
 async function main() {
-  console.log('\n=== STEP 1: Initialize Firebase (client SDK) ===');
+  // ============================================================
+  // STEP 1: Client-side sign in
+  // ============================================================
+  console.log('\n=== STEP 1: signInWithEmailAndPassword (client SDK) ===');
   const t0 = Date.now();
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
-  console.log('  ✅ Firebase initialized in', Date.now() - t0, 'ms');
-
-  console.log('\n=== STEP 2: signInWithEmailAndPassword ===');
-  const t1 = Date.now();
   let cred;
   try {
     cred = await signInWithEmailAndPassword(auth, email, password);
-    console.log('  ✅ Sign in SUCCESS in', Date.now() - t1, 'ms');
+    console.log('  ✅ Sign in SUCCESS in', Date.now() - t0, 'ms');
     console.log('  Auth UID:', cred.user.uid);
-    console.log('  Email:', cred.user.email);
   } catch (err) {
-    console.error('  ❌ Sign in FAILED in', Date.now() - t1, 'ms');
+    console.error('  ❌ Sign in FAILED in', Date.now() - t0, 'ms');
     console.error('  Error:', err?.code || err?.message);
     process.exit(1);
   }
 
-  console.log('\n=== STEP 3: getIdToken(true) ===');
-  const t2 = Date.now();
-  try {
-    await cred.user.getIdToken(true);
-    console.log('  ✅ getIdToken DONE in', Date.now() - t2, 'ms');
-  } catch (err) {
-    console.error('  ❌ getIdToken FAILED in', Date.now() - t2, 'ms');
-    console.error('  Error:', err?.code || err?.message);
-  }
+  const idToken = await cred.user.getIdToken(false);
+  console.log('  ID token length:', idToken.length);
 
-  console.log('\n=== STEP 4: getDoc(users/{uid}) — THE ROLE READ ===');
+  // ============================================================
+  // STEP 2: Client-side getDoc (what the browser fallback does)
+  // ============================================================
+  console.log('\n=== STEP 2: Client getDoc(users/{uid}) ===');
   console.log('  Path: users/' + cred.user.uid);
-  const t3 = Date.now();
+  const t1 = Date.now();
   try {
     const ref = doc(db, 'users', cred.user.uid);
-    const snap = await getDoc(ref);
-    const elapsed = Date.now() - t3;
-    console.log('  ✅ getDoc DONE in', elapsed, 'ms');
+    const snap = await Promise.race([
+      getDoc(ref),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout 8s')), 8000)),
+    ]);
+    console.log('  ✅ getDoc DONE in', Date.now() - t1, 'ms');
     console.log('  exists:', snap.exists());
     console.log('  fromCache:', snap.metadata?.fromCache);
-
     if (snap.exists()) {
-      const data = snap.data();
-      console.log('  role:', data.role);
-      console.log('  email:', data.email);
-      console.log('  displayName:', data.displayName);
-      console.log('  all fields:', Object.keys(data));
-
-      console.log('\n========================================');
-      if (data.role === 'super_admin') {
-        console.log('🎉 VERDICT: Login seharusnya mengembalikan role super_admin');
-        console.log('   Jika di browser masih jadi editor, masalahnya di:');
-        console.log('   1. Browser cache (Ctrl+Shift+R / hard refresh)');
-        console.log('   2. Vercel belum deploy commit terbaru');
-        console.log('   3. Dev server belum di-restart setelah git pull');
-      } else if (data.role === 'admin' || data.role === 'editor') {
-        console.log('⚠️  VERDICT: Document exists but role =', data.role);
-        console.log('   Untuk super admin, jalankan:');
-        console.log('   node scripts/setup-admin.mjs ' + email + ' "Administrator"');
-      } else {
-        console.log('⚠️  VERDICT: Document exists but role is invalid:', data.role);
-        console.log('   Role harus salah satu: super_admin, admin, editor');
-      }
-      console.log('========================================\n');
-    } else {
-      console.log('\n========================================');
-      console.log('❌ VERDICT: Document users/{uid} TIDAK ADA');
-      console.log('   Auth UID:', cred.user.uid);
-      console.log('');
-      console.log('   PENYEBAB:');
-      console.log('   Document ID di Firestore ≠ Auth UID.');
-      console.log('   Kemungkinan dokumen dibuat manual via Firebase Console');
-      console.log('   dengan auto-generated ID.');
-      console.log('');
-      console.log('   FIX:');
-      console.log('   1. Firebase Console → Firestore → collection "users"');
-      console.log('   2. Hapus dokumen yang ada (jika Document ID ≠ Auth UID)');
-      console.log('   3. Jalankan: node scripts/setup-admin.mjs ' + email + ' "Administrator"');
-      console.log('      Script ini membuat dokumen dengan Document ID = Auth UID');
-      console.log('========================================\n');
+      console.log('  role:', snap.data().role);
     }
   } catch (err) {
-    const elapsed = Date.now() - t3;
-    console.error('  ❌ getDoc FAILED in', elapsed, 'ms');
+    console.error('  ❌ getDoc FAILED in', Date.now() - t1, 'ms');
     console.error('  Error:', err?.code || err?.message);
-    console.error('');
-    console.error('  PENYEBAB UMUM:');
-    console.error('  - permission-denied: Firestore rules menolak read');
-    console.error('    Fix: firebase deploy --only firestore:rules');
-    console.error('  - unavailable: Network issue atau Firestore down');
-    console.error('  - Jika timeout >8s: koneksi lambat atau firewall block');
+    console.error('  → Ini penyebab fallback ke editor di client SDK.');
+  }
+
+  // ============================================================
+  // STEP 3: Server-side (firebase-admin) — simulates /api/get-role
+  // ============================================================
+  if (adminProjectId && adminClientEmail && adminPrivateKey) {
+    console.log('\n=== STEP 3: Admin SDK getDoc(users/{uid}) — /api/get-role flow ===');
+    const t2 = Date.now();
+    try {
+      const { initializeApp: adminInit, cert } = await import('firebase-admin/app');
+      const { getAuth: adminGetAuth } = await import('firebase-admin/auth');
+      const { getFirestore: adminGetFirestore } = await import('firebase-admin/firestore');
+
+      const adminApp = adminInit({ credential: cert({ projectId: adminProjectId, clientEmail: adminClientEmail, privateKey: adminPrivateKey }) }, 'diagnose-' + Date.now());
+      const adminAuth = adminGetAuth(adminApp);
+      const adminDb = adminGetFirestore(adminApp);
+
+      // Verify ID token (same as /api/get-role does)
+      const decoded = await adminAuth.verifyIdToken(idToken);
+      console.log('  ✅ Token verified. UID:', decoded.uid);
+
+      const userSnap = await adminDb.collection('users').doc(decoded.uid).get();
+      console.log('  ✅ Admin getDoc DONE in', Date.now() - t2, 'ms');
+      console.log('  exists:', userSnap.exists);
+
+      if (userSnap.exists) {
+        const data = userSnap.data();
+        console.log('  role:', data.role);
+        console.log('  email:', data.email);
+        console.log('  displayName:', data.displayName);
+        console.log('  all fields:', Object.keys(data));
+
+        console.log('\n========================================');
+        if (data.role === 'super_admin') {
+          console.log('🎉 VERDICT: Document OK with role=super_admin');
+          console.log('   /api/get-role akan return: super_admin');
+          console.log('   Jika di browser masih editor:');
+          console.log('   1. Stop dev server: Ctrl+C');
+          console.log('   2. Hapus cache: rm -rf .next');
+          console.log('   3. git pull origin main');
+          console.log('   4. npm run dev');
+          console.log('   5. Hard refresh browser (Ctrl+Shift+R)');
+        } else {
+          console.log('⚠️  VERDICT: role =', data.role, '(bukan super_admin)');
+          console.log('   Fix: node scripts/setup-admin.mjs ' + email + ' "Administrator"');
+        }
+        console.log('========================================\n');
+      } else {
+        console.log('\n========================================');
+        console.log('❌ VERDICT: Document users/{uid} TIDAK ADA');
+        console.log('   Auth UID:', decoded.uid);
+        console.log('   Fix: node scripts/setup-admin.mjs ' + email + ' "Administrator"');
+        console.log('========================================\n');
+      }
+
+      try { await adminApp.delete(); } catch {}
+    } catch (err) {
+      console.error('  ❌ Admin SDK FAILED in', Date.now() - t2, 'ms');
+      console.error('  Error:', err?.code || err?.message);
+    }
+  } else {
+    console.log('\n=== STEP 3: SKIPPED (FIREBASE_ADMIN_* env vars not set) ===');
+    console.log('  /api/get-role TIDAK AKAN BEKERJA tanpa admin SDK!');
+    console.log('  Set these in .env.local:');
+    console.log('    FIREBASE_ADMIN_PROJECT_ID=');
+    console.log('    FIREBASE_ADMIN_CLIENT_EMAIL=');
+    console.log('    FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n..."');
   }
 
   process.exit(0);
