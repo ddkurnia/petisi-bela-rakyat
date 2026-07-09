@@ -115,6 +115,12 @@ export async function loginWithEmail(email: string, password: string): Promise<A
     return { success: false, error: 'Firebase Auth tidak terkonfigurasi' };
   }
 
+  // Set flag BEFORE signIn — onAuthStateChanged will fire when signIn
+  // resolves, and we want onAuthChange to SKIP during login flow.
+  // This prevents TWO readUserRole calls running parallel (29s delay bug).
+  loginInProgress = true;
+  log('loginInProgress = true');
+
   try {
     log('loginWithEmail signInWithEmailAndPassword');
     const cred = await signInWithEmailAndPassword(auth, email, password);
@@ -142,11 +148,16 @@ export async function loginWithEmail(email: string, password: string): Promise<A
   } catch (err: any) {
     log('loginWithEmail FAILED', { code: err?.code, message: err?.message });
     return { success: false, error: translateError(err?.code || '') };
+  } finally {
+    // Clear flag so future onAuthChange fires (page reload) can proceed
+    loginInProgress = false;
+    log('loginInProgress = false');
   }
 }
 
 export async function loginWithGoogle(): Promise<AuthResult> {
   if (!auth) return { success: false, error: 'Firebase Auth tidak terkonfigurasi' };
+  loginInProgress = true;
   try {
     const cred = await signInWithPopup(auth, googleProvider);
     await cred.user.getIdToken(true);
@@ -161,6 +172,8 @@ export async function loginWithGoogle(): Promise<AuthResult> {
     return { success: true, user };
   } catch (err: any) {
     return { success: false, error: translateError(err?.code || '') };
+  } finally {
+    loginInProgress = false;
   }
 }
 
@@ -170,9 +183,19 @@ export async function logout(): Promise<void> {
 }
 
 // ============================================================
-// onAuthChange — for page reload (restore session)
+// onAuthChange — for page reload ONLY (restore session)
+// ============================================================
+// CRITICAL: loginInProgress flag is set BEFORE signInWithEmailAndPassword
+// so that onAuthStateChanged (which fires when signIn resolves) will SKIP.
+// This prevents TWO readUserRole calls running in parallel (which caused
+// the 29-second delay + editor fallback bug).
+//
+// onAuthChange only reads Firestore when:
+//   - Page reload (loginInProgress = false, currentUser is null)
+//   - NOT during active login flow
 // ============================================================
 let currentRoleGetter: (() => Role | null) | null = null;
+let loginInProgress = false;
 
 export function setCurrentRoleGetter(getter: () => Role | null) {
   currentRoleGetter = getter;
@@ -186,17 +209,23 @@ export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
   }
   return onAuthStateChanged(auth, async (fbUser) => {
     if (fbUser) {
-      try {
-        const role = await readUserRole(fbUser);
+      // CRITICAL: skip entirely during login flow
+      if (loginInProgress) {
+        log('onAuthChange SKIP (loginInProgress)');
+        return;
+      }
 
-        // Guard: don't let editor fallback overwrite super_admin/admin
-        if (role === 'editor' && currentRoleGetter) {
-          const existing = currentRoleGetter();
-          if (existing === 'super_admin' || existing === 'admin') {
-            log('onAuthChange GUARD SKIP', { existing });
-            return;
-          }
-        }
+      // Also skip if currentUser already set (login just completed)
+      const existingRole = currentRoleGetter ? currentRoleGetter() : null;
+      if (existingRole !== null) {
+        log('onAuthChange SKIP (currentUser already set)', { existingRole });
+        return;
+      }
+
+      // Page reload case — restore session
+      try {
+        log('onAuthChange readUserRole (page restore)');
+        const role = await readUserRole(fbUser);
 
         const user: AppUser = {
           uid: fbUser.uid,
@@ -212,6 +241,7 @@ export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
         cb(null);
       }
     } else {
+      // User signed out
       cb(null);
     }
   });
