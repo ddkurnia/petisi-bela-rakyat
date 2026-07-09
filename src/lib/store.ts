@@ -183,17 +183,24 @@ let state: AppState = {
   currentUser: null,
   login: async (email, password) => {
     // loginWithEmail() calls signInWithEmailAndPassword + mapUser().
-    // We do NOT storeSet currentUser here — the onAuthChange listener
-    // (registered in init()) will fire with the same user and set
-    // currentUser. This avoids a race where loginWithEmail's mapUser
-    // (which may fall back to 'editor' if Firestore token hasn't
-    // propagated) overwrites the correct role set by onAuthChange.
+    // mapUser() uses waitForFirestoreAuthReady + getDocWithTimeout to
+    // ensure it reads the CORRECT role from Firestore (not fallback).
     //
-    // If loginWithEmail fails, return false so the UI shows error.
-    // If it succeeds, return true immediately. The onAuthChange
-    // listener will set currentUser within milliseconds.
+    // We MUST storeSet currentUser here with the role from loginWithEmail.
+    // The onAuthChange listener (registered in init()) fires PARALLEL to
+    // loginWithEmail, and its mapUser may get an 'editor' fallback if the
+    // Firestore token hasn't propagated yet (race condition in production
+    // with network latency). If we don't set currentUser here, the
+    // onAuthChange's editor fallback wins and the user sees editor menu.
+    //
+    // The guard in onAuthChange (auth.ts) prevents it from overwriting
+    // a super_admin/admin with editor fallback, so this storeSet is safe.
     const res = await loginWithEmail(email, password);
-    return res.success && !!res.user;
+    if (res.success && res.user) {
+      storeSet({ currentUser: res.user });
+      return true;
+    }
+    return false;
   },
   logout: () => { fbLogout(); storeSet({ currentUser: null }); },
 
