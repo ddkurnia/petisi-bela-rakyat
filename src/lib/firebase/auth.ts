@@ -35,78 +35,86 @@ function log(tag: string, ...args: any[]) {
 }
 
 // ============================================================
-// readUserRole — read role via REST API (bypass Firestore SDK)
+// readUserRole — read role via FRESH Firestore instance
 // ============================================================
-// Uses fetch() directly to Firestore REST API with the user's
-// ID token. Bypasses Firestore SDK entirely (no internal state,
-// no connection pool, no cache).
+// The main Firestore instance (from firestore.ts) has accumulated
+// internal state from onSnapshot listeners that causes getDocFromServer
+// to hang. To bypass this, we create a SECOND Firebase app instance
+// with a FRESH Firestore — no listeners, no cache, no state.
 //
-// FALLBACK: if REST API fails (403/404/timeout), fall back to
-// 'editor'. The storeSet guard prevents editor from overwriting
-// an existing super_admin/admin.
+// This is why test-read-role.mjs works (it creates a fresh instance).
 // ============================================================
+import { initializeApp as fbInitializeApp, getApps as fbGetApps, deleteApp as fbDeleteApp, type FirebaseApp as FbApp } from 'firebase/app';
+import { getFirestore as fbGetFirestore, doc as fbDoc, getDocFromServer as fbGetDocFromServer, type Firestore as FbFirestore } from 'firebase/firestore';
+
+let freshApp: FbApp | null = null;
+let freshDb: FbFirestore | null = null;
+
+function getFreshDb(): FbFirestore | null {
+  if (freshDb) return freshDb;
+  const config = {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  };
+  if (!config.apiKey || !config.projectId) return null;
+  // Create a SEPARATE app instance — does NOT share state with main app
+  freshApp = fbInitializeApp(config as any, 'role-reader-' + Date.now());
+  freshDb = fbGetFirestore(freshApp);
+  log('readUserRole created FRESH Firestore instance');
+  return freshDb;
+}
+
 async function readUserRole(fbUser: User): Promise<Role> {
-  log('readUserRole START (REST API)', { uid: fbUser.uid, email: fbUser.email });
+  log('readUserRole START (fresh instance)', { uid: fbUser.uid, email: fbUser.email });
   const t0 = Date.now();
 
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  if (!projectId) {
-    log('readUserRole ERROR', 'NEXT_PUBLIC_FIREBASE_PROJECT_ID not set');
-    return 'editor';
-  }
-
   const MAX_ATTEMPTS = 3;
+  const DOC_TIMEOUT_MS = 5000;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      // Get fresh ID token
-      const idToken = await fbUser.getIdToken(true);
-      log('readUserRole attempt', { attempt, tokenLen: idToken.length });
+      const fdb = getFreshDb();
+      if (!fdb) { log('readUserRole ERROR', 'cannot create fresh db'); break; }
 
-      // REST API call — bypass Firestore SDK entirely
-      const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${fbUser.uid}`;
+      if (attempt > 1) {
+        log('readUserRole forceRefresh', { attempt });
+        await fbUser.getIdToken(true);
+        await new Promise((r) => setTimeout(r, 300));
+      }
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const ref = fbDoc(fdb, COLLECTIONS.USERS, fbUser.uid);
+      log('readUserRole getDocFromServer (fresh)', { attempt, path: `users/${fbUser.uid}` });
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${idToken}`,
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal,
-      });
+      const snap = await Promise.race([
+        fbGetDocFromServer(ref),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error(`timeout ${DOC_TIMEOUT_MS}ms`)), DOC_TIMEOUT_MS);
+        }),
+      ]);
 
-      clearTimeout(timeoutId);
       const elapsed = Date.now() - t0;
-      log('readUserRole response', { attempt, status: response.status, elapsed_ms: elapsed });
+      log('readUserRole RESULT', { attempt, elapsed_ms: elapsed, exists: snap.exists() });
 
-      if (response.status === 200) {
-        const doc = await response.json();
-        log('readUserRole 200 OK', { fields: doc.fields });
-
-        const roleField = doc.fields?.role;
-        if (roleField?.stringValue) {
-          const role = roleField.stringValue as Role;
-          log('readUserRole ACCEPTED', { role, attempt });
-          return role;
+      if (snap.exists()) {
+        const data = snap.data();
+        const docRole = data.role;
+        log('readUserRole DATA', { role: docRole, keys: Object.keys(data) });
+        if (typeof docRole === 'string' && docRole.length > 0) {
+          log('readUserRole ACCEPTED', { role: docRole, attempt });
+          return docRole as Role;
         }
-        log('readUserRole role field missing in 200 response', { roleField });
-      } else if (response.status === 404) {
-        log('readUserRole 404 NOT FOUND', { attempt, uid: fbUser.uid });
-      } else if (response.status === 403) {
-        log('readUserRole 403 PERMISSION DENIED', { attempt });
       } else {
-        const text = await response.text();
-        log('readUserRole unexpected status', { status: response.status, body: text.substring(0, 300) });
+        log('readUserRole NOT FOUND', { attempt });
       }
     } catch (err: any) {
-      log('readUserRole exception', { attempt, error: err?.name || err?.code || err?.message });
-    }
-
-    if (attempt < MAX_ATTEMPTS) {
-      await new Promise((r) => setTimeout(r, 500));
+      log('readUserRole FAILED', { attempt, error: err?.code || err?.message });
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, 500));
+      }
     }
   }
 
