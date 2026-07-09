@@ -21,7 +21,7 @@ import {
 } from "@/lib/firebase/config";
 import {
   onAuthChange, loginWithEmail, loginWithGoogle, logout as fbLogout,
-  setCurrentRoleGetter,
+  setCurrentRoleGetter, fetchUserRoleAndUpdate, getCurrentFirebaseUser,
   type AppUser, type Role,
 } from "@/lib/firebase/auth";
 import {
@@ -182,22 +182,34 @@ const handleErr = (err: any, msg = "Operasi gagal") => {
 let state: AppState = {
   currentUser: null,
   login: async (email, password) => {
-    // loginWithEmail() calls signInWithEmailAndPassword + mapUser().
-    // mapUser() uses waitForFirestoreAuthReady + getDocWithTimeout to
-    // ensure it reads the CORRECT role from Firestore (not fallback).
+    // SIMPLIFIED: like admin dummy — set currentUser IMMEDIATELY
+    // after signIn, then fetch real role in background.
     //
-    // We MUST storeSet currentUser here with the role from loginWithEmail.
-    // The onAuthChange listener (registered in init()) fires PARALLEL to
-    // loginWithEmail, and its mapUser may get an 'editor' fallback if the
-    // Firestore token hasn't propagated yet (race condition in production
-    // with network latency). If we don't set currentUser here, the
-    // onAuthChange's editor fallback wins and the user sees editor menu.
-    //
-    // The guard in onAuthChange (auth.ts) prevents it from overwriting
-    // a super_admin/admin with editor fallback, so this storeSet is safe.
+    // loginWithEmail now returns quickly with temp role 'editor'.
+    // We set currentUser immediately (UI updates, user enters dashboard).
+    // Then we fetch the REAL role from Firestore in background and
+    // update currentUser when role is available.
     const res = await loginWithEmail(email, password);
     if (res.success && res.user) {
+      // Set currentUser IMMEDIATELY — UI updates, user enters dashboard
       storeSet({ currentUser: res.user });
+
+      // Fetch real role in BACKGROUND (non-blocking)
+      // getCurrentFirebaseUser() returns the Firebase Auth user
+      const fbUser = getCurrentFirebaseUser();
+      if (fbUser) {
+        fetchUserRoleAndUpdate(fbUser, (role) => {
+          // Update currentUser with REAL role from Firestore
+          const current = state.currentUser;
+          if (current && current.uid === res.user!.uid) {
+            storeSet({ currentUser: { ...current, role } });
+            console.log('%c[PBR-STORE] role updated', 'color:#16a34a;font-weight:bold', role);
+          }
+        }).catch((err) => {
+          console.error('[PBR-STORE] fetchUserRoleAndUpdate failed:', err);
+        });
+      }
+
       return true;
     }
     return false;
