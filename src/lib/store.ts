@@ -284,16 +284,30 @@ const listeners = new Set<() => void>();
 let initialized = false;
 
 function storeSet(partial: Partial<AppState>) {
-  const before = state.currentUser?.role ?? null;
-  const after = partial.currentUser?.role ?? (partial.currentUser === undefined ? before : null);
+  // GUARD: never downgrade from super_admin/admin to editor
+  // This prevents onAuthChange or any other source from overwriting
+  // the correct role with editor fallback
   if (partial.currentUser !== undefined) {
+    const before = state.currentUser?.role ?? null;
+    const after = partial.currentUser?.role ?? null;
+    const isDowngrade = (before === 'super_admin' || before === 'admin') && after === 'editor';
+
     console.log('%c[PBR-STORE storeSet]', 'color:#2563eb;font-weight:bold', 'currentUser', {
       before_role: before,
       after_role: after,
-      isOverwrite: before !== null && partial.currentUser !== null,
-      downgrade: (before === 'super_admin' || before === 'admin') && after === 'editor',
-      user: partial.currentUser,
+      isDowngrade,
     });
+
+    // BLOCK downgrade — keep existing super_admin/admin
+    if (isDowngrade) {
+      console.log('%c[PBR-STORE storeSet BLOCKED downgrade]', 'color:#dc2626;font-weight:bold', {
+        before, after,
+      });
+      // Keep existing currentUser, don't apply the downgrade
+      // But still notify listeners in case other fields changed
+      listeners.forEach((l) => l());
+      return;
+    }
   }
   state = { ...state, ...partial };
   listeners.forEach((l) => l());

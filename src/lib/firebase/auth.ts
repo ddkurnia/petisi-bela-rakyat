@@ -206,14 +206,13 @@ export async function logout(): Promise<void> {
 // ============================================================
 // onAuthChange — for page reload ONLY (restore session)
 // ============================================================
-// CRITICAL: loginInProgress flag is set BEFORE signInWithEmailAndPassword
-// so that onAuthStateChanged (which fires when signIn resolves) will SKIP.
-// This prevents TWO readUserRole calls running in parallel (which caused
-// the 29-second delay + editor fallback bug).
+// CRITICAL: onAuthChange does NOT call readUserRole.
+// It only fires for page reload (restore session), and in that case
+// it reads role from Firestore. But it NEVER fires during login
+// (loginInProgress flag blocks it).
 //
-// onAuthChange only reads Firestore when:
-//   - Page reload (loginInProgress = false, currentUser is null)
-//   - NOT during active login flow
+// During login, loginWithEmail is the ONLY code that reads role
+// and sets currentUser. onAuthChange is blocked entirely.
 // ============================================================
 let currentRoleGetter: (() => Role | null) | null = null;
 let loginInProgress = false;
@@ -236,7 +235,7 @@ export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
         return;
       }
 
-      // Also skip if currentUser already set (login just completed)
+      // Skip if currentUser already set (login already handled this)
       const existingRole = currentRoleGetter ? currentRoleGetter() : null;
       if (existingRole !== null) {
         log('onAuthChange SKIP (currentUser already set)', { existingRole });
@@ -244,6 +243,7 @@ export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
       }
 
       // Page reload case — restore session
+      // Use REST API (same as loginWithEmail)
       try {
         log('onAuthChange readUserRole (page restore)');
         const role = await readUserRole(fbUser);
