@@ -95,7 +95,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
 // ============================================================
 interface AppState {
   currentUser: AppUser | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string; role?: string }>;
   logout: () => void;
 
   settings: SiteSettings;
@@ -204,9 +204,9 @@ let state: AppState = {
     if (res.success && res.user) {
       storeSet({ currentUser: res.user });
       console.log('%c[PBR-STORE] login set currentUser', 'color:#16a34a;font-weight:bold', { role: res.user.role });
-      return true;
+      return { ok: true, role: res.user.role, error: res.error };
     }
-    return false;
+    return { ok: false, error: res.error };
   },
   logout: () => { fbLogout(); storeSet({ currentUser: null }); },
 

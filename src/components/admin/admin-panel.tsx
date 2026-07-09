@@ -100,29 +100,30 @@ export function AdminPanel() {
                 e.preventDefault();
                 setLoginDebug("⏳ Login in progress...");
                 const t0 = Date.now();
-                const ok = await login(email, password);
+                const result = await login(email, password);
                 const elapsed = Date.now() - t0;
-                if (ok) {
-                  // Read role directly from store after login
+                if (result.ok) {
                   setTimeout(() => {
                     const storeState = (window as any).__pbr_storeState;
-                    const role = storeState?.currentUser?.role || 'unknown';
-                    setLoginDebug(`✅ Login OK (${elapsed}ms) — Role: ${role}`);
+                    const role = storeState?.currentUser?.role || result.role || 'unknown';
                     if (role === 'editor') {
-                      toast.warning(`Role: editor (${elapsed}ms)`, {
-                        description: 'Jika ini salah, jalankan: node scripts/verify-firestore-access.mjs admin@belarakyat.org Kapal7890@',
-                        duration: 12000,
+                      // Editor role — could be legitimate OR error fallback
+                      const errorMsg = result.error || 'Tidak diketahui';
+                      setLoginDebug(`⚠️ Role: editor (${elapsed}ms)\n\nKEMUNGKINAN ERROR:\n${errorMsg}\n\nCek:\n1. DevTools Console (F12) — filter PBR\n2. GET /api/ping — verifikasi dev server jalan kode baru\n3. node scripts/diagnose-login.mjs ${email} <password>`);
+                      toast.error(`Role: editor (${elapsed}ms) — kemungkinan error`, {
+                        description: result.error ? `Error: ${result.error.slice(0, 150)}` : 'Buka DevTools Console (F12) untuk detail',
+                        duration: 20000,
                       });
                     } else {
-                      toast.success(`✅ Role: ${role} (${elapsed}ms)`, {
-                        duration: 4000,
-                      });
+                      setLoginDebug(`✅ Login OK (${elapsed}ms) — Role: ${role}`);
+                      toast.success(`✅ Role: ${role} (${elapsed}ms)`, { duration: 4000 });
                     }
                   }, 200);
                 } else {
-                  setLoginDebug(`❌ Login failed (${elapsed}ms)`);
-                  toast.error(`Email atau password salah (${elapsed}ms)`, {
-                    duration: 8000,
+                  setLoginDebug(`❌ Login failed (${elapsed}ms)\n${result.error || ''}`);
+                  toast.error(`Login gagal (${elapsed}ms)`, {
+                    description: result.error || 'Email atau password salah',
+                    duration: 10000,
                   });
                 }
               }}
