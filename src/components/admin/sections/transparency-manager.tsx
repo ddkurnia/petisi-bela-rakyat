@@ -38,14 +38,12 @@ export function TransparencyManager() {
     if (!editing) return;
     if (!editing.category || !editing.description) { toast.error("Kategori dan deskripsi wajib diisi"); return; }
     addTransparency(editing);
-    toast.success("Transaksi ditambahkan");
     setOpen(false);
   };
 
   const saveReport = () => {
     if (!reportForm.title) { toast.error("Judul laporan wajib diisi"); return; }
     addReport({ ...reportForm, uploadedAt: new Date().toISOString().split("T")[0] });
-    toast.success("Laporan ditambahkan");
     setReportOpen(false);
     setReportForm({ title: "", year: new Date().getFullYear(), url: "#" });
   };
@@ -69,7 +67,7 @@ export function TransparencyManager() {
                 <div className="text-xs text-muted-foreground">{r.year}</div>
               </div>
               <Button size="icon" variant="ghost" className="rounded-full text-red-600 hover:bg-red-500/10" onClick={() => {
-                if (confirm(`Hapus "${r.title}"?`)) { deleteReport(r.id); toast.success("Laporan dihapus"); }
+                if (confirm(`Hapus "${r.title}"?`)) { deleteReport(r.id); }
               }}>
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -116,7 +114,7 @@ export function TransparencyManager() {
                   </td>
                   <td className="p-3">
                     <Button size="icon" variant="ghost" className="rounded-full text-red-600 hover:bg-red-500/10" onClick={() => {
-                      if (confirm("Hapus transaksi ini?")) { deleteTransparency(r.id); toast.success("Transaksi dihapus"); }
+                      if (confirm("Hapus transaksi ini?")) { deleteTransparency(r.id); }
                     }}>
                       <Trash2 className="h-4 w-4" />
                     </Button>

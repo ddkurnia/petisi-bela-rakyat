@@ -67,10 +67,8 @@ export function BlogManager() {
 
     if (editing.id) {
       updateBlog(editing.id, finalData);
-      toast.success("Artikel diperbarui");
     } else {
       addBlog(finalData);
-      toast.success("Artikel ditambahkan");
     }
     setOpen(false);
   };
@@ -116,7 +114,7 @@ export function BlogManager() {
                   <Pencil className="h-4 w-4" />
                 </Button>
                 <Button size="icon" variant="ghost" className="rounded-full text-red-600 hover:bg-red-500/10" onClick={() => {
-                  if (confirm(`Hapus "${p.title}"?`)) { deleteBlog(p.id); toast.success("Artikel dihapus"); }
+                  if (confirm(`Hapus "${p.title}"?`)) { deleteBlog(p.id); }
                 }}>
                   <Trash2 className="h-4 w-4" />
                 </Button>

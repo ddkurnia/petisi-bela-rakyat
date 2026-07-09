@@ -27,8 +27,8 @@ export function SupporterManager() {
   const save = () => {
     if (!editing) return;
     if (!editing.name) { toast.error("Nama wajib diisi"); return; }
-    if (editing.id) { updateSupporter(editing.id, editing); toast.success("Pendukung diperbarui"); }
-    else { addSupporter(editing); toast.success("Pendukung ditambahkan"); }
+    if (editing.id) { updateSupporter(editing.id, editing); }
+    else { addSupporter(editing); }
     setOpen(false);
   };
 
@@ -57,7 +57,7 @@ export function SupporterManager() {
                 <Pencil className="h-3 w-3 mr-1" /> Edit
               </Button>
               <Button size="sm" variant="ghost" className="rounded-full text-red-600 hover:bg-red-500/10" onClick={() => {
-                if (confirm(`Hapus ${s.name}?`)) { deleteSupporter(s.id); toast.success("Pendukung dihapus"); }
+                if (confirm(`Hapus ${s.name}?`)) { deleteSupporter(s.id); }
               }}>
                 <Trash2 className="h-3 w-3" />
               </Button>

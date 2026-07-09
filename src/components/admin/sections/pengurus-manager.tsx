@@ -47,10 +47,8 @@ export function PengurusManager() {
     }
     if (editing.id) {
       updatePengurus(editing.id, editing);
-      toast.success("Pengurus diperbarui");
     } else {
       addPengurus(editing);
-      toast.success("Pengurus ditambahkan");
     }
     setOpen(false);
   };
@@ -114,7 +112,6 @@ export function PengurusManager() {
               <Button size="sm" variant="ghost" className="rounded-full text-red-600 hover:bg-red-500/10" onClick={() => {
                 if (confirm(`Hapus ${m.name}?`)) {
                   deletePengurus(m.id);
-                  toast.success("Pengurus dihapus");
                 }
               }}>
                 <Trash2 className="h-3 w-3" />

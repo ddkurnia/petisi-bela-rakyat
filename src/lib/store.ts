@@ -21,7 +21,7 @@ import {
 } from "@/lib/firebase/config";
 import {
   onAuthChange, loginWithEmail, loginWithGoogle, logout as fbLogout,
-  setCurrentRoleGetter,
+  setCurrentRoleGetter, getCurrentFirebaseUser,
   type AppUser, type Role,
 } from "@/lib/firebase/auth";
 import {
@@ -222,18 +222,26 @@ let state: AppState = {
     const merged = { ...state.settings, ...s } as SiteSettings;
     storeSet({ settings: merged });
     console.log('%c[PBR-STORE] updateSettings', 'color:#16a34a;font-weight:bold', s);
-    settingsService.get().then((doc) => {
+
+    // Refresh token before write to ensure Firestore SDK has valid auth
+    const fbUser = getCurrentFirebaseUser();
+    const tokenPromise = fbUser ? fbUser.getIdToken(true) : Promise.resolve();
+
+    tokenPromise.then(async () => {
+      const doc = await settingsService.get();
       const settingsDoc = doc as (SiteSettings & { id?: string }) | null;
       if (settingsDoc?.id) {
-        settingsService.update(settingsDoc.id, s).then(() => {
-          toast.success("Pengaturan tersimpan");
-        }).catch((e) => handleErr(e, "Gagal menyimpan pengaturan"));
+        await settingsService.update(settingsDoc.id, s);
       } else {
-        settingsService.create(merged).then(() => {
-          toast.success("Pengaturan tersimpan");
-        }).catch((e) => handleErr(e, "Gagal menyimpan pengaturan"));
+        await settingsService.create(merged);
       }
-    }).catch((e) => handleErr(e, "Gagal membaca pengaturan"));
+    }).then(() => {
+      toast.success("Pengaturan tersimpan ke Firestore");
+      console.log('%c[PBR-STORE] settings SAVED to Firestore', 'color:#16a34a;font-weight:bold');
+    }).catch((e) => {
+      console.error('[PBR-STORE] settings save FAILED:', e);
+      handleErr(e, "Gagal menyimpan pengaturan");
+    });
   },
   updateHomepage: (s) => state.updateSettings({ homepage: { ...state.settings.homepage, ...s } as any }),
   updateAbout: (s) => state.updateSettings({ about: { ...state.settings.about, ...s } as any }),

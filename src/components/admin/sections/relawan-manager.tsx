@@ -33,8 +33,8 @@ export function RelawanManager() {
   const save = () => {
     if (!editing) return;
     if (!editing.name) { toast.error("Nama wajib diisi"); return; }
-    if (editing.id) { updateRelawan(editing.id, editing); toast.success("Relawan diperbarui"); }
-    else { addRelawan(editing); toast.success("Relawan ditambahkan"); }
+    if (editing.id) { updateRelawan(editing.id, editing); }
+    else { addRelawan(editing); }
     setOpen(false);
   };
 
@@ -68,7 +68,7 @@ export function RelawanManager() {
                   <Pencil className="h-2.5 w-2.5 mr-1" /> Edit
                 </Button>
                 <Button size="sm" variant="ghost" className="rounded-full text-red-600 hover:bg-red-500/10 h-7 w-7 p-0" onClick={() => {
-                  if (confirm(`Hapus ${r.name}?`)) { deleteRelawan(r.id); toast.success("Relawan dihapus"); }
+                  if (confirm(`Hapus ${r.name}?`)) { deleteRelawan(r.id); }
                 }}>
                   <Trash2 className="h-3 w-3" />
                 </Button>

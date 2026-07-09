@@ -35,7 +35,6 @@ export function MediaManager() {
     if (!editing.title) { toast.error("Judul wajib diisi"); return; }
     const finalData = { ...editing, thumbnail: editing.thumbnail || editing.url };
     addGallery(finalData);
-    toast.success("Media ditambahkan");
     setOpen(false);
   };
 
@@ -61,7 +60,7 @@ export function MediaManager() {
               <h3 className="font-semibold text-sm truncate">{g.title}</h3>
               <p className="text-xs text-muted-foreground truncate">{g.category}</p>
               <Button size="sm" variant="ghost" className="w-full mt-2 rounded-full text-red-600 hover:bg-red-500/10" onClick={() => {
-                if (confirm(`Hapus "${g.title}"?`)) { deleteGallery(g.id); toast.success("Media dihapus"); }
+                if (confirm(`Hapus "${g.title}"?`)) { deleteGallery(g.id); }
               }}>
                 <Trash2 className="h-3 w-3 mr-1" /> Hapus
               </Button>

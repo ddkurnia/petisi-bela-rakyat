@@ -31,8 +31,8 @@ export function PenasehatManager() {
   const save = () => {
     if (!editing) return;
     if (!editing.name) { toast.error("Nama wajib diisi"); return; }
-    if (editing.id) { updatePenasehat(editing.id, editing); toast.success("Penasehat diperbarui"); }
-    else { addPenasehat(editing); toast.success("Penasehat ditambahkan"); }
+    if (editing.id) { updatePenasehat(editing.id, editing); }
+    else { addPenasehat(editing); }
     setOpen(false);
   };
 
@@ -61,7 +61,7 @@ export function PenasehatManager() {
                   <Pencil className="h-3 w-3 mr-1" /> Edit
                 </Button>
                 <Button size="sm" variant="ghost" className="rounded-full text-red-600 hover:bg-red-500/10" onClick={() => {
-                  if (confirm(`Hapus ${p.name}?`)) { deletePenasehat(p.id); toast.success("Penasehat dihapus"); }
+                  if (confirm(`Hapus ${p.name}?`)) { deletePenasehat(p.id); }
                 }}>
                   <Trash2 className="h-3 w-3" />
                 </Button>

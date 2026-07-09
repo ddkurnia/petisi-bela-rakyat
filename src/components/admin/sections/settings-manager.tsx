@@ -93,7 +93,7 @@ export function SettingsManager() {
             <Input value={contact.mapLink} onChange={(e) => setContact({ ...contact, mapLink: e.target.value })} className="rounded-xl" />
           </div>
           <Button
-            onClick={() => { updateContact(contact); toast.success("Kontak diperbarui"); }}
+            onClick={() => { updateContact(contact); }}
             className="rounded-full bg-primary hover:bg-primary/90 text-white"
           >
             <Save className="h-4 w-4 mr-2" /> Simpan Kontak
@@ -163,7 +163,7 @@ export function SettingsManager() {
               <Plus className="h-4 w-4 mr-1.5" /> Tambah Media Sosial
             </Button>
             <Button
-              onClick={() => { updateSocials(socials); toast.success("Media sosial diperbarui"); }}
+              onClick={() => { updateSocials(socials); }}
               className="rounded-full bg-primary hover:bg-primary/90 text-white"
             >
               <Save className="h-4 w-4 mr-2" /> Simpan
@@ -199,7 +199,7 @@ export function SettingsManager() {
             <Textarea value={about.sejarah} onChange={(e) => setAbout({ ...about, sejarah: e.target.value })} rows={8} className="rounded-xl resize-none" />
           </div>
           <Button
-            onClick={() => { updateAbout(about); toast.success("Tentang organisasi diperbarui"); }}
+            onClick={() => { updateAbout(about); }}
             className="rounded-full bg-primary hover:bg-primary/90 text-white"
           >
             <Save className="h-4 w-4 mr-2" /> Simpan Tentang
@@ -221,7 +221,7 @@ export function SettingsManager() {
             <Input value={footer.copyrightText} onChange={(e) => setFooter({ ...footer, copyrightText: e.target.value })} className="rounded-xl" />
           </div>
           <Button
-            onClick={() => { updateFooter(footer); toast.success("Footer diperbarui"); }}
+            onClick={() => { updateFooter(footer); }}
             className="rounded-full bg-primary hover:bg-primary/90 text-white"
           >
             <Save className="h-4 w-4 mr-2" /> Simpan Footer

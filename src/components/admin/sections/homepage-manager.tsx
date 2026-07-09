@@ -18,7 +18,6 @@ export function HomepageManager() {
 
   const save = () => {
     updateHomepage(form);
-    toast.success("Homepage berhasil diperbarui");
   };
 
   return (

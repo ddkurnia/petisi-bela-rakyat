@@ -35,8 +35,8 @@ export function CampaignManager() {
   const save = () => {
     if (!editing) return;
     if (!editing.title) { toast.error("Judul wajib diisi"); return; }
-    if (editing.id) { updateCampaign(editing.id, editing); toast.success("Kampanye diperbarui"); }
-    else { addCampaign(editing); toast.success("Kampanye ditambahkan"); }
+    if (editing.id) { updateCampaign(editing.id, editing); }
+    else { addCampaign(editing); }
     setOpen(false);
   };
 
@@ -64,7 +64,7 @@ export function CampaignManager() {
                   <Pencil className="h-3 w-3 mr-1" /> Edit
                 </Button>
                 <Button size="sm" variant="ghost" className="rounded-full text-red-600 hover:bg-red-500/10" onClick={() => {
-                  if (confirm(`Hapus "${c.title}"?`)) { deleteCampaign(c.id); toast.success("Kampanye dihapus"); }
+                  if (confirm(`Hapus "${c.title}"?`)) { deleteCampaign(c.id); }
                 }}>
                   <Trash2 className="h-3 w-3" />
                 </Button>

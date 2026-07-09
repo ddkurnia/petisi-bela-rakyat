@@ -37,8 +37,8 @@ export function NewsManager() {
   const save = () => {
     if (!editing) return;
     if (!editing.title) { toast.error("Judul wajib diisi"); return; }
-    if (editing.id) { updateNews(editing.id, editing); toast.success("Berita diperbarui"); }
-    else { addNews(editing); toast.success("Berita ditambahkan"); }
+    if (editing.id) { updateNews(editing.id, editing); }
+    else { addNews(editing); }
     setOpen(false);
   };
 
@@ -71,7 +71,7 @@ export function NewsManager() {
                   <Pencil className="h-4 w-4" />
                 </Button>
                 <Button size="icon" variant="ghost" className="rounded-full text-red-600 hover:bg-red-500/10" onClick={() => {
-                  if (confirm(`Hapus "${p.title}"?`)) { deleteNews(p.id); toast.success("Berita dihapus"); }
+                  if (confirm(`Hapus "${p.title}"?`)) { deleteNews(p.id); }
                 }}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
