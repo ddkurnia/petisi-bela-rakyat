@@ -1,4 +1,18 @@
 // Firestore Service Layer - CRUD + realtime onSnapshot
+// ============================================================
+// IMPORTANT ARCHITECTURE NOTE
+// ============================================================
+// We use TWO Firebase app instances:
+//   1. Main app (firebase.ts) — for onSnapshot listeners (reads)
+//   2. Fresh app (getFreshDb from auth.ts) — for writes & one-off reads
+//
+// Reason: when the main instance has many onSnapshot listeners active,
+// certain operations (getDocFromServer, updateDoc) can hang. The fresh
+// instance avoids this because it has no listeners attached.
+//
+// All write operations in this file route through getFreshDb() to
+// guarantee they complete within timeout.
+// ============================================================
 import {
   getFirestore, collection, doc, getDocs, getDoc, addDoc, setDoc,
   updateDoc, deleteDoc, query, where, orderBy, limit, onSnapshot,
@@ -19,6 +33,25 @@ const requireDb = () => {
   return db;
 };
 
+// ============================================================
+// Fresh instance accessor — lazy import to avoid circular deps
+// ============================================================
+// We import getFreshDb lazily (dynamic import) to break the circular
+// dependency: firestore.ts → auth.ts → firebase.ts → firestore.ts.
+// At runtime this works because by the time any write is called,
+// auth.ts has already been loaded.
+let _getFreshDb: (() => any) | null = null;
+async function getWriterDb() {
+  if (!_getFreshDb) {
+    const mod = await import('./auth');
+    _getFreshDb = mod.getFreshDb;
+  }
+  return _getFreshDb();
+}
+
+// ============================================================
+// READ operations — use main db (with onSnapshot listeners)
+// ============================================================
 export async function getAll<T>(name: string, ...constraints: QueryConstraint[]): Promise<T[]> {
   const d = requireDb();
   const q = constraints.length ? query(collection(d, name), ...constraints) : collection(d, name);
@@ -48,36 +81,110 @@ export async function getFirstByField<T>(name: string, field: string, value: any
   return normalize<T>(doc.data(), doc.id);
 }
 
+// ============================================================
+// WRITE operations — use fresh db (no listeners, no hang)
+// ============================================================
 export async function createItem<T extends { id?: string }>(name: string, data: T): Promise<string> {
-  const d = requireDb();
-  const ref = await addDoc(collection(d, name), { ...stripId(data), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  const wdb = await getWriterDb();
+  if (!wdb) throw new Error('[PBR] Writer Firestore unavailable');
+  const ref = await addDoc(collection(wdb, name), {
+    ...stripId(data),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
   return ref.id;
 }
 
 export async function createItemWithId<T extends { id?: string }>(name: string, id: string, data: T): Promise<void> {
-  const d = requireDb();
-  await setDoc(doc(d, name, id), { ...stripId(data), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  const wdb = await getWriterDb();
+  if (!wdb) throw new Error('[PBR] Writer Firestore unavailable');
+  await setDoc(doc(wdb, name, id), {
+    ...stripId(data),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 export async function updateItem<T>(name: string, id: string, data: Partial<T>): Promise<void> {
-  const d = requireDb();
-  await updateDoc(doc(d, name, id), { ...data, updatedAt: new Date().toISOString() } as any);
+  const wdb = await getWriterDb();
+  if (!wdb) throw new Error('[PBR] Writer Firestore unavailable');
+  await updateDoc(doc(wdb, name, id), {
+    ...data,
+    updatedAt: new Date().toISOString(),
+  } as any);
+}
+
+// setDoc with merge — used for singleton docs (e.g. settings/main)
+export async function setItemMerged<T extends { id?: string }>(name: string, id: string, data: T): Promise<void> {
+  const wdb = await getWriterDb();
+  if (!wdb) throw new Error('[PBR] Writer Firestore unavailable');
+  await setDoc(doc(wdb, name, id), {
+    ...stripId(data),
+    updatedAt: new Date().toISOString(),
+  }, { merge: true });
 }
 
 export async function deleteItem(name: string, id: string): Promise<void> {
-  const d = requireDb();
-  await deleteDoc(doc(d, name, id));
+  const wdb = await getWriterDb();
+  if (!wdb) throw new Error('[PBR] Writer Firestore unavailable');
+  await deleteDoc(doc(wdb, name, id));
 }
 
 export async function incrementField(name: string, id: string, field: string, by: number = 1): Promise<void> {
-  const d = requireDb();
-  await updateDoc(doc(d, name, id), { [field]: increment(by) } as any);
+  const wdb = await getWriterDb();
+  if (!wdb) throw new Error('[PBR] Writer Firestore unavailable');
+  await updateDoc(doc(wdb, name, id), {
+    [field]: increment(by),
+    updatedAt: new Date().toISOString(),
+  } as any);
 }
 
+// ============================================================
+// SUBSCRIBE operations — realtime via onSnapshot
+// ============================================================
+// Public users: use subscribeToCollectionPublished (filters by status=published)
+// Admin users: use subscribeToCollection (no filter, sees all)
+//
+// This split is REQUIRED by Firestore rules:
+//   allow read: if resource.data.status == 'published' || isAdmin();
+// A query without the filter would be denied for public users because
+// Firestore can't guarantee all returned docs have status=published.
+// ============================================================
 export function subscribeToCollection<T>(name: string, cb: (items: T[]) => void, ...constraints: QueryConstraint[]): Unsubscribe {
   const d = requireDb();
   const q = constraints.length ? query(collection(d, name), ...constraints) : collection(d, name);
-  return onSnapshot(q as any, (snap) => cb(snap.docs.map((doc) => normalize<T>(doc.data(), doc.id))), (err) => console.error(`[firestore] subscribe(${name}) error:`, err));
+  return onSnapshot(
+    q as any,
+    (snap) => cb(snap.docs.map((doc) => normalize<T>(doc.data(), doc.id))),
+    (err) => console.error(`[firestore] subscribe(${name}) error:`, err?.code || err?.message),
+  );
+}
+
+// Subscribe to a single document by ID (realtime)
+export function subscribeToDoc<T>(name: string, id: string, cb: (item: T | null) => void): Unsubscribe {
+  const d = requireDb();
+  return onSnapshot(
+    doc(d, name, id),
+    (snap) => cb(snap.exists() ? normalize<T>(snap.data(), snap.id) : null),
+    (err) => console.error(`[firestore] subscribeDoc(${name}/${id}) error:`, err?.code || err?.message),
+  );
+}
+
+// Subscribe to the FIRST document in a collection (used for singleton settings)
+export function subscribeToFirstDoc<T>(name: string, cb: (item: T | null) => void, ...constraints: QueryConstraint[]): Unsubscribe {
+  const d = requireDb();
+  const q = constraints.length
+    ? query(collection(d, name), ...constraints, limit(1))
+    : query(collection(d, name), limit(1));
+  return onSnapshot(
+    q,
+    (snap) => {
+      if (snap.empty) { cb(null); return; }
+      const d0 = snap.docs[0];
+      cb(normalize<T>(d0.data(), d0.id));
+    },
+    (err) => console.error(`[firestore] subscribeFirst(${name}) error:`, err?.code || err?.message),
+  );
 }
 
 export { db, query, where, orderBy, limit, increment };

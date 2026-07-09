@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Search, Calendar, User, Eye, Tag, Clock, Share2 } from "lucide-react";
 import { Reveal } from "@/components/animation";
@@ -41,6 +41,18 @@ export function BlogPage() {
 
   const featured = blog[0];
   const rest = filtered.filter((p) => p.id !== featured?.id);
+
+  // Increment view counter when viewing a blog detail (once per slug)
+  const viewedSlugs = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!blogSlug) return;
+    if (viewedSlugs.current.has(blogSlug)) return;
+    const post = blog.find((p) => p.slug === blogSlug);
+    if (post) {
+      viewedSlugs.current.add(blogSlug);
+      incrementBlogView(post.id);
+    }
+  }, [blogSlug, blog, incrementBlogView]);
 
   // Detail
   if (blogSlug) {

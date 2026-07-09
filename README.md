@@ -149,29 +149,107 @@ public/
 └── sitemap.xml
 ```
 
-## 🔄 Firebase Integration
+## 🔄 Firebase Integration — LIVE & REALTIME
 
-Struktur data sudah dirancang sesuai spesifikasi Firebase:
+Website ini sekarang **100% live dan realtime** menggunakan Firebase Firestore.
+
+### Arsitektur Realtime
+
+```
+Admin Panel (edit konten)
+      ↓
+  Firestore (database)
+      ↓ onSnapshot
+Public Website (realtime update)
+```
+
+**Cara kerja:**
+1. Admin login di `/admin` → ubah konten (blog, news, campaigns, settings, dll.)
+2. Perubahan langsung tersimpan ke Firestore
+3. Semua pengunjung publik langsung melihat perubahan (via `onSnapshot` listener)
+4. **Tidak perlu refresh halaman** — perubahan muncul otomatis
+
+### Struktur Firestore Collections
 
 ```
 collections:
-- users          (autentikasi + role)
-- team           (anggota tim)
-- blog           (artikel blog)
-- news           (berita)
+- users          (autentikasi + role: super_admin / admin / editor)
+- blog           (artikel blog — public lihat published, admin lihat semua)
+- news           (berita — public lihat published, admin lihat semua)
 - campaigns      (kampanye + petisi)
+- pengurus       (anggota pengurus)
+- penasehat      (dewan penasehat)
+- relawan        (relawan terdaftar)
 - supporters     (tokoh pendukung)
 - gallery        (foto/video/dokumen)
-- documents      (laporan resmi)
+- work           (kategori kerja kami)
 - transparency   (transaksi keuangan)
-- settings       (konfigurasi homepage)
+- reports        (laporan resmi)
+- settings/main  (konfigurasi situs — singleton doc)
+- messages       (submission dari contact form)
 ```
 
-Untuk migrasi dari Zustand ke Firebase:
-1. Install Firebase SDK: `bun add firebase`
-2. Ganti implementasi `useStore` di `src/lib/store.ts` dengan Firebase Firestore calls
-3. Tambahkan Firebase Auth untuk mengganti login demo
-4. Gunakan Firebase Storage untuk upload file di admin panel
+### Setup di Termux (Android)
+
+1. **Install dependencies:**
+   ```bash
+   pkg install nodejs git
+   cd petisi-bela-rakyat
+   npm install
+   ```
+
+2. **Buat file `.env.local`** (lihat `.env.example` untuk template):
+   ```bash
+   # Firebase Client SDK (dari Firebase Console → Project Settings → Web App)
+   NEXT_PUBLIC_FIREBASE_API_KEY=...
+   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+   NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
+   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+   NEXT_PUBLIC_FIREBASE_APP_ID=...
+
+   # Firebase Admin SDK (dari Firebase Console → Service Accounts → Generate new private key)
+   FIREBASE_ADMIN_PROJECT_ID=...
+   FIREBASE_ADMIN_CLIENT_EMAIL=...
+   FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nXXX\n-----END PRIVATE KEY-----\n"
+
+   # Cloudinary (dari Cloudinary Console → Dashboard)
+   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=...
+   CLOUDINARY_API_KEY=...
+   CLOUDINARY_API_SECRET=...
+
+   NEXT_PUBLIC_SITE_URL=https://petisibelarakyat.id
+   ```
+
+3. **Deploy Firestore rules:**
+   ```bash
+   npm install -g firebase-tools
+   firebase login
+   firebase deploy --only firestore:rules
+   ```
+
+4. **Setup admin pertama:**
+   - Buat user di Firebase Console → Authentication → Add user
+   - Jalankan: `node scripts/setup-admin.mjs admin@email.com "Administrator"`
+
+5. **Jalankan dev server:**
+   ```bash
+   npm run dev
+   ```
+   Buka `http://localhost:3000` di browser.
+
+### Verifikasi Realtime Berfungsi
+
+1. Buka website di browser A (publik, tidak login)
+2. Buka `/admin` di browser B, login sebagai admin
+3. Di browser B, edit apapun (misal: ganti hero headline)
+4. Klik Simpan
+5. **Browser A akan otomatis update** dalam 1-2 detik (tanpa refresh)
+
+Jika tidak update otomatis, cek:
+- DevTools Console → cari error `[PBR-STORE]` atau `permission-denied`
+- Firebase Console → Firestore → pastikan rules sudah di-deploy
+- Network tab → pastikan WebSocket ke Firebase terbuka
 
 ## 📦 Deployment
 

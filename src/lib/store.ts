@@ -11,7 +11,10 @@
 // All mutations call Firestore services (async, fire-and-forget
 // with error toast).
 //
-// UI components do NOT need to change.
+// CRITICAL: Public subscribers run for ALL visitors (logged-in
+// or not). Public sees published content realtime. When admin
+// logs in, blog/news listeners are swapped to admin mode (sees
+// drafts too).
 // ============================================================
 
 import { useSyncExternalStore } from "react";
@@ -30,89 +33,7 @@ import {
   supporterService, galleryService, workService,
   transparencyService, reportService, settingsService, messageService,
 } from "@/services";
-import {
-  collection as fsCollection, doc as fsDoc,
-  addDoc as fsAddDoc, setDoc as fsSetDoc, updateDoc as fsUpdateDoc,
-  deleteDoc as fsDeleteDoc,
-} from "firebase/firestore";
-
-// ============================================================
-// Write helper — uses getFreshDb() from auth.ts (SAME instance as readUserRole)
-// ============================================================
-// readUserRole uses getFreshDb() and WORKS (872ms). We now use
-// the EXACT SAME instance for writes. No separate writer instance.
-// ============================================================
-
-function withTimeout<T>(promise: Promise<T>, ms = 8000, label = 'operation'): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => {
-      setTimeout(() => reject(new Error(`${label} timeout after ${ms}ms`)), ms);
-    }),
-  ]);
-}
-
-async function writeCreate(collectionName: string, data: any): Promise<string> {
-  const wdb = getFreshDb();
-  if (!wdb) throw new Error('Firestore not available');
-  const { id, ...rest } = data;
-  console.log('[PBR-WRITE] addDoc', collectionName);
-  const ref = await withTimeout(
-    fsAddDoc(fsCollection(wdb, collectionName), {
-      ...rest,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }),
-    8000,
-    `addDoc ${collectionName}`
-  );
-  console.log('[PBR-WRITE] addDoc SUCCESS', ref.id);
-  return ref.id;
-}
-
-async function writeSet(collectionName: string, docId: string, data: any, merge = true): Promise<void> {
-  const wdb = getFreshDb();
-  if (!wdb) throw new Error('Firestore not available');
-  const { id, ...rest } = data;
-  console.log('[PBR-WRITE] setDoc', collectionName, docId);
-  await withTimeout(
-    fsSetDoc(fsDoc(wdb, collectionName, docId), {
-      ...rest,
-      updatedAt: new Date().toISOString(),
-    }, { merge }),
-    8000,
-    `setDoc ${collectionName}/${docId}`
-  );
-  console.log('[PBR-WRITE] setDoc SUCCESS');
-}
-
-async function writeUpdate(collectionName: string, id: string, data: any): Promise<void> {
-  const wdb = getFreshDb();
-  if (!wdb) throw new Error('Firestore not available');
-  const { id: _, ...rest } = data;
-  console.log('[PBR-WRITE] updateDoc', collectionName, id);
-  await withTimeout(
-    fsUpdateDoc(fsDoc(wdb, collectionName, id), {
-      ...rest,
-      updatedAt: new Date().toISOString(),
-    } as any),
-    8000,
-    `updateDoc ${collectionName}/${id}`
-  );
-  console.log('[PBR-WRITE] updateDoc SUCCESS');
-}
-
-async function writeDelete(collectionName: string, id: string): Promise<void> {
-  const wdb = getFreshDb();
-  if (!wdb) throw new Error('Firestore not available');
-  console.log('[PBR-WRITE] deleteDoc', collectionName, id);
-  await withTimeout(
-    fsDeleteDoc(fsDoc(wdb, collectionName, id)),
-    8000,
-    `deleteDoc ${collectionName}/${id}`
-  );
-  console.log('[PBR-WRITE] deleteDoc SUCCESS');
-}
+import type { Unsubscribe } from "firebase/firestore";
 
 // Re-export all types (backward compat with old imports)
 export type { Role } from "@/lib/firebase/auth";
@@ -132,7 +53,7 @@ import type {
 } from "@/types";
 
 // ============================================================
-// Role permissions (kept identical to old store)
+// Role permissions
 // ============================================================
 export const rolePermissions: Record<Role, string[]> = {
   super_admin: ["*"],
@@ -253,7 +174,7 @@ interface AppState {
 }
 
 // ============================================================
-// Singleton store (module-level state)
+// Helpers
 // ============================================================
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
@@ -273,6 +194,9 @@ const handleErr = (err: any, msg = "Operasi gagal") => {
   toast.error(detail, { duration: 8000 });
 };
 
+// ============================================================
+// Singleton store (module-level state)
+// ============================================================
 let state: AppState = {
   currentUser: null,
   login: async (email, password) => {
@@ -280,7 +204,6 @@ let state: AppState = {
     if (res.success && res.user) {
       storeSet({ currentUser: res.user });
       console.log('%c[PBR-STORE] login set currentUser', 'color:#16a34a;font-weight:bold', { role: res.user.role });
-      // initDataSubscribers() already called in init() — no need to call again
       return true;
     }
     return false;
@@ -303,18 +226,16 @@ let state: AppState = {
 
   updateSettings: (s) => {
     const merged = { ...state.settings, ...s } as SiteSettings;
+    // Optimistic update — UI updates immediately
     storeSet({ settings: merged });
     console.log('%c[PBR-STORE] updateSettings', 'color:#16a34a;font-weight:bold', s);
 
-    // Use setDoc with merge — NO read needed (read hangs on main instance)
-    // Document ID = 'main' (fixed, singleton settings document)
+    // Persist to Firestore (settings/main doc with merge=true)
     (async () => {
       try {
         const fbUser = getCurrentFirebaseUser();
         if (fbUser) await fbUser.getIdToken(true);
-
-        await writeSet(COLLECTIONS.SETTINGS, 'main', merged, true);
-
+        await settingsService.save(merged);
         toast.success("Pengaturan tersimpan ke Firestore");
         console.log('%c[PBR-STORE] settings SAVED', 'color:#16a34a;font-weight:bold');
       } catch (e: any) {
@@ -329,58 +250,58 @@ let state: AppState = {
   updateSocials: (s) => state.updateSettings({ socials: s }),
   updateFooter: (s) => state.updateSettings({ footer: { ...state.settings.footer, ...s } as any }),
 
-  addPengurus: (m) => { writeCreate(COLLECTIONS.PENGURUS, { ...m, slug: m.slug || slugify(m.name) }).then(() => toast.success("Pengurus ditambahkan")).catch((e) => handleErr(e, "Gagal tambah pengurus")); },
-  updatePengurus: (id, m) => { writeUpdate(COLLECTIONS.PENGURUS, id, m).then(() => toast.success("Pengurus diperbarui")).catch((e) => handleErr(e, "Gagal update pengurus")); },
-  deletePengurus: (id) => { writeDelete(COLLECTIONS.PENGURUS, id).then(() => toast.success("Pengurus dihapus")).catch((e) => handleErr(e, "Gagal hapus pengurus")); },
+  addPengurus: (m) => { pengurusService.create({ ...m, slug: m.slug || slugify(m.name) } as any).then(() => toast.success("Pengurus ditambahkan")).catch((e) => handleErr(e, "Gagal tambah pengurus")); },
+  updatePengurus: (id, m) => { pengurusService.update(id, m).then(() => toast.success("Pengurus diperbarui")).catch((e) => handleErr(e, "Gagal update pengurus")); },
+  deletePengurus: (id) => { pengurusService.delete(id).then(() => toast.success("Pengurus dihapus")).catch((e) => handleErr(e, "Gagal hapus pengurus")); },
 
-  addPenasehat: (p) => { writeCreate(COLLECTIONS.PENASEHAT, p).then(() => toast.success("Penasehat ditambahkan")).catch((e) => handleErr(e, "Gagal tambah penasehat")); },
-  updatePenasehat: (id, p) => { writeUpdate(COLLECTIONS.PENASEHAT, id, p).then(() => toast.success("Penasehat diperbarui")).catch((e) => handleErr(e, "Gagal update penasehat")); },
-  deletePenasehat: (id) => { writeDelete(COLLECTIONS.PENASEHAT, id).then(() => toast.success("Penasehat dihapus")).catch((e) => handleErr(e, "Gagal hapus penasehat")); },
+  addPenasehat: (p) => { penasehatService.create(p as any).then(() => toast.success("Penasehat ditambahkan")).catch((e) => handleErr(e, "Gagal tambah penasehat")); },
+  updatePenasehat: (id, p) => { penasehatService.update(id, p).then(() => toast.success("Penasehat diperbarui")).catch((e) => handleErr(e, "Gagal update penasehat")); },
+  deletePenasehat: (id) => { penasehatService.delete(id).then(() => toast.success("Penasehat dihapus")).catch((e) => handleErr(e, "Gagal hapus penasehat")); },
 
-  addRelawan: (r) => { writeCreate(COLLECTIONS.RELAWAN, r).then(() => toast.success("Relawan ditambahkan")).catch((e) => handleErr(e, "Gagal tambah relawan")); },
-  updateRelawan: (id, r) => { writeUpdate(COLLECTIONS.RELAWAN, id, r).then(() => toast.success("Relawan diperbarui")).catch((e) => handleErr(e, "Gagal update relawan")); },
-  deleteRelawan: (id) => { writeDelete(COLLECTIONS.RELAWAN, id).then(() => toast.success("Relawan dihapus")).catch((e) => handleErr(e, "Gagal hapus relawan")); },
+  addRelawan: (r) => { relawanService.create(r as any).then(() => toast.success("Relawan ditambahkan")).catch((e) => handleErr(e, "Gagal tambah relawan")); },
+  updateRelawan: (id, r) => { relawanService.update(id, r).then(() => toast.success("Relawan diperbarui")).catch((e) => handleErr(e, "Gagal update relawan")); },
+  deleteRelawan: (id) => { relawanService.delete(id).then(() => toast.success("Relawan dihapus")).catch((e) => handleErr(e, "Gagal hapus relawan")); },
 
-  addTeam: (m) => { writeCreate(COLLECTIONS.PENGURUS, { ...m, slug: m.slug || slugify(m.name), gelar: "", jabatan: m.position, parentId: null, whatsapp: "", email: "", status: "active" }).then(() => toast.success("Tim ditambahkan")).catch((e) => handleErr(e, "Gagal tambah tim")); },
-  updateTeam: (id, m) => { writeUpdate(COLLECTIONS.PENGURUS, id, m as any).then(() => toast.success("Tim diperbarui")).catch((e) => handleErr(e, "Gagal update tim")); },
-  deleteTeam: (id) => { writeDelete(COLLECTIONS.PENGURUS, id).then(() => toast.success("Tim dihapus")).catch((e) => handleErr(e, "Gagal hapus tim")); },
+  addTeam: (m) => { pengurusService.create({ ...m, slug: m.slug || slugify(m.name), gelar: "", jabatan: m.position, parentId: null, whatsapp: "", email: "", status: "active" } as any).then(() => toast.success("Tim ditambahkan")).catch((e) => handleErr(e, "Gagal tambah tim")); },
+  updateTeam: (id, m) => { pengurusService.update(id, m as any).then(() => toast.success("Tim diperbarui")).catch((e) => handleErr(e, "Gagal update tim")); },
+  deleteTeam: (id) => { pengurusService.delete(id).then(() => toast.success("Tim dihapus")).catch((e) => handleErr(e, "Gagal hapus tim")); },
 
-  addBlog: (p) => { writeCreate(COLLECTIONS.BLOG, { ...p, slug: p.slug || slugify(p.title), views: 0, shares: 0 }).then(() => toast.success("Blog ditambahkan")).catch((e) => handleErr(e, "Gagal tambah blog")); },
-  updateBlog: (id, p) => { writeUpdate(COLLECTIONS.BLOG, id, p).then(() => toast.success("Blog diperbarui")).catch((e) => handleErr(e, "Gagal update blog")); },
-  deleteBlog: (id) => { writeDelete(COLLECTIONS.BLOG, id).then(() => toast.success("Blog dihapus")).catch((e) => handleErr(e, "Gagal hapus blog")); },
-  incrementBlogView: (id) => { /* TODO: fresh increment */ },
-  incrementBlogShare: (id) => { /* TODO: fresh increment */ },
+  addBlog: (p) => { blogService.create({ ...p, slug: p.slug || slugify(p.title), views: 0, shares: 0 } as any).then(() => toast.success("Blog ditambahkan")).catch((e) => handleErr(e, "Gagal tambah blog")); },
+  updateBlog: (id, p) => { blogService.update(id, p).then(() => toast.success("Blog diperbarui")).catch((e) => handleErr(e, "Gagal update blog")); },
+  deleteBlog: (id) => { blogService.delete(id).then(() => toast.success("Blog dihapus")).catch((e) => handleErr(e, "Gagal hapus blog")); },
+  incrementBlogView: (id) => { blogService.incrementView(id).catch((e) => console.error('[incrementBlogView]', e)); },
+  incrementBlogShare: (id) => { blogService.incrementShare(id).then(() => toast.success("Tersebar!")).catch((e) => handleErr(e, "Gagal update share counter")); },
 
-  addNews: (p) => { writeCreate(COLLECTIONS.NEWS, { ...p, slug: p.slug || slugify(p.title), views: 0, shares: 0 }).then(() => toast.success("Berita ditambahkan")).catch((e) => handleErr(e, "Gagal tambah berita")); },
-  updateNews: (id, p) => { writeUpdate(COLLECTIONS.NEWS, id, p).then(() => toast.success("Berita diperbarui")).catch((e) => handleErr(e, "Gagal update berita")); },
-  deleteNews: (id) => { writeDelete(COLLECTIONS.NEWS, id).then(() => toast.success("Berita dihapus")).catch((e) => handleErr(e, "Gagal hapus berita")); },
-  incrementNewsView: (id) => { /* TODO: fresh increment */ },
-  incrementNewsShare: (id) => { /* TODO: fresh increment */ },
+  addNews: (p) => { newsService.create({ ...p, slug: p.slug || slugify(p.title), views: 0, shares: 0 } as any).then(() => toast.success("Berita ditambahkan")).catch((e) => handleErr(e, "Gagal tambah berita")); },
+  updateNews: (id, p) => { newsService.update(id, p).then(() => toast.success("Berita diperbarui")).catch((e) => handleErr(e, "Gagal update berita")); },
+  deleteNews: (id) => { newsService.delete(id).then(() => toast.success("Berita dihapus")).catch((e) => handleErr(e, "Gagal hapus berita")); },
+  incrementNewsView: (id) => { newsService.incrementView(id).catch((e) => console.error('[incrementNewsView]', e)); },
+  incrementNewsShare: (id) => { newsService.incrementShare(id).then(() => toast.success("Tersebar!")).catch((e) => handleErr(e, "Gagal update share counter")); },
 
-  addCampaign: (c) => { writeCreate(COLLECTIONS.CAMPAIGNS, { ...c, slug: c.slug || slugify(c.title), shares: 0 }).then(() => toast.success("Kampanye ditambahkan")).catch((e) => handleErr(e, "Gagal tambah kampanye")); },
-  updateCampaign: (id, c) => { writeUpdate(COLLECTIONS.CAMPAIGNS, id, c).then(() => toast.success("Kampanye diperbarui")).catch((e) => handleErr(e, "Gagal update kampanye")); },
-  deleteCampaign: (id) => { writeDelete(COLLECTIONS.CAMPAIGNS, id).then(() => toast.success("Kampanye dihapus")).catch((e) => handleErr(e, "Gagal hapus kampanye")); },
-  incrementCampaignShare: (id) => { /* TODO: fresh increment */ },
+  addCampaign: (c) => { campaignService.create({ ...c, slug: c.slug || slugify(c.title), shares: 0 } as any).then(() => toast.success("Kampanye ditambahkan")).catch((e) => handleErr(e, "Gagal tambah kampanye")); },
+  updateCampaign: (id, c) => { campaignService.update(id, c).then(() => toast.success("Kampanye diperbarui")).catch((e) => handleErr(e, "Gagal update kampanye")); },
+  deleteCampaign: (id) => { campaignService.delete(id).then(() => toast.success("Kampanye dihapus")).catch((e) => handleErr(e, "Gagal hapus kampanye")); },
+  incrementCampaignShare: (id) => { campaignService.incrementShare(id).then(() => toast.success("Tersebar!")).catch((e) => handleErr(e, "Gagal update share counter")); },
 
-  addSupporter: (s) => { writeCreate(COLLECTIONS.SUPPORTERS, s).then(() => toast.success("Tokoh ditambahkan")).catch((e) => handleErr(e, "Gagal tambah tokoh")); },
-  updateSupporter: (id, s) => { writeUpdate(COLLECTIONS.SUPPORTERS, id, s).then(() => toast.success("Tokoh diperbarui")).catch((e) => handleErr(e, "Gagal update tokoh")); },
-  deleteSupporter: (id) => { writeDelete(COLLECTIONS.SUPPORTERS, id).then(() => toast.success("Tokoh dihapus")).catch((e) => handleErr(e, "Gagal hapus tokoh")); },
+  addSupporter: (s) => { supporterService.create(s as any).then(() => toast.success("Tokoh ditambahkan")).catch((e) => handleErr(e, "Gagal tambah tokoh")); },
+  updateSupporter: (id, s) => { supporterService.update(id, s).then(() => toast.success("Tokoh diperbarui")).catch((e) => handleErr(e, "Gagal update tokoh")); },
+  deleteSupporter: (id) => { supporterService.delete(id).then(() => toast.success("Tokoh dihapus")).catch((e) => handleErr(e, "Gagal hapus tokoh")); },
 
-  addGallery: (g) => { writeCreate(COLLECTIONS.GALLERY, g).then(() => toast.success("Media ditambahkan")).catch((e) => handleErr(e, "Gagal tambah media")); },
-  updateGallery: (id, g) => { writeUpdate(COLLECTIONS.GALLERY, id, g).then(() => toast.success("Media diperbarui")).catch((e) => handleErr(e, "Gagal update media")); },
-  deleteGallery: (id) => { writeDelete(COLLECTIONS.GALLERY, id).then(() => toast.success("Media dihapus")).catch((e) => handleErr(e, "Gagal hapus media")); },
+  addGallery: (g) => { galleryService.create(g as any).then(() => toast.success("Media ditambahkan")).catch((e) => handleErr(e, "Gagal tambah media")); },
+  updateGallery: (id, g) => { galleryService.update(id, g).then(() => toast.success("Media diperbarui")).catch((e) => handleErr(e, "Gagal update media")); },
+  deleteGallery: (id) => { galleryService.delete(id).then(() => toast.success("Media dihapus")).catch((e) => handleErr(e, "Gagal hapus media")); },
 
-  addTransparency: (t) => { writeCreate(COLLECTIONS.TRANSPARENCY, t).then(() => toast.success("Transparansi ditambahkan")).catch((e) => handleErr(e, "Gagal tambah transparansi")); },
-  updateTransparency: (id, t) => { writeUpdate(COLLECTIONS.TRANSPARENCY, id, t).then(() => toast.success("Transparansi diperbarui")).catch((e) => handleErr(e, "Gagal update transparansi")); },
-  deleteTransparency: (id) => { writeDelete(COLLECTIONS.TRANSPARENCY, id).then(() => toast.success("Transparansi dihapus")).catch((e) => handleErr(e, "Gagal hapus transparansi")); },
-  addReport: (r) => { writeCreate(COLLECTIONS.REPORTS, r).then(() => toast.success("Laporan ditambahkan")).catch((e) => handleErr(e, "Gagal tambah laporan")); },
-  deleteReport: (id) => { writeDelete(COLLECTIONS.REPORTS, id).then(() => toast.success("Laporan dihapus")).catch((e) => handleErr(e, "Gagal hapus laporan")); },
+  addTransparency: (t) => { transparencyService.create(t as any).then(() => toast.success("Transparansi ditambahkan")).catch((e) => handleErr(e, "Gagal tambah transparansi")); },
+  updateTransparency: (id, t) => { transparencyService.update(id, t).then(() => toast.success("Transparansi diperbarui")).catch((e) => handleErr(e, "Gagal update transparansi")); },
+  deleteTransparency: (id) => { transparencyService.delete(id).then(() => toast.success("Transparansi dihapus")).catch((e) => handleErr(e, "Gagal hapus transparansi")); },
+  addReport: (r) => { reportService.create(r as any).then(() => toast.success("Laporan ditambahkan")).catch((e) => handleErr(e, "Gagal tambah laporan")); },
+  deleteReport: (id) => { reportService.delete(id).then(() => toast.success("Laporan dihapus")).catch((e) => handleErr(e, "Gagal hapus laporan")); },
 
-  addWork: (w) => { writeCreate(COLLECTIONS.WORK, { ...w, slug: w.slug || slugify(w.title) }).then(() => toast.success("Kategori kerja ditambahkan")).catch((e) => handleErr(e, "Gagal tambah kategori")); },
-  updateWork: (id, w) => { writeUpdate(COLLECTIONS.WORK, id, w).then(() => toast.success("Kategori kerja diperbarui")).catch((e) => handleErr(e, "Gagal update kategori")); },
-  deleteWork: (id) => { writeDelete(COLLECTIONS.WORK, id).then(() => toast.success("Kategori kerja dihapus")).catch((e) => handleErr(e, "Gagal hapus kategori")); },
+  addWork: (w) => { workService.create({ ...w, slug: w.slug || slugify(w.title) } as any).then(() => toast.success("Kategori kerja ditambahkan")).catch((e) => handleErr(e, "Gagal tambah kategori")); },
+  updateWork: (id, w) => { workService.update(id, w).then(() => toast.success("Kategori kerja diperbarui")).catch((e) => handleErr(e, "Gagal update kategori")); },
+  deleteWork: (id) => { workService.delete(id).then(() => toast.success("Kategori kerja dihapus")).catch((e) => handleErr(e, "Gagal hapus kategori")); },
 
-  addMessage: (m) => { writeCreate(COLLECTIONS.MESSAGES, m).then(() => toast.success("Pesan terkirim")).catch((e) => handleErr(e, "Gagal mengirim pesan")); },
+  addMessage: (m) => { messageService.create(m as any).then(() => toast.success("Pesan terkirim")).catch((e) => handleErr(e, "Gagal mengirim pesan")); },
 };
 
 // ============================================================
@@ -396,65 +317,43 @@ function storeSet(partial: Partial<AppState>) {
     const after = partial.currentUser?.role ?? null;
     const isDowngrade = (before === 'super_admin' || before === 'admin') && after === 'editor';
 
-    console.log('%c[PBR-STORE storeSet]', 'color:#2563eb;font-weight:bold', 'currentUser', {
-      before_role: before,
-      after_role: after,
-      isDowngrade,
-    });
-
     if (isDowngrade) {
-      console.log('%c[PBR-STORE storeSet BLOCKED downgrade]', 'color:#dc2626;font-weight:bold', {
-        before, after,
-      });
+      console.log('%c[PBR-STORE storeSet BLOCKED downgrade]', 'color:#dc2626;font-weight:bold', { before, after });
       listeners.forEach((l) => l());
       return;
     }
   }
   state = { ...state, ...partial };
-  // Expose state to window for debugging
   if (typeof window !== 'undefined') {
     (window as any).__pbr_storeState = state;
   }
   listeners.forEach((l) => l());
 }
 
-function init() {
-  if (initialized || !isFirebaseConfigured) return;
-  initialized = true;
-  console.log('%c[PBR-STORE init]', 'color:#2563eb;font-weight:bold', 'init — auth + settings ONLY');
+// ============================================================
+// Public subscribers — run for ALL visitors (logged-in or not)
+// ============================================================
+// Public users see only PUBLISHED blog/news (Firestore rules
+// require the where('status','==','published') filter).
+// All other collections are fully public read.
+// ============================================================
+let publicBlogUnsub: Unsubscribe | null = null;
+let publicNewsUnsub: Unsubscribe | null = null;
+let publicSubscribersInitialized = false;
 
-  // Register role getter
-  setCurrentRoleGetter(() => state.currentUser?.role ?? null);
+function initPublicSubscribers() {
+  if (publicSubscribersInitialized) return;
+  publicSubscribersInitialized = true;
+  console.log('%c[PBR-STORE initPublicSubscribers]', 'color:#2563eb;font-weight:bold', 'registering Firestore listeners (public)');
 
-  // ONLY register settings listener (1 listener, public read, minimal impact)
-  // This is the ONLY onSnapshot listener at page load.
-  // All other listeners are registered AFTER login (initDataSubscribers).
-  // This prevents the Firestore SDK from being overloaded with 12+ listeners
-  // that cause the main instance to hang on ALL operations (reads AND writes).
+  // Settings — realtime singleton
   settingsService.subscribe((s) => storeSet({ settings: s || DEFAULT_SETTINGS }));
 
-  // Register auth listener (for login state + page reload)
-  onAuthChange((user) => {
-    console.log('%c[PBR-STORE onAuthChange callback]', 'color:#2563eb;font-weight:bold', {
-      uid: user?.uid ?? 'null',
-      role: user?.role ?? 'null',
-    });
-    storeSet({ currentUser: user });
-    // After login, register ALL Firestore subscribers
-    if (user) {
-      initDataSubscribers();
-    }
-  });
-}
+  // Blog & News — published only (Firestore rules require this filter for public)
+  publicBlogUnsub = blogService.subscribePublished((items) => storeSet({ blog: items }));
+  publicNewsUnsub = newsService.subscribePublished((items) => storeSet({ news: items }));
 
-let dataSubscribersInitialized = false;
-function initDataSubscribers() {
-  if (dataSubscribersInitialized) return;
-  dataSubscribersInitialized = true;
-  console.log('%c[PBR-STORE initDataSubscribers]', 'color:#2563eb;font-weight:bold', 'registering Firestore listeners (post-login)');
-
-  blogService.subscribe((items) => storeSet({ blog: items }));
-  newsService.subscribe((items) => storeSet({ news: items }));
+  // Other collections — fully public
   campaignService.subscribe((items) => storeSet({ campaigns: items }));
   pengurusService.subscribe((items) => storeSet({ pengurus: items }));
   penasehatService.subscribe((items) => storeSet({ penasehat: items }));
@@ -464,6 +363,55 @@ function initDataSubscribers() {
   workService.subscribe((items) => storeSet({ work: items }));
   transparencyService.subscribe((items) => storeSet({ transparency: items }));
   reportService.subscribe((items) => storeSet({ reports: items }));
+}
+
+// ============================================================
+// upgradeToAdminSubscribers — when admin logs in, swap blog/news
+// to admin mode (no status filter → sees drafts too)
+// ============================================================
+let adminSubscribersInitialized = false;
+function upgradeToAdminSubscribers() {
+  if (adminSubscribersInitialized) return;
+  adminSubscribersInitialized = true;
+  console.log('%c[PBR-STORE upgradeToAdminSubscribers]', 'color:#16a34a;font-weight:bold', 'swapping blog/news to admin mode (all statuses)');
+
+  // Unsubscribe public (published-only) listeners
+  if (publicBlogUnsub) { publicBlogUnsub(); publicBlogUnsub = null; }
+  if (publicNewsUnsub) { publicNewsUnsub(); publicNewsUnsub = null; }
+
+  // Subscribe admin (all-statuses) listeners — these satisfy Firestore
+  // rules because isAdmin() returns true for the logged-in admin.
+  blogService.subscribe((items) => storeSet({ blog: items }));
+  newsService.subscribe((items) => storeSet({ news: items }));
+}
+
+// ============================================================
+// init — runs once on first store access
+// ============================================================
+function init() {
+  if (initialized || !isFirebaseConfigured) return;
+  initialized = true;
+  console.log('%c[PBR-STORE init]', 'color:#2563eb;font-weight:bold', 'init — public subscribers + auth listener');
+
+  // Register role getter (used by onAuthChange to skip redundant reads)
+  setCurrentRoleGetter(() => state.currentUser?.role ?? null);
+
+  // CRITICAL: Register ALL public subscribers immediately.
+  // This ensures public visitors see content without logging in.
+  initPublicSubscribers();
+
+  // Register auth listener — handles login state + page reload
+  onAuthChange((user) => {
+    console.log('%c[PBR-STORE onAuthChange callback]', 'color:#2563eb;font-weight:bold', {
+      uid: user?.uid ?? 'null',
+      role: user?.role ?? 'null',
+    });
+    storeSet({ currentUser: user });
+    // When admin logs in, upgrade blog/news listeners to see drafts
+    if (user && (user.role === 'super_admin' || user.role === 'admin' || user.role === 'editor')) {
+      upgradeToAdminSubscribers();
+    }
+  });
 }
 
 function subscribe(listener: () => void): () => void {

@@ -1,7 +1,15 @@
 // Service Layer - one service per Firestore collection
+// ============================================================
+// Each service exposes:
+//   - getAll / getById / getBySlug  (one-off reads)
+//   - create / update / delete      (writes via freshDb)
+//   - subscribe                      (realtime, ALL docs — admin)
+//   - subscribePublished             (realtime, only status=published — public)
+// ============================================================
 import {
   getAll, getById, getFirstByField, createItem, updateItem, deleteItem,
-  incrementField, subscribeToCollection,
+  incrementField, setItemMerged, subscribeToCollection, subscribeToFirstDoc,
+  where, limit,
 } from '@/lib/firebase/firestore';
 import { COLLECTIONS } from '@/lib/firebase/config';
 import type {
@@ -11,9 +19,13 @@ import type {
 } from '@/types';
 
 const now = () => new Date().toISOString();
-const stripId = (obj: any) => { const { id, ...rest } = obj; return rest; };
 
+// Settings singleton — uses fixed doc ID 'main' for consistency
+const SETTINGS_DOC_ID = 'main';
+
+// ============================================================
 // Blog
+// ============================================================
 export const blogService = {
   getAll: () => getAll<BlogPost>(COLLECTIONS.BLOG),
   getById: (id: string) => getById<BlogPost>(COLLECTIONS.BLOG, id),
@@ -23,10 +35,16 @@ export const blogService = {
   delete: (id: string) => deleteItem(COLLECTIONS.BLOG, id),
   incrementView: (id: string) => incrementField(COLLECTIONS.BLOG, id, 'views', 1),
   incrementShare: (id: string) => incrementField(COLLECTIONS.BLOG, id, 'shares', 1),
+  // Admin sees all (including drafts)
   subscribe: (cb: (items: BlogPost[]) => void) => subscribeToCollection<BlogPost>(COLLECTIONS.BLOG, cb),
+  // Public sees only published (Firestore rules require this filter)
+  subscribePublished: (cb: (items: BlogPost[]) => void) =>
+    subscribeToCollection<BlogPost>(COLLECTIONS.BLOG, cb, where('status', '==', 'published')),
 };
 
+// ============================================================
 // News
+// ============================================================
 export const newsService = {
   getAll: () => getAll<NewsArticle>(COLLECTIONS.NEWS),
   getById: (id: string) => getById<NewsArticle>(COLLECTIONS.NEWS, id),
@@ -37,9 +55,13 @@ export const newsService = {
   incrementView: (id: string) => incrementField(COLLECTIONS.NEWS, id, 'views', 1),
   incrementShare: (id: string) => incrementField(COLLECTIONS.NEWS, id, 'shares', 1),
   subscribe: (cb: (items: NewsArticle[]) => void) => subscribeToCollection<NewsArticle>(COLLECTIONS.NEWS, cb),
+  subscribePublished: (cb: (items: NewsArticle[]) => void) =>
+    subscribeToCollection<NewsArticle>(COLLECTIONS.NEWS, cb, where('status', '==', 'published')),
 };
 
+// ============================================================
 // Campaigns
+// ============================================================
 export const campaignService = {
   getAll: () => getAll<Campaign>(COLLECTIONS.CAMPAIGNS),
   getById: (id: string) => getById<Campaign>(COLLECTIONS.CAMPAIGNS, id),
@@ -48,10 +70,13 @@ export const campaignService = {
   update: (id: string, data: Partial<Campaign>) => updateItem(COLLECTIONS.CAMPAIGNS, id, data),
   delete: (id: string) => deleteItem(COLLECTIONS.CAMPAIGNS, id),
   incrementShare: (id: string) => incrementField(COLLECTIONS.CAMPAIGNS, id, 'shares', 1),
+  incrementSupporter: (id: string) => incrementField(COLLECTIONS.CAMPAIGNS, id, 'supporters', 1),
   subscribe: (cb: (items: Campaign[]) => void) => subscribeToCollection<Campaign>(COLLECTIONS.CAMPAIGNS, cb),
 };
 
+// ============================================================
 // Pengurus
+// ============================================================
 export const pengurusService = {
   getAll: () => getAll<Pengurus>(COLLECTIONS.PENGURUS),
   getById: (id: string) => getById<Pengurus>(COLLECTIONS.PENGURUS, id),
@@ -62,7 +87,9 @@ export const pengurusService = {
   subscribe: (cb: (items: Pengurus[]) => void) => subscribeToCollection<Pengurus>(COLLECTIONS.PENGURUS, cb),
 };
 
+// ============================================================
 // Penasehat
+// ============================================================
 export const penasehatService = {
   getAll: () => getAll<Penasehat>(COLLECTIONS.PENASEHAT),
   getById: (id: string) => getById<Penasehat>(COLLECTIONS.PENASEHAT, id),
@@ -72,7 +99,9 @@ export const penasehatService = {
   subscribe: (cb: (items: Penasehat[]) => void) => subscribeToCollection<Penasehat>(COLLECTIONS.PENASEHAT, cb),
 };
 
+// ============================================================
 // Relawan
+// ============================================================
 export const relawanService = {
   getAll: () => getAll<Relawan>(COLLECTIONS.RELAWAN),
   getById: (id: string) => getById<Relawan>(COLLECTIONS.RELAWAN, id),
@@ -82,7 +111,9 @@ export const relawanService = {
   subscribe: (cb: (items: Relawan[]) => void) => subscribeToCollection<Relawan>(COLLECTIONS.RELAWAN, cb),
 };
 
+// ============================================================
 // Supporters
+// ============================================================
 export const supporterService = {
   getAll: () => getAll<Supporter>(COLLECTIONS.SUPPORTERS),
   getById: (id: string) => getById<Supporter>(COLLECTIONS.SUPPORTERS, id),
@@ -92,7 +123,9 @@ export const supporterService = {
   subscribe: (cb: (items: Supporter[]) => void) => subscribeToCollection<Supporter>(COLLECTIONS.SUPPORTERS, cb),
 };
 
+// ============================================================
 // Gallery
+// ============================================================
 export const galleryService = {
   getAll: () => getAll<GalleryItem>(COLLECTIONS.GALLERY),
   getById: (id: string) => getById<GalleryItem>(COLLECTIONS.GALLERY, id),
@@ -102,7 +135,9 @@ export const galleryService = {
   subscribe: (cb: (items: GalleryItem[]) => void) => subscribeToCollection<GalleryItem>(COLLECTIONS.GALLERY, cb),
 };
 
+// ============================================================
 // Work categories
+// ============================================================
 export const workService = {
   getAll: () => getAll<WorkCategory>(COLLECTIONS.WORK),
   getById: (id: string) => getById<WorkCategory>(COLLECTIONS.WORK, id),
@@ -113,7 +148,9 @@ export const workService = {
   subscribe: (cb: (items: WorkCategory[]) => void) => subscribeToCollection<WorkCategory>(COLLECTIONS.WORK, cb),
 };
 
+// ============================================================
 // Transparency
+// ============================================================
 export const transparencyService = {
   getAll: () => getAll<TransparencyRecord>(COLLECTIONS.TRANSPARENCY),
   getById: (id: string) => getById<TransparencyRecord>(COLLECTIONS.TRANSPARENCY, id),
@@ -123,7 +160,9 @@ export const transparencyService = {
   subscribe: (cb: (items: TransparencyRecord[]) => void) => subscribeToCollection<TransparencyRecord>(COLLECTIONS.TRANSPARENCY, cb),
 };
 
+// ============================================================
 // Reports
+// ============================================================
 export const reportService = {
   getAll: () => getAll<TransparencyReport>(COLLECTIONS.REPORTS),
   getById: (id: string) => getById<TransparencyReport>(COLLECTIONS.REPORTS, id),
@@ -133,31 +172,38 @@ export const reportService = {
   subscribe: (cb: (items: TransparencyReport[]) => void) => subscribeToCollection<TransparencyReport>(COLLECTIONS.REPORTS, cb),
 };
 
-// Settings (single doc)
+// ============================================================
+// Settings — singleton document with ID 'main'
+// ============================================================
 export const settingsService = {
-  get: async () => { const all = await getAll<SiteSettings>(COLLECTIONS.SETTINGS); return all[0] || null; },
-  update: (id: string, data: Partial<SiteSettings>) => updateItem(COLLECTIONS.SETTINGS, id, data),
-  create: (data: SiteSettings) => createItem(COLLECTIONS.SETTINGS, data as any),
-  subscribe: (cb: (s: SiteSettings | null) => void) => subscribeToCollection<SiteSettings>(COLLECTIONS.SETTINGS, (items) => cb(items[0] || null)),
+  // One-off read
+  get: async (): Promise<SiteSettings | null> => getById<SiteSettings>(COLLECTIONS.SETTINGS, SETTINGS_DOC_ID),
+  // Write (creates or merges) — always to doc ID 'main'
+  save: (data: Partial<SiteSettings>) => setItemMerged(COLLECTIONS.SETTINGS, SETTINGS_DOC_ID, data as any),
+  // Realtime subscribe to the singleton settings doc
+  subscribe: (cb: (s: SiteSettings | null) => void) =>
+    subscribeToFirstDoc<SiteSettings>(COLLECTIONS.SETTINGS, cb),
 };
 
-// Messages (contact form)
+// ============================================================
+// Messages (contact form submissions)
+// ============================================================
 export const messageService = {
   create: (data: Omit<Message, 'id'>) => createItem(COLLECTIONS.MESSAGES, { ...data, createdAt: now() } as any),
   getAll: () => getAll<Message>(COLLECTIONS.MESSAGES),
   subscribe: (cb: (items: Message[]) => void) => subscribeToCollection<Message>(COLLECTIONS.MESSAGES, cb),
 };
 
+// ============================================================
 // Users (admin role management)
+// ============================================================
 export const userService = {
   getAll: () => getAll<User>(COLLECTIONS.USERS),
-  // Use getById (doc ID = UID) instead of getFirstByField('uid', uid).
-  // Querying by 'uid' field requires a collection read gated by
-  // isAdmin() in Firestore rules → circular dependency. Reading by
-  // document ID uses the self-read branch (request.auth.uid == id)
-  // which has no role lookup.
   getByUid: (uid: string) => getById<User>(COLLECTIONS.USERS, uid),
   create: (data: User) => createItem(COLLECTIONS.USERS, data as any),
   update: (id: string, data: Partial<User>) => updateItem(COLLECTIONS.USERS, id, data),
   delete: (id: string) => deleteItem(COLLECTIONS.USERS, id),
 };
+
+// Re-export `limit` for consumers that need pagination
+export { limit };
