@@ -3,37 +3,68 @@
 // Server-side role lookup using firebase-admin.
 // Bulletproof — doesn't depend on client Firestore SDK state.
 //
-// POST /api/get-role
-// Body: { idToken: "<Firebase ID Token>" }
-// Response: { role: "super_admin" | "admin" | "editor" } or { error }
-//
-// Flow:
-//   1. Client (browser) signs in with Firebase Auth → gets ID token
-//   2. Client POSTs ID token to this endpoint
-//   3. Server verifies token via firebase-admin
-//   4. Server reads users/{uid} via firebase-admin Firestore
-//      (admin SDK bypasses security rules — server is trusted)
-//   5. Returns role
+// CRITICAL: All env vars are read INSIDE the handler, not at
+// module load. Next.js dev mode caches module-level reads, so
+// if .env.local is edited after dev server starts, module-level
+// reads return stale values. Reading inside handler ensures
+// we always get the latest env vars.
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server';
-import { isFirebaseAdminConfigured, firebaseAdminConfig } from '@/lib/firebase/config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
+  // ============================================================
+  // Read env vars FRESH on every request (not cached at module load)
+  // ============================================================
+  const adminProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const adminClientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+  const adminPrivateKeyRaw = process.env.FIREBASE_ADMIN_PRIVATE_KEY || '';
+  // Convert literal \n to actual newlines (needed because .env files
+  // store multi-line values with \n escaped)
+  const adminPrivateKey = adminPrivateKeyRaw.replace(/\\n/g, '\n');
+
+  // Debug log (server-side only, not exposed to client)
+  console.log('[api/get-role] env check:', {
+    hasProjectId: !!adminProjectId,
+    hasClientEmail: !!adminClientEmail,
+    hasPrivateKey: !!adminPrivateKey,
+    privateKeyLen: adminPrivateKey.length,
+    privateKeyStartsWithBegin: adminPrivateKey.startsWith('-----BEGIN PRIVATE KEY-----'),
+    projectId: adminProjectId || '(missing)',
+    clientEmail: adminClientEmail ? adminClientEmail.substring(0, 30) + '...' : '(missing)',
+  });
+
+  // Validate all 3 vars are present
+  const missing: string[] = [];
+  if (!adminProjectId) missing.push('FIREBASE_ADMIN_PROJECT_ID');
+  if (!adminClientEmail) missing.push('FIREBASE_ADMIN_CLIENT_EMAIL');
+  if (!adminPrivateKey) missing.push('FIREBASE_ADMIN_PRIVATE_KEY');
+
+  if (missing.length > 0) {
+    return NextResponse.json({
+      error: `Firebase Admin SDK belum dikonfigurasi. Missing env vars: ${missing.join(', ')}`,
+      hint: 'Cek .env.local. RESTART dev server setelah edit (Ctrl+C lalu npm run dev). Jika masih gagal, cek /api/debug-env untuk lihat apa yang server baca.',
+      missing,
+    }, { status: 500 });
+  }
+
+  // Validate private key format
+  if (!adminPrivateKey.includes('BEGIN PRIVATE KEY')) {
+    return NextResponse.json({
+      error: 'FIREBASE_ADMIN_PRIVATE_KEY format tidak valid. Harus berisi "-----BEGIN PRIVATE KEY-----"',
+      hint: 'Pastikan copy seluruh private key dari file JSON, termasuk header/footer. Wrap dengan tanda kutip di .env.local.',
+      privateKeyLen: adminPrivateKey.length,
+      privateKeyStart: adminPrivateKey.substring(0, 50),
+    }, { status: 500 });
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const idToken = body?.idToken;
     if (!idToken || typeof idToken !== 'string') {
       return NextResponse.json({ error: 'idToken required' }, { status: 400 });
-    }
-
-    if (!isFirebaseAdminConfigured) {
-      return NextResponse.json(
-        { error: 'Firebase Admin SDK belum dikonfigurasi. Set FIREBASE_ADMIN_* env vars.' },
-        { status: 500 }
-      );
     }
 
     // Lazy import firebase-admin (only when this route is hit)
@@ -43,25 +74,22 @@ export async function POST(req: NextRequest) {
 
     const adminApp = getApps().find((a) => a.name === 'admin') || initializeApp({
       credential: cert({
-        projectId: firebaseAdminConfig.projectId,
-        clientEmail: firebaseAdminConfig.clientEmail,
-        privateKey: firebaseAdminConfig.privateKey,
+        projectId: adminProjectId,
+        clientEmail: adminClientEmail,
+        privateKey: adminPrivateKey,
       }),
     }, 'admin');
 
-    // 1. Verify ID token — this confirms the user is authenticated
+    // 1. Verify ID token
     const decoded = await getAuth(adminApp).verifyIdToken(idToken);
     const uid = decoded.uid;
     const email = decoded.email || '';
 
-    // 2. Read users/{uid} via admin SDK (bypasses security rules)
+    // 2. Read users/{uid} via admin SDK
     const adminDb = getFirestore(adminApp);
     const userSnap = await adminDb.collection('users').doc(uid).get();
 
     if (!userSnap.exists) {
-      // Document doesn't exist at users/{uid}.
-      // Common cause: document was created via Firebase Console
-      // with auto-generated ID instead of Auth UID.
       return NextResponse.json({
         role: 'editor',
         warning: `Document users/${uid} does not exist. Run: node scripts/setup-admin.mjs ${email} "Administrator"`,
