@@ -127,11 +127,12 @@ async function main() {
     console.log('   role: super_admin');
   }
 
-  // 3. Seed settings if empty
-  const settingsSnap = await adminDb.collection('settings').limit(1).get();
-  if (settingsSnap.empty) {
-    console.log('📝 Seeding settings...');
-    await adminDb.collection('settings').add({
+  // 3. Seed settings if empty (use fixed doc ID 'main' for singleton)
+  const settingsRef = adminDb.collection('settings').doc('main');
+  const settingsDoc = await settingsRef.get();
+  if (!settingsDoc.exists) {
+    console.log('📝 Seeding settings to settings/main...');
+    await settingsRef.set({
       siteName: 'Petisi Bela Rakyat',
       tagline: 'Menyatukan Suara Rakyat Menjadi Perubahan',
       logoUrl: '/pbr.png',
@@ -154,9 +155,9 @@ async function main() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
-    console.log('✅ Settings di-seed');
+    console.log('✅ Settings di-seed ke settings/main');
   } else {
-    console.log('⚠️  Settings sudah ada, skip seeding');
+    console.log('⚠️  settings/main sudah ada, skip seeding');
   }
 
   console.log(`\n🎉 Selesai!`);

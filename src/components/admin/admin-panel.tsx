@@ -104,26 +104,25 @@ export function AdminPanel() {
                 const elapsed = Date.now() - t0;
                 if (ok) {
                   // Read role directly from store after login
-                  // Use a small delay to let storeSet complete
                   setTimeout(() => {
                     const storeState = (window as any).__pbr_storeState;
                     const role = storeState?.currentUser?.role || 'unknown';
-                    setLoginDebug(`✅ Login OK (${elapsed}ms) — Role: ${role} [v0fca0ad]`);
+                    setLoginDebug(`✅ Login OK (${elapsed}ms) — Role: ${role}`);
                     if (role === 'editor') {
-                      toast.error(`⚠️ Role: editor (${elapsed}ms) [v0fca0ad]`, {
-                        description: 'Kode versi 0fca0ad. Buka DevTools Console (F12), filter PBR, copy semua log.',
-                        duration: 15000,
+                      toast.warning(`Role: editor (${elapsed}ms)`, {
+                        description: 'Jika ini salah, jalankan: node scripts/verify-firestore-access.mjs admin@belarakyat.org Kapal7890@',
+                        duration: 12000,
                       });
                     } else {
                       toast.success(`✅ Role: ${role} (${elapsed}ms)`, {
-                        duration: 5000,
+                        duration: 4000,
                       });
                     }
-                  }, 500);
+                  }, 200);
                 } else {
                   setLoginDebug(`❌ Login failed (${elapsed}ms)`);
                   toast.error(`Email atau password salah (${elapsed}ms)`, {
-                    duration: 10000,
+                    duration: 8000,
                   });
                 }
               }}
@@ -176,13 +175,10 @@ export function AdminPanel() {
               </p>
             </div>
             {loginDebug && (
-              <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-mono break-all">
+              <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-mono break-all dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-200">
                 {loginDebug}
               </div>
             )}
-            <div className="mt-2 text-center text-[10px] text-muted-foreground/50">
-              Build: debug-v2
-            </div>
             <Button variant="ghost" className="w-full mt-4" onClick={() => router.push("/")}>
               ← Kembali ke Website
             </Button>

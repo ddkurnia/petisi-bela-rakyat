@@ -24,7 +24,7 @@ import {
 } from "@/lib/firebase/config";
 import {
   onAuthChange, loginWithEmail, loginWithGoogle, logout as fbLogout,
-  setCurrentRoleGetter, getCurrentFirebaseUser, getFreshDb,
+  setCurrentRoleGetter, getCurrentFirebaseUser,
   type AppUser, type Role,
 } from "@/lib/firebase/auth";
 import {

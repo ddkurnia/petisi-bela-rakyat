@@ -1,17 +1,9 @@
 // Firestore Service Layer - CRUD + realtime onSnapshot
 // ============================================================
-// IMPORTANT ARCHITECTURE NOTE
-// ============================================================
-// We use TWO Firebase app instances:
-//   1. Main app (firebase.ts) — for onSnapshot listeners (reads)
-//   2. Fresh app (getFreshDb from auth.ts) — for writes & one-off reads
-//
-// Reason: when the main instance has many onSnapshot listeners active,
-// certain operations (getDocFromServer, updateDoc) can hang. The fresh
-// instance avoids this because it has no listeners attached.
-//
-// All write operations in this file route through getFreshDb() to
-// guarantee they complete within timeout.
+// All operations use the MAIN Firestore instance, which is
+// authenticated via the main Firebase app's Auth. After login,
+// the user's auth token is attached to all reads/writes
+// automatically, satisfying Firestore security rules.
 // ============================================================
 import {
   getFirestore, collection, doc, getDocs, getDoc, addDoc, setDoc,
@@ -34,23 +26,7 @@ const requireDb = () => {
 };
 
 // ============================================================
-// Fresh instance accessor — lazy import to avoid circular deps
-// ============================================================
-// We import getFreshDb lazily (dynamic import) to break the circular
-// dependency: firestore.ts → auth.ts → firebase.ts → firestore.ts.
-// At runtime this works because by the time any write is called,
-// auth.ts has already been loaded.
-let _getFreshDb: (() => any) | null = null;
-async function getWriterDb() {
-  if (!_getFreshDb) {
-    const mod = await import('./auth');
-    _getFreshDb = mod.getFreshDb;
-  }
-  return _getFreshDb();
-}
-
-// ============================================================
-// READ operations — use main db (with onSnapshot listeners)
+// READ operations
 // ============================================================
 export async function getAll<T>(name: string, ...constraints: QueryConstraint[]): Promise<T[]> {
   const d = requireDb();
@@ -82,12 +58,11 @@ export async function getFirstByField<T>(name: string, field: string, value: any
 }
 
 // ============================================================
-// WRITE operations — use fresh db (no listeners, no hang)
+// WRITE operations — use main db (authenticated)
 // ============================================================
 export async function createItem<T extends { id?: string }>(name: string, data: T): Promise<string> {
-  const wdb = await getWriterDb();
-  if (!wdb) throw new Error('[PBR] Writer Firestore unavailable');
-  const ref = await addDoc(collection(wdb, name), {
+  const d = requireDb();
+  const ref = await addDoc(collection(d, name), {
     ...stripId(data),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -96,9 +71,8 @@ export async function createItem<T extends { id?: string }>(name: string, data: 
 }
 
 export async function createItemWithId<T extends { id?: string }>(name: string, id: string, data: T): Promise<void> {
-  const wdb = await getWriterDb();
-  if (!wdb) throw new Error('[PBR] Writer Firestore unavailable');
-  await setDoc(doc(wdb, name, id), {
+  const d = requireDb();
+  await setDoc(doc(d, name, id), {
     ...stripId(data),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -106,9 +80,8 @@ export async function createItemWithId<T extends { id?: string }>(name: string, 
 }
 
 export async function updateItem<T>(name: string, id: string, data: Partial<T>): Promise<void> {
-  const wdb = await getWriterDb();
-  if (!wdb) throw new Error('[PBR] Writer Firestore unavailable');
-  await updateDoc(doc(wdb, name, id), {
+  const d = requireDb();
+  await updateDoc(doc(d, name, id), {
     ...data,
     updatedAt: new Date().toISOString(),
   } as any);
@@ -116,24 +89,21 @@ export async function updateItem<T>(name: string, id: string, data: Partial<T>):
 
 // setDoc with merge — used for singleton docs (e.g. settings/main)
 export async function setItemMerged<T extends { id?: string }>(name: string, id: string, data: T): Promise<void> {
-  const wdb = await getWriterDb();
-  if (!wdb) throw new Error('[PBR] Writer Firestore unavailable');
-  await setDoc(doc(wdb, name, id), {
+  const d = requireDb();
+  await setDoc(doc(d, name, id), {
     ...stripId(data),
     updatedAt: new Date().toISOString(),
   }, { merge: true });
 }
 
 export async function deleteItem(name: string, id: string): Promise<void> {
-  const wdb = await getWriterDb();
-  if (!wdb) throw new Error('[PBR] Writer Firestore unavailable');
-  await deleteDoc(doc(wdb, name, id));
+  const d = requireDb();
+  await deleteDoc(doc(d, name, id));
 }
 
 export async function incrementField(name: string, id: string, field: string, by: number = 1): Promise<void> {
-  const wdb = await getWriterDb();
-  if (!wdb) throw new Error('[PBR] Writer Firestore unavailable');
-  await updateDoc(doc(wdb, name, id), {
+  const d = requireDb();
+  await updateDoc(doc(d, name, id), {
     [field]: increment(by),
     updatedAt: new Date().toISOString(),
   } as any);

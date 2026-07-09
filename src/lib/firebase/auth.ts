@@ -3,21 +3,32 @@
 // Two flows:
 //   1. LOGIN (user types email+password):
 //      signInWithEmailAndPassword → getIdToken → readUserRole → return
-//      Total ~1.5-2s. Synchronous, returns correct role.
+//      Uses the MAIN Firestore instance (already authenticated).
 //
 //   2. PAGE RELOAD (user already signed in via Firebase session):
 //      onAuthStateChanged fires → readUserRole → cb(user)
-//      Uses Firestore read (no email-based fallback — that was insecure).
+//      Same main instance, same auth context.
+//
+// CRITICAL: We use the MAIN Firestore instance (from firebase.ts),
+// NOT a separate "fresh" instance. Previous code created a fresh
+// Firebase app for writes/reads, but that app was NOT authenticated
+// (Firebase Auth is per-app-instance), so all reads/writes were
+// silently denied by Firestore rules → fell back to 'editor'.
 // ============================================================
 import {
   getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider,
   signOut, onAuthStateChanged, type User,
 } from 'firebase/auth';
+import { getFirestore, doc, getDoc, type Firestore } from 'firebase/firestore';
 import { app } from './firebase';
 import { isFirebaseConfigured, COLLECTIONS } from './config';
 
 const auth = isFirebaseConfigured && app ? getAuth(app) : null;
 const googleProvider = new GoogleAuthProvider();
+
+// Main Firestore instance — authenticated via the main app's Auth.
+// All reads and writes go through this instance.
+const mainDb: Firestore | null = isFirebaseConfigured && app ? getFirestore(app) : null;
 
 export type Role = 'super_admin' | 'admin' | 'editor';
 
@@ -42,99 +53,64 @@ function log(tag: string, ...args: any[]) {
 }
 
 // ============================================================
-// Fresh Firestore instance — used for writes & role reads
+// readUserRole — read role from users/{uid} via MAIN Firestore
 // ============================================================
-// The main Firestore instance accumulates internal state from
-// onSnapshot listeners that can cause getDocFromServer and
-// updateDoc to hang. We create a SEPARATE app instance with a
-// FRESH Firestore — no listeners, no cache, no state — for
-// all write operations and one-off reads (like role lookup).
-// ============================================================
-import { initializeApp as fbInitializeApp, type FirebaseApp as FbApp } from 'firebase/app';
-import { getFirestore as fbGetFirestore, doc as fbDoc, getDocFromServer as fbGetDocFromServer, type Firestore as FbFirestore } from 'firebase/firestore';
-
-let freshApp: FbApp | null = null;
-let freshDb: FbFirestore | null = null;
-
-// Export so store.ts / firestore.ts can use the SAME instance for writes
-export function getFreshDb(): FbFirestore | null {
-  if (freshDb) return freshDb;
-  const config = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  };
-  if (!config.apiKey || !config.projectId) return null;
-  // Create a SEPARATE app instance — does NOT share state with main app
-  freshApp = fbInitializeApp(config as any, 'writer-' + Date.now());
-  freshDb = fbGetFirestore(freshApp);
-  log('getFreshDb created FRESH Firestore instance');
-  return freshDb;
-}
-
-// ============================================================
-// readUserRole — read role via FRESH Firestore instance
-// ============================================================
-// Uses getDocFromServer to bypass any cache. Times out after
-// 4s per attempt, retries once. If both attempts fail, returns
-// 'editor' as a safe default (admin operations will be denied
-// by Firestore rules anyway).
+// The user is signed in on the main app, so the main Firestore
+// instance is authenticated. Firestore rules allow self-read:
+//   allow read: if isSignedIn() && (request.auth.uid == id || isAdmin());
+//
+// We use getDoc (cache-first) instead of getDocFromServer because:
+//   - For a freshly logged-in user, cache is empty → goes to server
+//   - For page reload, cache may have the doc → instant read
+//
+// Timeout: 8s (single attempt). If it fails, return 'editor' as
+// safe default — admin operations will be denied by Firestore rules.
 // ============================================================
 async function readUserRole(fbUser: User): Promise<Role> {
   log('readUserRole START', { uid: fbUser.uid, email: fbUser.email });
   const t0 = Date.now();
 
-  const MAX_ATTEMPTS = 2;
-  const DOC_TIMEOUT_MS = 4000;
-
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      const fdb = getFreshDb();
-      if (!fdb) { log('readUserRole ERROR', 'cannot create fresh db'); break; }
-
-      if (attempt > 1) {
-        log('readUserRole forceRefresh', { attempt });
-        await fbUser.getIdToken(true);
-        await new Promise((r) => setTimeout(r, 300));
-      }
-
-      const ref = fbDoc(fdb, COLLECTIONS.USERS, fbUser.uid);
-      log('readUserRole getDocFromServer', { attempt, path: `users/${fbUser.uid}` });
-
-      const snap = await Promise.race([
-        fbGetDocFromServer(ref),
-        new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error(`timeout ${DOC_TIMEOUT_MS}ms`)), DOC_TIMEOUT_MS);
-        }),
-      ]);
-
-      const elapsed = Date.now() - t0;
-      log('readUserRole RESULT', { attempt, elapsed_ms: elapsed, exists: snap.exists() });
-
-      if (snap.exists()) {
-        const data = snap.data();
-        const docRole = data.role;
-        log('readUserRole DATA', { role: docRole, keys: Object.keys(data) });
-        if (typeof docRole === 'string' && docRole.length > 0) {
-          log('readUserRole ACCEPTED', { role: docRole, attempt });
-          return docRole as Role;
-        }
-      } else {
-        log('readUserRole NOT FOUND', { attempt });
-      }
-    } catch (err: any) {
-      log('readUserRole FAILED', { attempt, error: err?.code || err?.message });
-      if (attempt < MAX_ATTEMPTS) {
-        await new Promise((r) => setTimeout(r, 500));
-      }
-    }
+  if (!mainDb) {
+    log('readUserRole ERROR', 'mainDb is null — Firebase not configured');
+    return 'editor';
   }
 
-  log('readUserRole FALLBACK editor (Firestore read failed)', { elapsed_ms: Date.now() - t0, email: fbUser.email });
-  return 'editor';
+  const ref = doc(mainDb, COLLECTIONS.USERS, fbUser.uid);
+  log('readUserRole getDoc', { path: `users/${fbUser.uid}` });
+
+  try {
+    const snap = await Promise.race([
+      getDoc(ref),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('getDoc timeout 8s')), 8000);
+      }),
+    ]);
+
+    const elapsed = Date.now() - t0;
+    log('readUserRole RESULT', { elapsed_ms: elapsed, exists: snap.exists(), fromCache: snap.metadata?.fromCache });
+
+    if (snap.exists()) {
+      const data = snap.data();
+      const docRole = data.role;
+      log('readUserRole DATA', { role: docRole, keys: Object.keys(data) });
+      if (docRole === 'super_admin' || docRole === 'admin' || docRole === 'editor') {
+        log('readUserRole ACCEPTED', { role: docRole });
+        return docRole;
+      }
+      log('readUserRole INVALID_ROLE', { role: docRole, expected: 'super_admin|admin|editor' });
+    } else {
+      log('readUserRole NOT_FOUND', { path: `users/${fbUser.uid}` });
+      // Document doesn't exist at users/{uid}. Common cause:
+      // the document was created via Firebase Console with an
+      // auto-generated ID instead of the Auth UID.
+      // Run: node scripts/verify-firestore-access.mjs <email> <password>
+    }
+    return 'editor';
+  } catch (err: any) {
+    const elapsed = Date.now() - t0;
+    log('readUserRole FAILED', { elapsed_ms: elapsed, error: err?.code || err?.message });
+    return 'editor';
+  }
 }
 
 // ============================================================
@@ -249,7 +225,7 @@ export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
         return;
       }
 
-      // Page reload case — read role from Firestore (NOT email-based)
+      // Page reload case — read role from Firestore
       log('onAuthChange page restore — reading role from Firestore', { email: fbUser.email });
       const role = await readUserRole(fbUser);
       log('onAuthChange role resolved', { role });
@@ -272,6 +248,9 @@ export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
 }
 
 export function getCurrentFirebaseUser(): User | null { return auth?.currentUser || null; }
+
+// Expose mainDb for firestore.ts to use for writes (same authenticated instance)
+export function getMainDb(): Firestore | null { return mainDb; }
 
 function translateError(code: string): string {
   const map: Record<string, string> = {
