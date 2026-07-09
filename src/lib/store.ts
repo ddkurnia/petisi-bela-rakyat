@@ -17,7 +17,7 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import {
-  isFirebaseConfigured,
+  isFirebaseConfigured, COLLECTIONS,
 } from "@/lib/firebase/config";
 import {
   onAuthChange, loginWithEmail, loginWithGoogle, logout as fbLogout,
@@ -30,6 +30,73 @@ import {
   supporterService, galleryService, workService,
   transparencyService, reportService, settingsService, messageService,
 } from "@/services";
+import {
+  initializeApp as fbInitApp, type FirebaseApp,
+} from "firebase/app";
+import {
+  getFirestore as fbGetFirestore, doc as fbDoc, collection as fbCollection,
+  addDoc as fbAddDoc, setDoc as fbSetDoc, updateDoc as fbUpdateDoc,
+  deleteDoc as fbDeleteDoc, getDocs as fbGetDocs,
+  type Firestore as FbFirestore,
+} from "firebase/firestore";
+
+// ============================================================
+// FRESH Firestore instance for WRITES — bypass main instance
+// ============================================================
+// The main Firestore instance (from firestore.ts) has accumulated
+// bad state from onSnapshot listeners. Writes via services hang.
+// This fresh instance has NO listeners, NO cache, NO bad state.
+// Same approach as readUserRole (which works in 872ms).
+// ============================================================
+let writeApp: FirebaseApp | null = null;
+let writeDb: FbFirestore | null = null;
+
+function getWriteDb(): FbFirestore {
+  if (writeDb) return writeDb;
+  const config = {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  };
+  writeApp = fbInitApp(config as any, 'writer-' + Date.now());
+  writeDb = fbGetFirestore(writeApp);
+  console.log('%c[PBR-STORE] created FRESH Firestore instance for writes', 'color:#9333ea;font-weight:bold');
+  return writeDb;
+}
+
+// Helper: write to Firestore using fresh instance
+async function freshCreate(collectionName: string, data: any): Promise<string> {
+  const wdb = getWriteDb();
+  const { id, ...rest } = data;
+  const ref = await fbAddDoc(fbCollection(wdb, collectionName), {
+    ...rest,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  return ref.id;
+}
+
+async function freshUpdate(collectionName: string, id: string, data: any): Promise<void> {
+  const wdb = getWriteDb();
+  await fbUpdateDoc(fbDoc(wdb, collectionName, id), {
+    ...data,
+    updatedAt: new Date().toISOString(),
+  } as any);
+}
+
+async function freshDelete(collectionName: string, id: string): Promise<void> {
+  const wdb = getWriteDb();
+  await fbDeleteDoc(fbDoc(wdb, collectionName, id));
+}
+
+async function freshGetAll(collectionName: string): Promise<any[]> {
+  const wdb = getWriteDb();
+  const snap = await fbGetDocs(fbCollection(wdb, collectionName));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
 
 // Re-export all types (backward compat with old imports)
 export type { Role } from "@/lib/firebase/auth";
@@ -223,25 +290,29 @@ let state: AppState = {
     storeSet({ settings: merged });
     console.log('%c[PBR-STORE] updateSettings', 'color:#16a34a;font-weight:bold', s);
 
-    // Refresh token before write to ensure Firestore SDK has valid auth
-    const fbUser = getCurrentFirebaseUser();
-    const tokenPromise = fbUser ? fbUser.getIdToken(true) : Promise.resolve();
+    // Use FRESH Firestore instance — main instance hangs
+    (async () => {
+      try {
+        const fbUser = getCurrentFirebaseUser();
+        if (fbUser) await fbUser.getIdToken(true);
 
-    tokenPromise.then(async () => {
-      const doc = await settingsService.get();
-      const settingsDoc = doc as (SiteSettings & { id?: string }) | null;
-      if (settingsDoc?.id) {
-        await settingsService.update(settingsDoc.id, s);
-      } else {
-        await settingsService.create(merged);
+        // Read existing settings using fresh instance
+        const all = await freshGetAll(COLLECTIONS.SETTINGS);
+        const existing = all[0] as (SiteSettings & { id?: string }) | null;
+
+        if (existing?.id) {
+          await freshUpdate(COLLECTIONS.SETTINGS, existing.id, s);
+        } else {
+          await freshCreate(COLLECTIONS.SETTINGS, merged);
+        }
+
+        toast.success("Pengaturan tersimpan ke Firestore");
+        console.log('%c[PBR-STORE] settings SAVED to Firestore', 'color:#16a34a;font-weight:bold');
+      } catch (e: any) {
+        console.error('[PBR-STORE] settings save FAILED:', e);
+        handleErr(e, "Gagal menyimpan pengaturan");
       }
-    }).then(() => {
-      toast.success("Pengaturan tersimpan ke Firestore");
-      console.log('%c[PBR-STORE] settings SAVED to Firestore', 'color:#16a34a;font-weight:bold');
-    }).catch((e) => {
-      console.error('[PBR-STORE] settings save FAILED:', e);
-      handleErr(e, "Gagal menyimpan pengaturan");
-    });
+    })();
   },
   updateHomepage: (s) => state.updateSettings({ homepage: { ...state.settings.homepage, ...s } as any }),
   updateAbout: (s) => state.updateSettings({ about: { ...state.settings.about, ...s } as any }),
@@ -249,58 +320,58 @@ let state: AppState = {
   updateSocials: (s) => state.updateSettings({ socials: s }),
   updateFooter: (s) => state.updateSettings({ footer: { ...state.settings.footer, ...s } as any }),
 
-  addPengurus: (m) => { pengurusService.create({ ...m, slug: m.slug || slugify(m.name) } as any).then(() => toast.success("Pengurus ditambahkan")).catch((e) => handleErr(e, "Gagal tambah pengurus")); },
-  updatePengurus: (id, m) => { pengurusService.update(id, m).then(() => toast.success("Pengurus diperbarui")).catch((e) => handleErr(e, "Gagal update pengurus")); },
-  deletePengurus: (id) => { pengurusService.delete(id).then(() => toast.success("Pengurus dihapus")).catch((e) => handleErr(e, "Gagal hapus pengurus")); },
+  addPengurus: (m) => { freshCreate(COLLECTIONS.PENGURUS, { ...m, slug: m.slug || slugify(m.name) }).then(() => toast.success("Pengurus ditambahkan")).catch((e) => handleErr(e, "Gagal tambah pengurus")); },
+  updatePengurus: (id, m) => { freshUpdate(COLLECTIONS.PENGURUS, id, m).then(() => toast.success("Pengurus diperbarui")).catch((e) => handleErr(e, "Gagal update pengurus")); },
+  deletePengurus: (id) => { freshDelete(COLLECTIONS.PENGURUS, id).then(() => toast.success("Pengurus dihapus")).catch((e) => handleErr(e, "Gagal hapus pengurus")); },
 
-  addPenasehat: (p) => { penasehatService.create(p as any).then(() => toast.success("Penasehat ditambahkan")).catch((e) => handleErr(e, "Gagal tambah penasehat")); },
-  updatePenasehat: (id, p) => { penasehatService.update(id, p).then(() => toast.success("Penasehat diperbarui")).catch((e) => handleErr(e, "Gagal update penasehat")); },
-  deletePenasehat: (id) => { penasehatService.delete(id).then(() => toast.success("Penasehat dihapus")).catch((e) => handleErr(e, "Gagal hapus penasehat")); },
+  addPenasehat: (p) => { freshCreate(COLLECTIONS.PENASEHAT, p).then(() => toast.success("Penasehat ditambahkan")).catch((e) => handleErr(e, "Gagal tambah penasehat")); },
+  updatePenasehat: (id, p) => { freshUpdate(COLLECTIONS.PENASEHAT, id, p).then(() => toast.success("Penasehat diperbarui")).catch((e) => handleErr(e, "Gagal update penasehat")); },
+  deletePenasehat: (id) => { freshDelete(COLLECTIONS.PENASEHAT, id).then(() => toast.success("Penasehat dihapus")).catch((e) => handleErr(e, "Gagal hapus penasehat")); },
 
-  addRelawan: (r) => { relawanService.create(r as any).then(() => toast.success("Relawan ditambahkan")).catch((e) => handleErr(e, "Gagal tambah relawan")); },
-  updateRelawan: (id, r) => { relawanService.update(id, r).then(() => toast.success("Relawan diperbarui")).catch((e) => handleErr(e, "Gagal update relawan")); },
-  deleteRelawan: (id) => { relawanService.delete(id).then(() => toast.success("Relawan dihapus")).catch((e) => handleErr(e, "Gagal hapus relawan")); },
+  addRelawan: (r) => { freshCreate(COLLECTIONS.RELAWAN, r).then(() => toast.success("Relawan ditambahkan")).catch((e) => handleErr(e, "Gagal tambah relawan")); },
+  updateRelawan: (id, r) => { freshUpdate(COLLECTIONS.RELAWAN, id, r).then(() => toast.success("Relawan diperbarui")).catch((e) => handleErr(e, "Gagal update relawan")); },
+  deleteRelawan: (id) => { freshDelete(COLLECTIONS.RELAWAN, id).then(() => toast.success("Relawan dihapus")).catch((e) => handleErr(e, "Gagal hapus relawan")); },
 
-  addTeam: (m) => { pengurusService.create({ ...m, slug: m.slug || slugify(m.name), gelar: "", jabatan: m.position, parentId: null, whatsapp: "", email: "", status: "active" } as any).then(() => toast.success("Tim ditambahkan")).catch((e) => handleErr(e, "Gagal tambah tim")); },
-  updateTeam: (id, m) => { pengurusService.update(id, m as any).then(() => toast.success("Tim diperbarui")).catch((e) => handleErr(e, "Gagal update tim")); },
-  deleteTeam: (id) => { pengurusService.delete(id).then(() => toast.success("Tim dihapus")).catch((e) => handleErr(e, "Gagal hapus tim")); },
+  addTeam: (m) => { freshCreate(COLLECTIONS.PENGURUS, { ...m, slug: m.slug || slugify(m.name), gelar: "", jabatan: m.position, parentId: null, whatsapp: "", email: "", status: "active" }).then(() => toast.success("Tim ditambahkan")).catch((e) => handleErr(e, "Gagal tambah tim")); },
+  updateTeam: (id, m) => { freshUpdate(COLLECTIONS.PENGURUS, id, m as any).then(() => toast.success("Tim diperbarui")).catch((e) => handleErr(e, "Gagal update tim")); },
+  deleteTeam: (id) => { freshDelete(COLLECTIONS.PENGURUS, id).then(() => toast.success("Tim dihapus")).catch((e) => handleErr(e, "Gagal hapus tim")); },
 
-  addBlog: (p) => { blogService.create({ ...p, slug: p.slug || slugify(p.title), views: 0, shares: 0 } as any).then(() => toast.success("Blog ditambahkan")).catch((e) => handleErr(e, "Gagal tambah blog")); },
-  updateBlog: (id, p) => { blogService.update(id, p).then(() => toast.success("Blog diperbarui")).catch((e) => handleErr(e, "Gagal update blog")); },
-  deleteBlog: (id) => { blogService.delete(id).then(() => toast.success("Blog dihapus")).catch((e) => handleErr(e, "Gagal hapus blog")); },
-  incrementBlogView: (id) => { blogService.incrementView(id).catch(() => {}); },
-  incrementBlogShare: (id) => { blogService.incrementShare(id).catch(() => {}); },
+  addBlog: (p) => { freshCreate(COLLECTIONS.BLOG, { ...p, slug: p.slug || slugify(p.title), views: 0, shares: 0 }).then(() => toast.success("Blog ditambahkan")).catch((e) => handleErr(e, "Gagal tambah blog")); },
+  updateBlog: (id, p) => { freshUpdate(COLLECTIONS.BLOG, id, p).then(() => toast.success("Blog diperbarui")).catch((e) => handleErr(e, "Gagal update blog")); },
+  deleteBlog: (id) => { freshDelete(COLLECTIONS.BLOG, id).then(() => toast.success("Blog dihapus")).catch((e) => handleErr(e, "Gagal hapus blog")); },
+  incrementBlogView: (id) => { /* TODO: fresh increment */ },
+  incrementBlogShare: (id) => { /* TODO: fresh increment */ },
 
-  addNews: (p) => { newsService.create({ ...p, slug: p.slug || slugify(p.title), views: 0, shares: 0 } as any).then(() => toast.success("Berita ditambahkan")).catch((e) => handleErr(e, "Gagal tambah berita")); },
-  updateNews: (id, p) => { newsService.update(id, p).then(() => toast.success("Berita diperbarui")).catch((e) => handleErr(e, "Gagal update berita")); },
-  deleteNews: (id) => { newsService.delete(id).then(() => toast.success("Berita dihapus")).catch((e) => handleErr(e, "Gagal hapus berita")); },
-  incrementNewsView: (id) => { newsService.incrementView(id).catch(() => {}); },
-  incrementNewsShare: (id) => { newsService.incrementShare(id).catch(() => {}); },
+  addNews: (p) => { freshCreate(COLLECTIONS.NEWS, { ...p, slug: p.slug || slugify(p.title), views: 0, shares: 0 }).then(() => toast.success("Berita ditambahkan")).catch((e) => handleErr(e, "Gagal tambah berita")); },
+  updateNews: (id, p) => { freshUpdate(COLLECTIONS.NEWS, id, p).then(() => toast.success("Berita diperbarui")).catch((e) => handleErr(e, "Gagal update berita")); },
+  deleteNews: (id) => { freshDelete(COLLECTIONS.NEWS, id).then(() => toast.success("Berita dihapus")).catch((e) => handleErr(e, "Gagal hapus berita")); },
+  incrementNewsView: (id) => { /* TODO: fresh increment */ },
+  incrementNewsShare: (id) => { /* TODO: fresh increment */ },
 
-  addCampaign: (c) => { campaignService.create({ ...c, slug: c.slug || slugify(c.title), shares: 0 } as any).then(() => toast.success("Kampanye ditambahkan")).catch((e) => handleErr(e, "Gagal tambah kampanye")); },
-  updateCampaign: (id, c) => { campaignService.update(id, c).then(() => toast.success("Kampanye diperbarui")).catch((e) => handleErr(e, "Gagal update kampanye")); },
-  deleteCampaign: (id) => { campaignService.delete(id).then(() => toast.success("Kampanye dihapus")).catch((e) => handleErr(e, "Gagal hapus kampanye")); },
-  incrementCampaignShare: (id) => { campaignService.incrementShare(id).catch(() => {}); },
+  addCampaign: (c) => { freshCreate(COLLECTIONS.CAMPAIGNS, { ...c, slug: c.slug || slugify(c.title), shares: 0 }).then(() => toast.success("Kampanye ditambahkan")).catch((e) => handleErr(e, "Gagal tambah kampanye")); },
+  updateCampaign: (id, c) => { freshUpdate(COLLECTIONS.CAMPAIGNS, id, c).then(() => toast.success("Kampanye diperbarui")).catch((e) => handleErr(e, "Gagal update kampanye")); },
+  deleteCampaign: (id) => { freshDelete(COLLECTIONS.CAMPAIGNS, id).then(() => toast.success("Kampanye dihapus")).catch((e) => handleErr(e, "Gagal hapus kampanye")); },
+  incrementCampaignShare: (id) => { /* TODO: fresh increment */ },
 
-  addSupporter: (s) => { supporterService.create(s as any).then(() => toast.success("Tokoh ditambahkan")).catch((e) => handleErr(e, "Gagal tambah tokoh")); },
-  updateSupporter: (id, s) => { supporterService.update(id, s).then(() => toast.success("Tokoh diperbarui")).catch((e) => handleErr(e, "Gagal update tokoh")); },
-  deleteSupporter: (id) => { supporterService.delete(id).then(() => toast.success("Tokoh dihapus")).catch((e) => handleErr(e, "Gagal hapus tokoh")); },
+  addSupporter: (s) => { freshCreate(COLLECTIONS.SUPPORTERS, s).then(() => toast.success("Tokoh ditambahkan")).catch((e) => handleErr(e, "Gagal tambah tokoh")); },
+  updateSupporter: (id, s) => { freshUpdate(COLLECTIONS.SUPPORTERS, id, s).then(() => toast.success("Tokoh diperbarui")).catch((e) => handleErr(e, "Gagal update tokoh")); },
+  deleteSupporter: (id) => { freshDelete(COLLECTIONS.SUPPORTERS, id).then(() => toast.success("Tokoh dihapus")).catch((e) => handleErr(e, "Gagal hapus tokoh")); },
 
-  addGallery: (g) => { galleryService.create(g as any).then(() => toast.success("Media ditambahkan")).catch((e) => handleErr(e, "Gagal tambah media")); },
-  updateGallery: (id, g) => { galleryService.update(id, g).then(() => toast.success("Media diperbarui")).catch((e) => handleErr(e, "Gagal update media")); },
-  deleteGallery: (id) => { galleryService.delete(id).then(() => toast.success("Media dihapus")).catch((e) => handleErr(e, "Gagal hapus media")); },
+  addGallery: (g) => { freshCreate(COLLECTIONS.GALLERY, g).then(() => toast.success("Media ditambahkan")).catch((e) => handleErr(e, "Gagal tambah media")); },
+  updateGallery: (id, g) => { freshUpdate(COLLECTIONS.GALLERY, id, g).then(() => toast.success("Media diperbarui")).catch((e) => handleErr(e, "Gagal update media")); },
+  deleteGallery: (id) => { freshDelete(COLLECTIONS.GALLERY, id).then(() => toast.success("Media dihapus")).catch((e) => handleErr(e, "Gagal hapus media")); },
 
-  addTransparency: (t) => { transparencyService.create(t as any).then(() => toast.success("Transparansi ditambahkan")).catch((e) => handleErr(e, "Gagal tambah transparansi")); },
-  updateTransparency: (id, t) => { transparencyService.update(id, t).then(() => toast.success("Transparansi diperbarui")).catch((e) => handleErr(e, "Gagal update transparansi")); },
-  deleteTransparency: (id) => { transparencyService.delete(id).then(() => toast.success("Transparansi dihapus")).catch((e) => handleErr(e, "Gagal hapus transparansi")); },
-  addReport: (r) => { reportService.create(r as any).then(() => toast.success("Laporan ditambahkan")).catch((e) => handleErr(e, "Gagal tambah laporan")); },
-  deleteReport: (id) => { reportService.delete(id).then(() => toast.success("Laporan dihapus")).catch((e) => handleErr(e, "Gagal hapus laporan")); },
+  addTransparency: (t) => { freshCreate(COLLECTIONS.TRANSPARENCY, t).then(() => toast.success("Transparansi ditambahkan")).catch((e) => handleErr(e, "Gagal tambah transparansi")); },
+  updateTransparency: (id, t) => { freshUpdate(COLLECTIONS.TRANSPARENCY, id, t).then(() => toast.success("Transparansi diperbarui")).catch((e) => handleErr(e, "Gagal update transparansi")); },
+  deleteTransparency: (id) => { freshDelete(COLLECTIONS.TRANSPARENCY, id).then(() => toast.success("Transparansi dihapus")).catch((e) => handleErr(e, "Gagal hapus transparansi")); },
+  addReport: (r) => { freshCreate(COLLECTIONS.REPORTS, r).then(() => toast.success("Laporan ditambahkan")).catch((e) => handleErr(e, "Gagal tambah laporan")); },
+  deleteReport: (id) => { freshDelete(COLLECTIONS.REPORTS, id).then(() => toast.success("Laporan dihapus")).catch((e) => handleErr(e, "Gagal hapus laporan")); },
 
-  addWork: (w) => { workService.create({ ...w, slug: w.slug || slugify(w.title) } as any).then(() => toast.success("Kategori kerja ditambahkan")).catch((e) => handleErr(e, "Gagal tambah kategori")); },
-  updateWork: (id, w) => { workService.update(id, w).then(() => toast.success("Kategori kerja diperbarui")).catch((e) => handleErr(e, "Gagal update kategori")); },
-  deleteWork: (id) => { workService.delete(id).then(() => toast.success("Kategori kerja dihapus")).catch((e) => handleErr(e, "Gagal hapus kategori")); },
+  addWork: (w) => { freshCreate(COLLECTIONS.WORK, { ...w, slug: w.slug || slugify(w.title) }).then(() => toast.success("Kategori kerja ditambahkan")).catch((e) => handleErr(e, "Gagal tambah kategori")); },
+  updateWork: (id, w) => { freshUpdate(COLLECTIONS.WORK, id, w).then(() => toast.success("Kategori kerja diperbarui")).catch((e) => handleErr(e, "Gagal update kategori")); },
+  deleteWork: (id) => { freshDelete(COLLECTIONS.WORK, id).then(() => toast.success("Kategori kerja dihapus")).catch((e) => handleErr(e, "Gagal hapus kategori")); },
 
-  addMessage: (m) => { messageService.create(m).catch((e) => handleErr(e, "Gagal mengirim pesan")); },
+  addMessage: (m) => { freshCreate(COLLECTIONS.MESSAGES, m).then(() => toast.success("Pesan terkirim")).catch((e) => handleErr(e, "Gagal mengirim pesan")); },
 };
 
 // ============================================================
