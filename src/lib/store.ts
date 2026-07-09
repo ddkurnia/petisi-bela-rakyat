@@ -30,117 +30,56 @@ import {
   supporterService, galleryService, workService,
   transparencyService, reportService, settingsService, messageService,
 } from "@/services";
+import {
+  collection as fsCollection, doc as fsDoc, addDoc as fsAddDoc,
+  setDoc as fsSetDoc, updateDoc as fsUpdateDoc, deleteDoc as fsDeleteDoc,
+  getDoc as fsGetDoc, getDocs as fsGetDocs,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase/firestore";
 
 // ============================================================
-// Write helper — REST API with fresh ID token (force refresh)
+// Write helper — use MAIN Firestore SDK instance (has auth)
 // ============================================================
-function withTimeout<T>(promise: Promise<T>, ms = 10000): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => {
-      setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
-    }),
-  ]);
-}
-
-// Get a FRESH token with forceRefresh=true — never use cached
-async function getFreshToken(): Promise<string> {
-  const fbUser = getCurrentFirebaseUser();
-  if (!fbUser) throw new Error('Not authenticated');
-  return fbUser.getIdToken(true);
-}
-
-// Convert JS value to Firestore REST API field format
-function toFirestoreValue(v: any): any {
-  if (typeof v === 'string') return { stringValue: v };
-  if (typeof v === 'number') return { integerValue: String(v) };
-  if (typeof v === 'boolean') return { booleanValue: v };
-  if (Array.isArray(v)) return { arrayValue: { values: v.map(i => typeof i === 'string' ? { stringValue: i } : { stringValue: JSON.stringify(i) }) } };
-  if (v === null || v === undefined) return { nullValue: null };
-  return { stringValue: JSON.stringify(v) };
-}
-
-// Convert Firestore REST field to JS value
-function fromFirestoreValue(v: any): any {
-  return v.stringValue || v.integerValue || v.booleanValue || v.doubleValue || v.nullValue || null;
-}
+// Previous REST API approach failed with HTTP 403 "Permission
+// denied on resource project" — Google Cloud API level rejection,
+// not Firestore rules. The REST API requires additional auth that
+// the browser fetch doesn't provide.
+//
+// The SDK main instance has the authenticated user and handles auth
+// automatically. The earlier "hang" was on READS (getDocFromServer),
+// not on WRITES (addDoc/updateDoc/deleteDoc). Writes should work.
+// ============================================================
 
 async function writeCreate(collectionName: string, data: any): Promise<string> {
-  const token = await getFreshToken();
   const { id, ...rest } = data;
-  const fields: Record<string, any> = {};
-  const fullData = { ...rest, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-  for (const [k, v] of Object.entries(fullData)) {
-    fields[k] = toFirestoreValue(v);
-  }
-  const result = await withTimeout(
-    fetch(`https://firestore.googleapis.com/v1/projects/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/databases/(default)/documents/${collectionName}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ fields }),
-    }).then(r => {
-      if (!r.ok) return r.text().then(t => { throw new Error(`HTTP ${r.status}: ${t.substring(0, 200)}`); });
-      return r.json();
-    })
-  );
-  return result.name?.split('/').pop() || '';
+  const ref = await fsAddDoc(fsCollection(db!, collectionName), {
+    ...rest,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  return ref.id;
 }
 
 async function writeUpdate(collectionName: string, id: string, data: any): Promise<void> {
-  const token = await getFreshToken();
   const { id: _, ...rest } = data;
-  const fields: Record<string, any> = {};
-  const fullData = { ...rest, updatedAt: new Date().toISOString() };
-  for (const [k, v] of Object.entries(fullData)) {
-    fields[k] = toFirestoreValue(v);
-  }
-  const fieldMask = Object.keys(fields).map(f => `updateMask.fieldPaths=${f}`).join('&');
-  await withTimeout(
-    fetch(`https://firestore.googleapis.com/v1/projects/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/databases/(default)/documents/${collectionName}/${id}?${fieldMask}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ fields }),
-    }).then(r => {
-      if (!r.ok) return r.text().then(t => { throw new Error(`HTTP ${r.status}: ${t.substring(0, 200)}`); });
-    })
-  );
+  await fsUpdateDoc(fsDoc(db!, collectionName, id), {
+    ...rest,
+    updatedAt: new Date().toISOString(),
+  } as any);
 }
 
 async function writeDelete(collectionName: string, id: string): Promise<void> {
-  const token = await getFreshToken();
-  await withTimeout(
-    fetch(`https://firestore.googleapis.com/v1/projects/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/databases/(default)/documents/${collectionName}/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` },
-    }).then(r => {
-      if (!r.ok && r.status !== 404) return r.text().then(t => { throw new Error(`HTTP ${r.status}: ${t.substring(0, 200)}`); });
-    })
-  );
+  await fsDeleteDoc(fsDoc(db!, collectionName, id));
 }
 
 async function writeGetAll(collectionName: string): Promise<any[]> {
-  const token = await getFreshToken();
-  const response = await withTimeout(
-    fetch(`https://firestore.googleapis.com/v1/projects/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/databases/(default)/documents/${collectionName}`, {
-      method: 'GET',
-      headers: { 'Authorization': `Bearer ${token}` },
-    }).then(r => r.json())
-  );
-  if (!response.documents) return [];
-  return response.documents.map((doc: any) => {
-    const id = doc.name?.split('/').pop() || '';
-    const fields: any = {};
-    for (const [k, v] of Object.entries(doc.fields || {})) {
-      fields[k] = fromFirestoreValue(v);
-    }
-    return { id, ...fields };
-  });
+  const snap = await fsGetDocs(fsCollection(db!, collectionName));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+async function writeGetById(collectionName: string, id: string): Promise<any | null> {
+  const snap = await fsGetDoc(fsDoc(db!, collectionName, id));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
 // Re-export all types (backward compat with old imports)
@@ -335,13 +274,13 @@ let state: AppState = {
     storeSet({ settings: merged });
     console.log('%c[PBR-STORE] updateSettings', 'color:#16a34a;font-weight:bold', s);
 
-    // Use FRESH Firestore instance — main instance hangs
+    // Use MAIN Firestore SDK instance for writes (has auth)
     (async () => {
       try {
         const fbUser = getCurrentFirebaseUser();
         if (fbUser) await fbUser.getIdToken(true);
 
-        // Read existing settings using fresh instance
+        // Read existing settings
         const all = await writeGetAll(COLLECTIONS.SETTINGS);
         const existing = all[0] as (SiteSettings & { id?: string }) | null;
 
@@ -352,7 +291,7 @@ let state: AppState = {
         }
 
         toast.success("Pengaturan tersimpan ke Firestore");
-        console.log('%c[PBR-STORE] settings SAVED to Firestore', 'color:#16a34a;font-weight:bold');
+        console.log('%c[PBR-STORE] settings SAVED', 'color:#16a34a;font-weight:bold');
       } catch (e: any) {
         console.error('[PBR-STORE] settings save FAILED:', e);
         handleErr(e, "Gagal menyimpan pengaturan");
