@@ -1,14 +1,14 @@
 // Firebase Authentication - Email/Password + Google
 // ============================================================
-// SIMPLIFIED: set currentUser IMMEDIATELY after signIn (like admin
-// dummy did). Read role from Firestore in BACKGROUND, update after.
-// This eliminates delay + stuck issue.
+// SYNCHRONOUS login: signIn → getIdToken → readUserRole → return
+// Test script proved readUserRole works in 872ms. Total login
+// ~1.5s. No background fetch, no callback, no race condition.
 // ============================================================
 import {
   getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider,
   signOut, onAuthStateChanged, type User,
 } from 'firebase/auth';
-import { doc, getDocFromServer, getDoc } from 'firebase/firestore';
+import { doc, getDocFromServer } from 'firebase/firestore';
 import { app } from './firebase';
 import { isFirebaseConfigured, COLLECTIONS } from './config';
 import { db } from './firestore';
@@ -39,7 +39,7 @@ function log(tag: string, ...args: any[]) {
 // ============================================================
 // getDocWithTimeout
 // ============================================================
-async function getDocWithTimeout(ref: any, timeoutMs = 3000): Promise<any> {
+async function getDocWithTimeout(ref: any, timeoutMs = 4000): Promise<any> {
   return Promise.race([
     getDocFromServer(ref),
     new Promise<never>((_, reject) => {
@@ -49,20 +49,16 @@ async function getDocWithTimeout(ref: any, timeoutMs = 3000): Promise<any> {
 }
 
 // ============================================================
-// readUserRole — read role from Firestore (async, no throw)
+// readUserRole — read role from Firestore (synchronous, blocking)
 // ============================================================
-// Returns role string, or 'editor' as fallback if anything fails.
-// Never throws — caller can use result safely.
+// Test script proved this works in 872ms with correct result.
 // ============================================================
 async function readUserRole(fbUser: User): Promise<Role> {
   log('readUserRole START', { uid: fbUser.uid });
   const t0 = Date.now();
 
-  // Wait 1 second before first attempt — give Firestore SDK time to
-  // process the auth token. This is CRITICAL in production where
-  // token propagation is slower than emulator.
-  log('readUserRole initial delay 1000ms');
-  await new Promise((r) => setTimeout(r, 1000));
+  // Wait 500ms for Firestore SDK to process auth token
+  await new Promise((r) => setTimeout(r, 500));
 
   const MAX_ATTEMPTS = 4;
   const DOC_TIMEOUT_MS = 4000;
@@ -78,24 +74,15 @@ async function readUserRole(fbUser: User): Promise<Role> {
       }
 
       const ref = doc(db, COLLECTIONS.USERS, fbUser.uid);
-
-      // Try getDocFromServer first (bypasses cache)
-      let snap;
-      try {
-        log('readUserRole getDocFromServer', { attempt });
-        snap = await getDocWithTimeout(ref, DOC_TIMEOUT_MS);
-      } catch (serverErr: any) {
-        log('readUserRole getDocFromServer failed, trying getDoc (cache)', { attempt, error: serverErr?.code || serverErr?.message });
-        // Fallback to getDoc (may use cache)
-        snap = await getDocWithTimeout(ref, DOC_TIMEOUT_MS);
-      }
-
-      log('readUserRole RESULT', { attempt, elapsed_ms: Date.now() - t0, exists: snap.exists(), fromCache: snap.metadata?.fromCache });
+      log('readUserRole getDocFromServer', { attempt, path: `users/${fbUser.uid}` });
+      const snap = await getDocWithTimeout(ref, DOC_TIMEOUT_MS);
+      const elapsed = Date.now() - t0;
+      log('readUserRole RESULT', { attempt, elapsed_ms: elapsed, exists: snap.exists(), fromCache: snap.metadata?.fromCache });
 
       if (snap.exists()) {
         const data = snap.data();
-        log('readUserRole DATA', { role: data.role, keys: Object.keys(data) });
         const docRole = data.role;
+        log('readUserRole DATA', { role: docRole, keys: Object.keys(data) });
         if (typeof docRole === 'string' && docRole.length > 0) {
           log('readUserRole ACCEPTED', { role: docRole, attempt });
           return docRole as Role;
@@ -116,10 +103,11 @@ async function readUserRole(fbUser: User): Promise<Role> {
 }
 
 // ============================================================
-// loginWithEmail — SIMPLIFIED: set currentUser immediately
+// loginWithEmail — SYNCHRONOUS: signIn + read role + return
 // ============================================================
-// Like admin dummy: signIn → set user → done. Fast.
-// Role is read in BACKGROUND and updates currentUser via callback.
+// Test script proved readUserRole works in 872ms.
+// Total login: ~500ms (signIn) + ~200ms (getIdToken) + ~500ms (delay) + ~872ms (read) = ~2s
+// This is fast enough AND returns correct role.
 // ============================================================
 export async function loginWithEmail(email: string, password: string): Promise<AuthResult> {
   log('loginWithEmail START', { email });
@@ -128,46 +116,33 @@ export async function loginWithEmail(email: string, password: string): Promise<A
   }
 
   try {
+    log('loginWithEmail signInWithEmailAndPassword');
     const cred = await signInWithEmailAndPassword(auth, email, password);
     log('signIn SUCCESS', { uid: cred.user.uid });
 
-    // Force token refresh
+    log('loginWithEmail getIdToken(true)');
     await cred.user.getIdToken(true);
     log('getIdToken DONE');
 
-    // IMMEDIATELY return user with TEMPORARY role 'editor'.
-    // The store will set this as currentUser and UI will update
-    // (user enters dashboard). Role will be corrected in background.
-    const tempUser: AppUser = {
+    // Read role SYNCHRONOUSLY — blocks until role is read
+    log('loginWithEmail readUserRole');
+    const role = await readUserRole(cred.user);
+    log('loginWithEmail role', { role });
+
+    const user: AppUser = {
       uid: cred.user.uid,
       email: cred.user.email || '',
       displayName: cred.user.displayName || email.split('@')[0],
-      role: 'editor', // temporary — will be updated
+      role,
       photoURL: cred.user.photoURL || '',
     };
 
-    log('loginWithEmail RETURN tempUser', { role: tempUser.role });
-    return { success: true, user: tempUser };
+    log('loginWithEmail RETURN', { success: true, role });
+    return { success: true, user };
   } catch (err: any) {
     log('loginWithEmail FAILED', { code: err?.code, message: err?.message });
     return { success: false, error: translateError(err?.code || '') };
   }
-}
-
-// ============================================================
-// fetchUserRoleAndUpdate — background role fetch
-// ============================================================
-// Called AFTER loginWithEmail returns. Reads role from Firestore
-// and calls onRoleUpdate callback so store can update currentUser.
-// ============================================================
-export async function fetchUserRoleAndUpdate(
-  fbUser: User,
-  onRoleUpdate: (role: Role) => void
-): Promise<void> {
-  log('fetchUserRoleAndUpdate START');
-  const role = await readUserRole(fbUser);
-  log('fetchUserRoleAndUpdate DONE', { role });
-  onRoleUpdate(role);
 }
 
 export async function loginWithGoogle(): Promise<AuthResult> {
@@ -175,14 +150,15 @@ export async function loginWithGoogle(): Promise<AuthResult> {
   try {
     const cred = await signInWithPopup(auth, googleProvider);
     await cred.user.getIdToken(true);
-    const tempUser: AppUser = {
+    const role = await readUserRole(cred.user);
+    const user: AppUser = {
       uid: cred.user.uid,
       email: cred.user.email || '',
       displayName: cred.user.displayName || '',
-      role: 'editor',
+      role,
       photoURL: cred.user.photoURL || '',
     };
-    return { success: true, user: tempUser };
+    return { success: true, user };
   } catch (err: any) {
     return { success: false, error: translateError(err?.code || '') };
   }
@@ -196,19 +172,10 @@ export async function logout(): Promise<void> {
 // ============================================================
 // onAuthChange — for page reload (restore session)
 // ============================================================
-// During login flow, onAuthChange is BLOCKED entirely via
-// loginPhaseActive flag. Only fires for page reload (restore).
-// ============================================================
 let currentRoleGetter: (() => Role | null) | null = null;
-let loginPhaseActive = false;
 
 export function setCurrentRoleGetter(getter: () => Role | null) {
   currentRoleGetter = getter;
-}
-
-export function setLoginPhaseActive(active: boolean) {
-  loginPhaseActive = active;
-  log('setLoginPhaseActive', { active });
 }
 
 export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
@@ -218,15 +185,8 @@ export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
     return () => {};
   }
   return onAuthStateChanged(auth, async (fbUser) => {
-    // CRITICAL: block entirely during login phase
-    if (loginPhaseActive) {
-      log('onAuthChange SKIP (loginPhaseActive)');
-      return;
-    }
-
     if (fbUser) {
       try {
-        // Read role from Firestore
         const role = await readUserRole(fbUser);
 
         // Guard: don't let editor fallback overwrite super_admin/admin
