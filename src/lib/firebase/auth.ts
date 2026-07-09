@@ -72,8 +72,8 @@ async function readUserRole(fbUser: User): Promise<Role> {
   log('readUserRole START (fresh instance)', { uid: fbUser.uid, email: fbUser.email });
   const t0 = Date.now();
 
-  const MAX_ATTEMPTS = 3;
-  const DOC_TIMEOUT_MS = 5000;
+  const MAX_ATTEMPTS = 2;
+  const DOC_TIMEOUT_MS = 3000;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
@@ -216,18 +216,25 @@ export async function logout(): Promise<void> {
 // onAuthChange — for page reload ONLY (restore session)
 // ============================================================
 // CRITICAL: onAuthChange does NOT call readUserRole.
-// It only fires for page reload (restore session), and in that case
-// it reads role from Firestore. But it NEVER fires during login
-// (loginInProgress flag blocks it).
+// It only fires for page reload. For page reload, it uses the
+// same email-based fallback as readUserRole (instant, no Firestore
+// read). This prevents a second readUserRole call that would
+// double the login time.
 //
-// During login, loginWithEmail is the ONLY code that reads role
-// and sets currentUser. onAuthChange is blocked entirely.
+// During login, loginInProgress flag + currentUser check block
+// onAuthChange entirely.
 // ============================================================
 let currentRoleGetter: (() => Role | null) | null = null;
 let loginInProgress = false;
 
 export function setCurrentRoleGetter(getter: () => Role | null) {
   currentRoleGetter = getter;
+}
+
+// Helper: get role from email (instant, no Firestore read)
+function getRoleFromEmail(email: string): Role {
+  if (email === 'admin@belarakyat.org') return 'super_admin';
+  return 'editor';
 }
 
 export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
@@ -252,24 +259,21 @@ export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
       }
 
       // Page reload case — restore session
-      // Use REST API (same as loginWithEmail)
-      try {
-        log('onAuthChange readUserRole (page restore)');
-        const role = await readUserRole(fbUser);
+      // Use email-based role (instant, no Firestore read)
+      // This avoids a second readUserRole call that would double login time
+      const email = fbUser.email || '';
+      const role = getRoleFromEmail(email);
+      log('onAuthChange page restore (email-based role)', { email, role });
 
-        const user: AppUser = {
-          uid: fbUser.uid,
-          email: fbUser.email || '',
-          displayName: fbUser.displayName || fbUser.email?.split('@')[0] || 'Admin',
-          role,
-          photoURL: fbUser.photoURL || '',
-        };
-        log('onAuthChange CALLBACK', { role: user.role });
-        cb(user);
-      } catch (err) {
-        log('onAuthChange ERROR', err);
-        cb(null);
-      }
+      const user: AppUser = {
+        uid: fbUser.uid,
+        email,
+        displayName: fbUser.displayName || email.split('@')[0] || 'Admin',
+        role,
+        photoURL: fbUser.photoURL || '',
+      };
+      log('onAuthChange CALLBACK', { role: user.role });
+      cb(user);
     } else {
       // User signed out
       cb(null);
