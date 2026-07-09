@@ -181,12 +181,18 @@ const handleErr = (err: any, msg = "Operasi gagal") => {
 let state: AppState = {
   currentUser: null,
   login: async (email, password) => {
+    // loginWithEmail() calls signInWithEmailAndPassword + mapUser().
+    // We do NOT storeSet currentUser here — the onAuthChange listener
+    // (registered in init()) will fire with the same user and set
+    // currentUser. This avoids a race where loginWithEmail's mapUser
+    // (which may fall back to 'editor' if Firestore token hasn't
+    // propagated) overwrites the correct role set by onAuthChange.
+    //
+    // If loginWithEmail fails, return false so the UI shows error.
+    // If it succeeds, return true immediately. The onAuthChange
+    // listener will set currentUser within milliseconds.
     const res = await loginWithEmail(email, password);
-    if (res.success && res.user) {
-      storeSet({ currentUser: res.user });
-      return true;
-    }
-    return false;
+    return res.success && !!res.user;
   },
   logout: () => { fbLogout(); storeSet({ currentUser: null }); },
 
