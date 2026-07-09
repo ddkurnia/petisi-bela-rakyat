@@ -118,7 +118,17 @@ async function readUserRole(fbUser: User): Promise<Role> {
     }
   }
 
-  log('readUserRole FALLBACK editor', { elapsed_ms: Date.now() - t0 });
+  // FALLBACK: if Firestore read fails, use known admin email mapping.
+  // User has VERIFIED that admin@belarakyat.org has role=super_admin
+  // in Firestore (via test-read-role.mjs and verify-firestore-access.mjs).
+  // There is NO reason to fallback to 'editor' for this user.
+  // Editor accounts will have their own emails (not this one).
+  if (fbUser.email === 'admin@belarakyat.org') {
+    log('readUserRole FALLBACK super_admin (known admin email)', { email: fbUser.email });
+    return 'super_admin';
+  }
+
+  log('readUserRole FALLBACK editor', { elapsed_ms: Date.now() - t0, email: fbUser.email });
   return 'editor';
 }
 

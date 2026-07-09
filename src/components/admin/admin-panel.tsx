@@ -106,13 +106,12 @@ export function AdminPanel() {
                   // Read role directly from store after login
                   // Use a small delay to let storeSet complete
                   setTimeout(() => {
-                    // Access store state directly
                     const storeState = (window as any).__pbr_storeState;
                     const role = storeState?.currentUser?.role || 'unknown';
-                    setLoginDebug(`✅ Login OK (${elapsed}ms) — Role: ${role}`);
+                    setLoginDebug(`✅ Login OK (${elapsed}ms) — Role: ${role} [v0fca0ad]`);
                     if (role === 'editor') {
-                      toast.error(`⚠️ Role: editor (${elapsed}ms)`, {
-                        description: 'REST API mungkin gagal. Buka DevTools Console (F12) untuk lihat [PBR-AUTH] logs.',
+                      toast.error(`⚠️ Role: editor (${elapsed}ms) [v0fca0ad]`, {
+                        description: 'Kode versi 0fca0ad. Buka DevTools Console (F12), filter PBR, copy semua log.',
                         duration: 15000,
                       });
                     } else {
