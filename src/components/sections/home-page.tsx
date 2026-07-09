@@ -126,6 +126,15 @@ export function HomePage() {
   const news = useStore((s) => s.news);
   const pengurus = useStore((s) => s.pengurus);
 
+  // Defensive access — Firestore doc may be partial during initial load
+  const homepage = settings?.homepage ?? {
+    about: { image: "", title: "", description: "" },
+    work: { title: "", description: "" },
+    campaigns: { title: "", description: "" },
+    supporters: { title: "", description: "" },
+  };
+  const about = settings?.about ?? { visi: "", misi: [], nilai: [], sejarah: "", sejarahTimeline: [], motto: "" };
+
   // Build dynamic org tree and get top pengurus for homepage preview
   // Strategy: show root (Ketua) + direct children level 1 (Wakil/Sekretaris/Bendahara)
   const orgTree = buildPengurusTree(pengurus);
@@ -150,11 +159,17 @@ export function HomePage() {
             <Reveal>
               <div className="relative">
                 <div className="relative aspect-[4/5] sm:aspect-[5/4] rounded-3xl overflow-hidden shadow-2xl">
-                  <img
-                    src={settings.homepage.about.image}
-                    alt="Kegiatan Petisi Bela Rakyat"
-                    className="h-full w-full object-cover"
-                  />
+                  {homepage.about.image ? (
+                    <img
+                      src={homepage.about.image}
+                      alt="Kegiatan Petisi Bela Rakyat"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-gradient-to-br from-primary/30 to-foreground flex items-center justify-center text-white/50 text-sm">
+                      Belum ada foto
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-primary/20 to-transparent" />
                 </div>
                 {/* Floating badge */}
@@ -175,10 +190,10 @@ export function HomePage() {
                   </span>
                 </div>
                 <h2 className="font-heading text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-tight">
-                  {settings.homepage.about.title}
+                  {homepage.about.title}
                 </h2>
                 <p className="mt-5 text-muted-foreground text-base md:text-lg leading-relaxed">
-                  {settings.homepage.about.description}
+                  {homepage.about.description}
                 </p>
               </Reveal>
 
@@ -191,7 +206,7 @@ export function HomePage() {
                     <h3 className="font-heading text-base md:text-lg font-bold">Visi</h3>
                   </div>
                   <p className="text-sm md:text-base text-foreground/80 leading-relaxed">
-                    {settings.about.visi}
+                    {about.visi}
                   </p>
                 </div>
               </Reveal>
@@ -205,7 +220,7 @@ export function HomePage() {
                     <h3 className="font-heading text-base md:text-lg font-bold">Misi</h3>
                   </div>
                   <div className="space-y-2">
-                    {settings.about.misi.slice(0, 3).map((m, i) => (
+                    {about.misi.slice(0, 3).map((m, i) => (
                       <div key={i} className="flex items-start gap-2.5">
                         <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
                         <span className="text-sm md:text-base text-foreground/80">{m}</span>
@@ -373,8 +388,8 @@ export function HomePage() {
         <div className="container-x">
           <SectionHeading
             eyebrow="Dukungan Tokoh"
-            title={<span className="text-white">{settings.homepage.supporters.title}</span>}
-            description={<span className="text-white/70">{settings.homepage.supporters.description}</span>}
+            title={<span className="text-white">{homepage.supporters.title}</span>}
+            description={<span className="text-white/70">{homepage.supporters.description}</span>}
             dark
           />
           <div className="mt-12">

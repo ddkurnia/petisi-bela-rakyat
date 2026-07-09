@@ -9,18 +9,30 @@ import { useNav } from "@/lib/nav";
 export function Hero() {
   const settings = useStore((s) => s.settings);
   const { navigate } = useNav();
-  const hero = settings.homepage.hero;
+  // Defensive: settings.homepage may be undefined if Firestore doc is partial
+  const hero = settings?.homepage?.hero ?? {
+    image: "",
+    headline: "Menyatukan Suara Rakyat Menjadi Perubahan",
+    subheadline: "",
+    primaryCta: "Pelajari Lebih Lanjut",
+    secondaryCta: "Lihat Kampanye",
+  };
+  const stats = settings?.homepage?.stats ?? [{ label: "Pendukung", value: 0, suffix: "+" }];
 
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
-      {/* Background image */}
+      {/* Background image — only render <img> if URL is non-empty */}
       <div className="absolute inset-0">
-        <img
-          src={hero.image}
-          alt="Petisi Bela Rakyat — Suara Rakyat"
-          className="h-full w-full object-cover"
-          fetchPriority="high"
-        />
+        {hero.image ? (
+          <img
+            src={hero.image}
+            alt="Petisi Bela Rakyat — Suara Rakyat"
+            className="h-full w-full object-cover"
+            fetchPriority="high"
+          />
+        ) : (
+          <div className="h-full w-full bg-gradient-to-br from-foreground via-primary/30 to-foreground" />
+        )}
         <div className="absolute inset-0 hero-overlay" />
       </div>
 
@@ -103,7 +115,7 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.4 }}
             className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl"
           >
-            {settings.homepage.stats.map((stat, i) => (
+            {stats.map((stat, i) => (
               <div key={i} className="border-l-2 border-primary/60 pl-3">
                 <div className="font-heading text-2xl md:text-3xl font-bold text-white">
                   {stat.value}{stat.suffix}

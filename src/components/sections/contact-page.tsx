@@ -17,6 +17,8 @@ export function ContactPage() {
   const settings = useStore((s) => s.settings);
   const [form, setForm] = useState({ name: "", email: "", phone: "", subject: "", message: "" });
   const [submitting, setSubmitting] = useState(false);
+  // Defensive — Firestore doc may be partial
+  const contact = settings?.contact ?? { address: "", whatsapp: "", email: "", phone: "", mapEmbed: "", mapLink: "", operationHours: "" };
 
   const addMessage = useStore((s) => s.addMessage);
 
@@ -41,28 +43,28 @@ export function ContactPage() {
     {
       icon: MapPin,
       title: "Sekretariat",
-      value: settings.contact.address,
+      value: contact.address,
       action: "Lihat di Maps",
-      href: settings.contact.mapLink || "https://maps.google.com",
+      href: contact.mapLink || "https://maps.google.com",
     },
     {
       icon: MessageCircle,
       title: "WhatsApp",
-      value: settings.contact.whatsapp,
+      value: contact.whatsapp,
       action: "Chat Sekarang",
-      href: `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, "")}`,
+      href: `https://wa.me/${(contact.whatsapp || '').replace(/[^0-9]/g, "")}`,
     },
     {
       icon: Mail,
       title: "Email",
-      value: settings.contact.email,
+      value: contact.email,
       action: "Kirim Email",
-      href: `mailto:${settings.contact.email}`,
+      href: `mailto:${contact.email}`,
     },
     {
       icon: Clock,
       title: "Jam Operasional",
-      value: settings.contact.operationHours,
+      value: contact.operationHours,
       action: null,
     },
   ];
@@ -205,7 +207,7 @@ export function ContactPage() {
                 <Card className="overflow-hidden border-0 shadow-xl shadow-foreground/5">
                   <div className="aspect-video bg-secondary">
                     <iframe
-                      src={settings.contact.mapEmbed}
+                      src={contact.mapEmbed}
                       className="w-full h-full"
                       style={{ border: 0 }}
                       allowFullScreen
@@ -218,7 +220,7 @@ export function ContactPage() {
                       <Building className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                       <div>
                         <h3 className="font-heading font-bold text-sm">Sekretariat PBR</h3>
-                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{settings.contact.address}</p>
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{contact.address}</p>
                       </div>
                     </div>
                   </div>
@@ -236,7 +238,7 @@ export function ContactPage() {
                   </p>
                   <Button
                     className="mt-5 bg-green-600 hover:bg-green-700 text-white rounded-full"
-                    onClick={() => window.open(`https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, "")}`, "_blank")}
+                    onClick={() => window.open(`https://wa.me/${(contact.whatsapp || '').replace(/[^0-9]/g, "")}`, "_blank")}
                   >
                     <MessageCircle className="h-4 w-4 mr-2" />
                     Chat via WhatsApp

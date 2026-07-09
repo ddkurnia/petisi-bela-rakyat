@@ -37,6 +37,8 @@ const submenu = [
 export function AboutPage() {
   const settings = useStore((s) => s.settings);
   const { navigate, aboutSection } = useNav();
+  // Defensive — Firestore doc may be partial
+  const about = settings?.about ?? { visi: "", misi: [], nilai: [], sejarah: "", sejarahTimeline: [], motto: "" };
 
   // Sub-pages
   if (aboutSection === "struktur") return <StrukturOrganisasiPage />;
@@ -62,7 +64,7 @@ export function AboutPage() {
                 Membela rakyat dengan cara yang berbeda
               </h1>
               <p className="mt-6 text-base md:text-xl text-muted-foreground leading-relaxed">
-                {settings.about.motto}
+                {about.motto}
               </p>
             </div>
           </Reveal>
@@ -131,7 +133,7 @@ export function AboutPage() {
                 <div className="lg:col-span-8">
                   <Reveal delay={0.1}>
                     <div className="prose-pbr max-w-none">
-                      {settings.about.sejarah
+                      {about.sejarah
                         .split(/\n\n+/)
                         .filter((p) => p.trim())
                         .map((para, i) => (
@@ -181,7 +183,7 @@ export function AboutPage() {
                 <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary via-primary/40 to-transparent md:-translate-x-1/2" />
 
                 <div className="space-y-8 md:space-y-12">
-                  {settings.about.sejarahTimeline.map((t, i) => {
+                  {about.sejarahTimeline.map((t, i) => {
                     const Icon = timelineIcons[t.icon || "Megaphone"] || Megaphone;
                     const isLeft = i % 2 === 0;
                     return (
@@ -277,7 +279,7 @@ export function AboutPage() {
                     </div>
                     <h3 className="font-heading text-2xl font-bold mb-3">Visi</h3>
                     <p className="text-base md:text-lg text-foreground/80 leading-relaxed">
-                      {settings.about.visi}
+                      {about.visi}
                     </p>
                   </Card>
                 </Reveal>
@@ -289,7 +291,7 @@ export function AboutPage() {
                     </div>
                     <h3 className="font-heading text-2xl font-bold mb-4">Misi</h3>
                     <div className="space-y-3">
-                      {settings.about.misi.map((m, i) => (
+                      {about.misi.map((m, i) => (
                         <div key={i} className="flex items-start gap-3">
                           <div className="h-7 w-7 shrink-0 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
                             {i + 1}
@@ -313,7 +315,7 @@ export function AboutPage() {
                 description="Nilai-nilai ini memandu setiap keputusan, kampanye, dan tindakan kami."
               />
               <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                {settings.about.nilai.map((n, i) => {
+                {about.nilai.map((n, i) => {
                   const Icon = nilaiIcons[n.icon] || Shield;
                   return (
                     <Reveal key={i} delay={i * 0.1}>

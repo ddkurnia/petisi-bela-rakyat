@@ -52,7 +52,12 @@ export function FloatingActions() {
   };
 
   const handleWhatsApp = () => {
-    const phone = settings.contact.whatsapp.replace(/[^0-9]/g, "");
+    const whatsapp = settings?.contact?.whatsapp || "";
+    const phone = whatsapp.replace(/[^0-9]/g, "");
+    if (!phone) {
+      toast.warning("Nomor WhatsApp belum di-set di pengaturan");
+      return;
+    }
     window.open(`https://wa.me/${phone}`, "_blank");
     setOpen(false);
   };

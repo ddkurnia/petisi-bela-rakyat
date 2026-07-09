@@ -91,6 +91,40 @@ const DEFAULT_SETTINGS: SiteSettings = {
 };
 
 // ============================================================
+// Deep merge — Firestore settings doc may be partial
+// ============================================================
+// Recursively merges user's Firestore settings over DEFAULT_SETTINGS.
+// Arrays are REPLACED (not concatenated) — user's array wins.
+// Objects are merged recursively so missing nested fields fall back
+// to defaults.
+// ============================================================
+function deepMerge<T>(base: T, override: any): T {
+  if (override === null || override === undefined) return base;
+  if (typeof base !== 'object' || base === null) return (override as T);
+  if (Array.isArray(base)) {
+    return (Array.isArray(override) ? override : base) as T;
+  }
+  const result: any = { ...base };
+  for (const key of Object.keys(override)) {
+    const baseVal = (base as any)[key];
+    const overrideVal = override[key];
+    if (
+      typeof baseVal === 'object' && baseVal !== null && !Array.isArray(baseVal) &&
+      typeof overrideVal === 'object' && overrideVal !== null && !Array.isArray(overrideVal)
+    ) {
+      result[key] = deepMerge(baseVal, overrideVal);
+    } else if (overrideVal !== undefined) {
+      result[key] = overrideVal;
+    }
+  }
+  return result as T;
+}
+
+function mergeSettings(base: SiteSettings, override: Partial<SiteSettings>): SiteSettings {
+  return deepMerge(base, override);
+}
+
+// ============================================================
 // State shape
 // ============================================================
 interface AppState {
@@ -225,7 +259,8 @@ let state: AppState = {
   reports: [],
 
   updateSettings: (s) => {
-    const merged = { ...state.settings, ...s } as SiteSettings;
+    // Deep merge — partial update shouldn't wipe existing fields
+    const merged = mergeSettings(state.settings, s);
     // Optimistic update — UI updates immediately
     storeSet({ settings: merged });
     console.log('%c[PBR-STORE] updateSettings', 'color:#16a34a;font-weight:bold', s);
@@ -235,7 +270,7 @@ let state: AppState = {
       try {
         const fbUser = getCurrentFirebaseUser();
         if (fbUser) await fbUser.getIdToken(true);
-        await settingsService.save(merged);
+        await settingsService.save(s as SiteSettings);  // save only the patch
         toast.success("Pengaturan tersimpan ke Firestore");
         console.log('%c[PBR-STORE] settings SAVED', 'color:#16a34a;font-weight:bold');
       } catch (e: any) {
@@ -347,7 +382,17 @@ function initPublicSubscribers() {
   console.log('%c[PBR-STORE initPublicSubscribers]', 'color:#2563eb;font-weight:bold', 'registering Firestore listeners (public)');
 
   // Settings — realtime singleton
-  settingsService.subscribe((s) => storeSet({ settings: s || DEFAULT_SETTINGS }));
+  // DEEP MERGE: Firestore doc may be partial (missing fields like
+  // `homepage`, `about`, etc.). We merge with DEFAULT_SETTINGS so
+  // the UI always has complete structure to render.
+  settingsService.subscribe((s) => {
+    if (!s) {
+      storeSet({ settings: DEFAULT_SETTINGS });
+      return;
+    }
+    const merged = mergeSettings(DEFAULT_SETTINGS, s);
+    storeSet({ settings: merged });
+  });
 
   // Blog & News — published only (Firestore rules require this filter for public)
   publicBlogUnsub = blogService.subscribePublished((items) => storeSet({ blog: items }));

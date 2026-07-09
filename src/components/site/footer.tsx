@@ -30,7 +30,12 @@ const footerMenu: { label: string; href: string }[] = [
 export function Footer() {
   const settings = useStore((s) => s.settings);
   const year = new Date().getFullYear();
-  const copyright = settings.footer.copyrightText.replace("{year}", String(year));
+  // Defensive — Firestore doc may be partial
+  const footer = settings?.footer ?? { description: "", copyrightText: "© 2026 Petisi Bela Rakyat", legalLinks: [] };
+  const about = settings?.about ?? { visi: "", misi: [], nilai: [], sejarah: "", sejarahTimeline: [], motto: "" };
+  const contact = settings?.contact ?? { address: "", whatsapp: "", email: "", phone: "", mapEmbed: "", mapLink: "", operationHours: "" };
+  const socials = settings?.socials ?? [];
+  const copyright = (footer.copyrightText || "© 2026 Petisi Bela Rakyat").replace("{year}", String(year));
 
   return (
     <footer className="mt-auto bg-foreground text-background">
@@ -45,7 +50,7 @@ export function Footer() {
               transition={{ duration: 0.6 }}
             >
               <h3 className="font-heading text-2xl md:text-3xl font-bold text-white">
-                {settings.about.motto}
+                {about.motto}
               </h3>
               <p className="mt-2 text-white/70 text-sm md:text-base">
                 Dapatkan kabar terbaru dari setiap kampanye dan peluang untuk berkontribusi.
@@ -75,10 +80,10 @@ export function Footer() {
               <Logo />
             </div>
             <p className="mt-5 text-white/70 text-sm leading-relaxed max-w-sm">
-              {settings.footer.description}
+              {footer.description}
             </p>
             <div className="mt-5 flex items-center gap-2 flex-wrap">
-              {settings.socials.map((s) => {
+              {socials.map((s) => {
                 const Icon = socialIcon[s.icon] || Twitter;
                 return (
                   <a
@@ -119,23 +124,23 @@ export function Footer() {
             <ul className="space-y-3 text-sm">
               <li className="flex items-start gap-2.5 text-white/70">
                 <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
-                <span>{settings.contact.address}</span>
+                <span>{contact.address}</span>
               </li>
               <li>
-                <a href={`https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-white/70 hover:text-primary transition-colors">
+                <a href={`https://wa.me/${(contact.whatsapp || '').replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-white/70 hover:text-primary transition-colors">
                   <MessageCircle className="h-4 w-4 shrink-0 text-primary" />
-                  <span>{settings.contact.whatsapp}</span>
+                  <span>{contact.whatsapp}</span>
                 </a>
               </li>
               <li>
-                <a href={`mailto:${settings.contact.email}`} className="flex items-center gap-2.5 text-white/70 hover:text-primary transition-colors">
+                <a href={`mailto:${contact.email}`} className="flex items-center gap-2.5 text-white/70 hover:text-primary transition-colors">
                   <Mail className="h-4 w-4 shrink-0 text-primary" />
-                  <span>{settings.contact.email}</span>
+                  <span>{contact.email}</span>
                 </a>
               </li>
               <li className="flex items-start gap-2.5 text-white/70">
                 <Clock className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
-                <span>{settings.contact.operationHours}</span>
+                <span>{contact.operationHours}</span>
               </li>
             </ul>
           </div>
@@ -165,10 +170,10 @@ export function Footer() {
             {copyright}
           </p>
           <div className="flex items-center gap-4 text-xs text-white/50 flex-wrap justify-center">
-            {settings.footer.legalLinks.map((link, i) => (
+            {footer.legalLinks.map((link, i) => (
               <span key={link.label} className="flex items-center gap-4">
                 <button className="hover:text-primary transition-colors">{link.label}</button>
-                {i < settings.footer.legalLinks.length - 1 && <span className="opacity-30">•</span>}
+                {i < footer.legalLinks.length - 1 && <span className="opacity-30">•</span>}
               </span>
             ))}
             <span className="opacity-30">•</span>
