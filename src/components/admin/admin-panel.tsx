@@ -97,11 +97,19 @@ export function AdminPanel() {
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
+                const t0 = Date.now();
                 const ok = await login(email, password);
+                const elapsed = Date.now() - t0;
                 if (ok) {
-                  toast.success("Login berhasil");
+                  toast.success(`Login berhasil (${elapsed}ms)`, {
+                    description: 'Cek Firestore → messages collection (type=debug_telemetry) untuk log lengkap.',
+                    duration: 10000,
+                  });
                 } else {
-                  toast.error("Email atau password salah");
+                  toast.error(`Email atau password salah (${elapsed}ms)`, {
+                    description: 'Telemetry mungkin tertulis di Firestore messages.',
+                    duration: 10000,
+                  });
                 }
               }}
               className="space-y-4"
