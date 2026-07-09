@@ -1,12 +1,17 @@
 // Firebase Authentication - Email/Password + Google
+// ============================================================
+// INSTRUMENTED VERSION — logging stays in until root cause is
+// proven and fixed. Every step logs with [PBR-AUTH] prefix so
+// you can filter DevTools console.
+// ============================================================
 import {
   getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider,
   signOut, onAuthStateChanged, type User,
 } from 'firebase/auth';
-import { doc, getDoc, getDocFromServer } from 'firebase/firestore';
+import { doc, getDocFromServer } from 'firebase/firestore';
 import { app } from './firebase';
 import { isFirebaseConfigured, COLLECTIONS } from './config';
-import { getById, db } from './firestore';
+import { db } from './firestore';
 
 const auth = isFirebaseConfigured && app ? getAuth(app) : null;
 const googleProvider = new GoogleAuthProvider();
@@ -23,59 +28,24 @@ export interface AppUser {
 
 export interface AuthResult { success: boolean; user?: AppUser; error?: string; }
 
-// ============================================================
+// ----------------------------------------------------------
+// Logging helper — all logs prefixed [PBR-AUTH] for easy filter
+// ----------------------------------------------------------
+let logSeq = 0;
+function log(tag: string, ...args: any[]) {
+  const seq = ++logSeq;
+  const ts = new Date().toISOString().split('T')[1];
+  console.log(`%c[PBR-AUTH #${seq} ${ts}]`, 'color:#d62828;font-weight:bold', tag, ...args);
+  return seq;
+}
+
+// ----------------------------------------------------------
 // mapUser — read user's Firestore document to get role.
-// ============================================================
-// ROOT CAUSE of the persistent 'editor' bug (after prior fixes):
-//
-//   The Firestore client SDK maintains an in-memory + IndexedDB
-//   cache of documents it has read. When getDoc() is called, the
-//   SDK FIRST checks the cache. If the document is in cache
-//   (even with stale data from BEFORE the user was signed in —
-//   e.g. a cached permission-denied or a cached "not found"),
-//   getDoc() returns the CACHED result WITHOUT hitting the
-//   server.
-//
-//   Before login, the /admin page mounts. init() registers the
-//   onAuthChange listener, which fires immediately with null
-//   (no user). At this point NO users/{uid} read happens (good).
-//   BUT — the page may also trigger other Firestore reads (e.g.
-//   settingsService.subscribe, blogService.subscribe). Those
-//   reads do not touch users/{uid}, so they don't pollute the
-//   user-doc cache.
-//
-//   However, after signInWithEmailAndPassword() + getIdToken(),
-//   the FIRST mapUser() call (from loginWithEmail) does
-//   getDoc(users/{uid}). This reads from SERVER (cache miss),
-//   gets the correct role, returns super_admin. storeSet happens
-//   via onAuthChange. So far so good.
-//
-//   BUT THEN onAuthStateChanged fires AGAIN (token refresh,
-//   Firebase Auth fires multiple events during sign-in). The
-//   second mapUser() call hits getDoc(users/{uid}) — this time
-//   the doc IS in cache. The cache may contain a stale snapshot
-//   from a PREVIOUS session (different user, or same user but
-//   before role was set to super_admin). The stale snapshot has
-//   role=undefined or role=editor. mapUser returns editor.
-//   storeSet({ currentUser: editor }) overwrites super_admin.
-//
-//   Net effect: even though loginWithEmail's mapUser returned
-//   super_admin, the SECOND onAuthChange fire (seconds later)
-//   overwrites with editor. The user sees editor menu.
-//
-// FIX:
-//   1. Use getDocFromServer() for user-role reads. This BYPASSES
-//      the cache entirely and always fetches fresh from server.
-//      This guarantees we read the CURRENT role value, not a
-//      stale cached copy.
-//   2. Guard against overwrite: onAuthChange's mapUser only sets
-//      currentUser if the new role is at least as authoritative
-//      as the current one. If we already have super_admin, do not
-//      let a transient editor-fallback overwrite it.
-//   3. Keep the retry loop as defense-in-depth (covers brief
-//      network blips), but the primary fix is getDocFromServer.
-// ============================================================
-async function mapUser(fbUser: User): Promise<AppUser> {
+// Uses getDocFromServer() to bypass Firestore SDK cache.
+// ----------------------------------------------------------
+async function mapUser(fbUser: User, source: string): Promise<AppUser> {
+  const seq = log('mapUser START', { source, uid: fbUser.uid, email: fbUser.email });
+  const t0 = Date.now();
   let role: Role = 'editor';
   let displayName = fbUser.displayName || fbUser.email?.split('@')[0] || 'Admin';
 
@@ -84,69 +54,79 @@ async function mapUser(fbUser: User): Promise<AppUser> {
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      // CRITICAL: use getDocFromServer() to bypass the Firestore
-      // SDK's local cache. The cache may contain a stale snapshot
-      // of users/{uid} from before the current sign-in (e.g. from
-      // a previous session, or from a transient read that returned
-      // permission-denied). getDoc() would return the cached value
-      // without hitting the server, causing role to be undefined
-      // or stale. getDocFromServer() forces a fresh server read.
-      let userDoc: { role?: Role; displayName?: string } | null = null;
-      if (db) {
-        const ref = doc(db, COLLECTIONS.USERS, fbUser.uid);
-        const snap = await getDocFromServer(ref);
-        if (snap.exists()) {
-          userDoc = snap.data() as { role?: Role; displayName?: string };
-        }
-      } else {
-        // Fallback to getById if db not available (shouldn't happen)
-        userDoc = await getById<{ role?: Role; displayName?: string }>(COLLECTIONS.USERS, fbUser.uid);
+      log('mapUser getDocFromServer', { attempt, path: `users/${fbUser.uid}` });
+
+      if (!db) {
+        log('mapUser ERROR', 'db is null — Firestore not initialized');
+        break;
       }
 
-      if (userDoc) {
-        // Be strict: only accept role if it's a non-empty string.
-        // If role field is missing/empty/undefined, fall back to
-        // 'editor' but DO log so we can diagnose.
-        const docRole = userDoc.role;
+      const ref = doc(db, COLLECTIONS.USERS, fbUser.uid);
+      const snap = await getDocFromServer(ref);
+      const elapsed = Date.now() - t0;
+
+      log('mapUser getDocFromServer RESULT', {
+        attempt,
+        elapsed_ms: elapsed,
+        exists: snap.exists(),
+        id: snap.id,
+        metadata: snap.metadata ? { fromCache: snap.metadata.fromCache, hasPendingWrites: snap.metadata.hasPendingWrites } : 'no metadata',
+      });
+
+      if (snap.exists()) {
+        const data = snap.data();
+        log('mapUser doc DATA', { role: data.role, displayName: data.displayName, allKeys: Object.keys(data), fullDoc: data });
+
+        const docRole = data.role;
         if (typeof docRole === 'string' && docRole.length > 0) {
           role = docRole as Role;
+          log('mapUser role ACCEPTED', { role });
         } else {
-          console.warn('[auth] users/{uid} document exists but role field is missing or invalid. Got:', docRole, 'Full doc:', userDoc);
+          log('mapUser role INVALID', { docRole, reason: 'not a non-empty string' });
         }
-        if (userDoc.displayName) displayName = userDoc.displayName;
+        if (data.displayName) displayName = data.displayName;
       } else {
-        // Document does not exist. This is a real problem — the
-        // user is authenticated but has no Firestore user doc.
-        console.warn('[auth] users/' + fbUser.uid + ' document does NOT exist. Run: bun run setup-admin ' + fbUser.email);
+        log('mapUser doc NOT FOUND', { path: `users/${fbUser.uid}`, uid: fbUser.uid });
+        log('mapUser HINT', 'Document does not exist. Check: (1) doc ID must equal Auth UID, (2) collection name must be "users"');
       }
-      break; // success — exit retry loop
-    } catch (err) {
-      console.warn('[auth] mapUser attempt', attempt, 'failed:', err);
+      break;
+    } catch (err: any) {
+      log('mapUser attempt FAILED', { attempt, error: err?.code || err?.message, fullError: err });
       if (attempt < MAX_ATTEMPTS) {
+        log('mapUser retrying', { delay_ms: RETRY_DELAY_MS * attempt });
         await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
       } else {
-        console.warn('[auth] role lookup failed after', MAX_ATTEMPTS, 'attempts');
+        log('mapUser ALL RETRIES EXHAUSTED', { attempts: MAX_ATTEMPTS });
       }
     }
   }
 
-  return { uid: fbUser.uid, email: fbUser.email || '', displayName, role, photoURL: fbUser.photoURL || '' };
+  const result = { uid: fbUser.uid, email: fbUser.email || '', displayName, role, photoURL: fbUser.photoURL || '' };
+  log('mapUser RETURN', { source, role, elapsed_ms: Date.now() - t0, result });
+  return result;
 }
 
 export async function loginWithEmail(email: string, password: string): Promise<AuthResult> {
-  if (!auth) return { success: false, error: 'Firebase Auth tidak terkonfigurasi' };
+  log('loginWithEmail START', { email });
+  if (!auth) {
+    log('loginWithEmail ABORT', 'auth is null — Firebase not configured');
+    return { success: false, error: 'Firebase Auth tidak terkonfigurasi' };
+  }
   try {
+    log('loginWithEmail calling signInWithEmailAndPassword');
     const cred = await signInWithEmailAndPassword(auth, email, password);
+    log('loginWithEmailAndPassword SUCCESS', { uid: cred.user.uid, email: cred.user.email });
 
-    // Force Firestore to pick up the new auth token. Without this,
-    // the Firestore SDK's internal auth listener may still use a
-    // stale token, causing the subsequent user-doc read to hang
-    // for up to 60 seconds (Firestore default timeout).
+    log('loginWithEmail calling getIdToken');
     await cred.user.getIdToken();
+    log('loginWithEmail getIdToken DONE');
 
-    const user = await mapUser(cred.user);
+    const user = await mapUser(cred.user, 'loginWithEmail');
+    log('loginWithEmail RETURN', { success: true, role: user.role });
+
     return { success: true, user };
   } catch (err: any) {
+    log('loginWithEmail FAILED', { code: err?.code, message: err?.message });
     return { success: false, error: translateError(err?.code || '') };
   }
 }
@@ -156,58 +136,64 @@ export async function loginWithGoogle(): Promise<AuthResult> {
   try {
     const cred = await signInWithPopup(auth, googleProvider);
     await cred.user.getIdToken();
-    const user = await mapUser(cred.user);
+    const user = await mapUser(cred.user, 'loginWithGoogle');
     return { success: true, user };
   } catch (err: any) { return { success: false, error: translateError(err?.code || '') }; }
 }
 
-export async function logout(): Promise<void> { if (auth) await signOut(auth); }
+export async function logout(): Promise<void> {
+  log('logout');
+  if (auth) await signOut(auth);
+}
 
-// ============================================================
+// ----------------------------------------------------------
 // onAuthChange — single source of truth for currentUser.
-// ============================================================
-// GUARD: if the new mapUser() result has a fallback role 'editor'
-// but the current store already has a more authoritative role
-// (super_admin or admin), DO NOT overwrite. This prevents a
-// transient onAuthStateChanged fire (e.g. token refresh mid-
-// sign-in) from clobbering the correct role with the editor
-// fallback.
-//
-// The guard is implemented via an optional "currentRoleGetter"
-// callback so onAuthChange can ask the store what role is
-// currently set before deciding to overwrite.
-// ============================================================
+// Guard: if new role is 'editor' (fallback) but store already
+// has super_admin/admin, skip the callback.
+// ----------------------------------------------------------
 let currentRoleGetter: (() => Role | null) | null = null;
 
 export function setCurrentRoleGetter(getter: () => Role | null) {
   currentRoleGetter = getter;
+  log('setCurrentRoleGetter REGISTERED');
 }
 
+let onAuthChangeCallCount = 0;
+
 export function onAuthChange(cb: (user: AppUser | null) => void): () => void {
-  if (!auth) { cb(null); return () => {}; }
+  log('onAuthChange REGISTERING listener');
+  if (!auth) {
+    log('onAuthChange ABORT', 'auth is null — calling cb(null) immediately');
+    cb(null);
+    return () => {};
+  }
   return onAuthStateChanged(auth, async (fbUser) => {
+    onAuthChangeCallCount++;
+    const fireNum = onAuthChangeCallCount;
+    log('onAuthStateChanged FIRE', { fireNumber: fireNum, uid: fbUser?.uid ?? 'null', email: fbUser?.email ?? 'null' });
+
     if (fbUser) {
       try {
-        const user = await mapUser(fbUser);
+        const user = await mapUser(fbUser, `onAuthChange#${fireNum}`);
 
-        // Guard against editor-fallback overwriting a real role.
-        // If the store already has super_admin or admin, and the
-        // new mapUser returned 'editor' (the fallback), skip the
-        // callback — the existing role is more authoritative.
+        // Guard: don't let editor fallback overwrite super_admin/admin
         if (user.role === 'editor' && currentRoleGetter) {
           const existing = currentRoleGetter();
+          log('onAuthChange GUARD CHECK', { newRole: 'editor', existingRole: existing });
           if (existing === 'super_admin' || existing === 'admin') {
-            console.warn('[auth] onAuthChange: skipping overwrite of', existing, 'with editor fallback');
+            log('onAuthChange GUARD SKIP', `Skipping overwrite of ${existing} with editor fallback`);
             return;
           }
         }
 
+        log('onAuthChange CALLBACK', { fireNumber: fireNum, role: user.role, willSet: true });
         cb(user);
       } catch (err) {
-        console.warn('[auth] onAuthChange mapUser threw:', err);
+        log('onAuthChange mapUser THREW', { fireNumber: fireNum, error: err });
         cb(null);
       }
     } else {
+      log('onAuthChange CALLBACK', { fireNumber: fireNum, user: 'null', willSet: true });
       cb(null);
     }
   });

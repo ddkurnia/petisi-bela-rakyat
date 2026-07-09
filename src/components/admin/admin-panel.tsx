@@ -68,6 +68,14 @@ export function AdminPanel() {
   const [section, setSection] = useState<AdminSection>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Debug log — shows what AdminPanel sees on every render
+  console.log('%c[PBR-ADMIN AdminPanel render]', 'color:#16a34a;font-weight:bold', {
+    hasCurrentUser: !!currentUser,
+    uid: currentUser?.uid ?? 'null',
+    role: currentUser?.role ?? 'null',
+    email: currentUser?.email ?? 'null',
+  });
+
   // Login screen
   if (!currentUser) {
     return (

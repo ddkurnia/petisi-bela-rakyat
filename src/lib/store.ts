@@ -287,6 +287,17 @@ const listeners = new Set<() => void>();
 let initialized = false;
 
 function storeSet(partial: Partial<AppState>) {
+  const before = state.currentUser?.role ?? null;
+  const after = partial.currentUser?.role ?? (partial.currentUser === undefined ? before : null);
+  if (partial.currentUser !== undefined) {
+    console.log('%c[PBR-STORE storeSet]', 'color:#2563eb;font-weight:bold', 'currentUser', {
+      before_role: before,
+      after_role: after,
+      isOverwrite: before !== null && partial.currentUser !== null,
+      downgrade: (before === 'super_admin' || before === 'admin') && after === 'editor',
+      user: partial.currentUser,
+    });
+  }
   state = { ...state, ...partial };
   listeners.forEach((l) => l());
 }
@@ -294,13 +305,20 @@ function storeSet(partial: Partial<AppState>) {
 function init() {
   if (initialized || !isFirebaseConfigured) return;
   initialized = true;
+  console.log('%c[PBR-STORE init]', 'color:#2563eb;font-weight:bold', 'initializing store, registering listeners');
 
   // Register role getter so onAuthChange's guard can check the
   // currently-set role before overwriting it with an editor fallback.
   setCurrentRoleGetter(() => state.currentUser?.role ?? null);
 
-  // Auth
-  onAuthChange((user) => storeSet({ currentUser: user }));
+  // Auth — wrap callback to log before storeSet
+  onAuthChange((user) => {
+    console.log('%c[PBR-STORE onAuthChange callback]', 'color:#2563eb;font-weight:bold', 'received user', {
+      uid: user?.uid ?? 'null',
+      role: user?.role ?? 'null',
+    });
+    storeSet({ currentUser: user });
+  });
 
   // Settings (realtime)
   settingsService.subscribe((s) => storeSet({ settings: s || DEFAULT_SETTINGS }));
