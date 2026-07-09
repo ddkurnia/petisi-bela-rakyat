@@ -44,55 +44,35 @@ function log(tag: string, ...args: any[]) {
 }
 
 // ============================================================
-// flushTelemetry — write all collected logs to Firestore
-// messages collection (type='debug_telemetry').
-// Uses 'messages' because its rules already allow public create
-// (allow create: if true) — no rules deployment needed.
+// flushTelemetry — write SUMMARY to Firestore messages collection.
+// Keep document SMALL to avoid 1MB Firestore limit.
 // ============================================================
 export async function flushTelemetry(sessionUid: string, finalRole: string) {
-  if (!db) return;
+  if (!db) {
+    console.error('[TELEMETRY] db is null — cannot write telemetry');
+    return;
+  }
   try {
     telemetrySessionId = `session-${Date.now()}`;
-    // Write to 'messages' collection which already has:
-    //   allow create: if true;
-    // This avoids needing to deploy new Firestore rules.
-    // We use type='debug_telemetry' to distinguish from real messages.
+    // Write ONLY summary — not all logs (avoids 1MB limit)
+    // Just write tag names, not full args
+    const summary = telemetryLogs.map(l => `${l.seq}:${l.tag}`);
     await addDoc(collection(db, 'messages'), {
       type: 'debug_telemetry',
       sessionId: telemetrySessionId,
       uid: sessionUid,
       finalRole,
       timestamp: new Date().toISOString(),
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-      logs: telemetryLogs.map(l => ({
-        seq: l.seq,
-        ts: l.ts,
-        tag: l.tag,
-        args: JSON.stringify(l.args, (key, val) => {
-          if (typeof val === 'function') return '[Function]';
-          if (val instanceof Error) return { name: val.name, message: val.message, code: (val as any).code };
-          return val;
-        }),
-      })),
+      logCount: telemetryLogs.length,
+      summary: summary,
     });
-    log('telemetry FLUSHED to messages', { sessionId: telemetrySessionId, logCount: telemetryLogs.length });
-    // Show visible alert so user knows telemetry was written
+    log('telemetry FLUSHED to messages', { logCount: telemetryLogs.length });
     if (typeof window !== 'undefined') {
-      console.log('%c[TELEMETRY WRITTEN] Check Firebase Console → Firestore → messages collection (type=debug_telemetry)', 'color:#16a34a;font-size:14px;font-weight:bold');
+      console.log('%c[TELEMETRY WRITTEN] Check Firebase Console → Firestore → messages (type=debug_telemetry)', 'color:#16a34a;font-size:14px;font-weight:bold');
     }
   } catch (err: any) {
+    console.error('[TELEMETRY] FLUSH FAILED:', err?.code || err?.message);
     log('telemetry FLUSH FAILED', err?.code || err?.message);
-    // Last resort: try debug_logs collection too
-    try {
-      await addDoc(collection(db, 'debug_logs'), {
-        type: 'debug_telemetry',
-        uid: sessionUid,
-        finalRole,
-        timestamp: new Date().toISOString(),
-        error: err?.code || err?.message,
-        logs: telemetryLogs.map(l => ({ seq: l.seq, ts: l.ts, tag: l.tag })),
-      });
-    } catch {}
   }
 }
 

@@ -67,6 +67,7 @@ export function AdminPanel() {
   const [password, setPassword] = useState("");
   const [section, setSection] = useState<AdminSection>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loginDebug, setLoginDebug] = useState<string>("");
 
   // Debug log — shows what AdminPanel sees on every render
   console.log('%c[PBR-ADMIN AdminPanel render]', 'color:#16a34a;font-weight:bold', {
@@ -97,17 +98,23 @@ export function AdminPanel() {
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
+                setLoginDebug("⏳ Login in progress...");
                 const t0 = Date.now();
                 const ok = await login(email, password);
                 const elapsed = Date.now() - t0;
                 if (ok) {
+                  // Use setTimeout to read state after re-render
+                  setTimeout(() => {
+                    const role = (window as any).__pbr_currentRole || 'loading...';
+                    setLoginDebug(`✅ Login OK (${elapsed}ms) — check dashboard for role`);
+                  }, 100);
                   toast.success(`Login berhasil (${elapsed}ms)`, {
-                    description: 'Cek Firestore → messages collection (type=debug_telemetry) untuk log lengkap.',
+                    description: 'Cek Firestore → messages (type=debug_telemetry)',
                     duration: 10000,
                   });
                 } else {
+                  setLoginDebug(`❌ Login failed (${elapsed}ms)`);
                   toast.error(`Email atau password salah (${elapsed}ms)`, {
-                    description: 'Telemetry mungkin tertulis di Firestore messages.',
                     duration: 10000,
                   });
                 }
@@ -159,6 +166,14 @@ export function AdminPanel() {
                 <code className="bg-background px-1 rounded">bun run setup-admin &lt;email&gt;</code>{" "}
                 untuk mendaftarkan admin baru.
               </p>
+            </div>
+            {loginDebug && (
+              <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-mono break-all">
+                {loginDebug}
+              </div>
+            )}
+            <div className="mt-2 text-center text-[10px] text-muted-foreground/50">
+              Build: debug-v2
             </div>
             <Button variant="ghost" className="w-full mt-4" onClick={() => router.push("/")}>
               ← Kembali ke Website
