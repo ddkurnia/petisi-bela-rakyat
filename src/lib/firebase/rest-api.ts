@@ -228,6 +228,13 @@ export async function readFirestoreDoc(collection: string, docId: string): Promi
 // ============================================================
 // Query Firestore collection via REST API
 // ============================================================
+// CORRECT URL: :runQuery is at the DOCUMENTS level, not the
+// COLLECTION level. The collection is specified in the
+// structuredQuery.from field.
+//
+// Wrong:  /v1/projects/{p}/databases/(default)/documents/{collection}:runQuery
+// Right:  /v1/projects/{p}/databases/(default)/documents:runQuery
+// ============================================================
 export async function queryFirestore(
   collection: string,
   filters: Array<{ field: string; op: string; value: any }> = [],
@@ -236,7 +243,7 @@ export async function queryFirestore(
   const sa = getServiceAccount();
   const accessToken = await getAccessToken();
 
-  const url = `${FIRESTORE_BASE}/projects/${sa.projectId}/databases/(default)/documents/${collection}:runQuery`;
+  const url = `${FIRESTORE_BASE}/projects/${sa.projectId}/databases/(default)/documents:runQuery`;
   const body: any = {
     structuredQuery: {
       from: [{ collectionId: collection }],

@@ -4,7 +4,10 @@
 // Tests each sub-step separately so we can see exactly where it fails.
 // ============================================================
 import { NextResponse } from 'next/server';
-import { getServiceAccount, createSignedJwt, getAccessTokenWithDiagnostics, queryFirestore } from '@/lib/firebase/rest-api';
+import {
+  getServiceAccount, createSignedJwt, getAccessTokenWithDiagnostics,
+  queryFirestore, readFirestoreDoc,
+} from '@/lib/firebase/rest-api';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,8 +30,6 @@ export async function GET() {
         privateKeyEndsWithEnd: sa.privateKey.includes('-----END PRIVATE KEY-----'),
         privateKeyHasNewlines: sa.privateKey.includes('\n'),
         privateKeyNewlineCount: (sa.privateKey.match(/\n/g) || []).length,
-        privateKeyFirst30: sa.privateKey.substring(0, 30),
-        privateKeyLast30: sa.privateKey.substring(sa.privateKey.length - 30),
       },
     });
   } catch (err: any) {
@@ -45,10 +46,7 @@ export async function GET() {
       success: true,
       data: {
         jwtLen: jwt.length,
-        headerLen: parts[0]?.length || 0,
-        payloadLen: parts[1]?.length || 0,
         signatureLen: parts[2]?.length || 0,
-        // Decode payload to verify contents
         payload: JSON.parse(Buffer.from(parts[1], 'base64').toString()),
       },
     });
@@ -69,9 +67,7 @@ export async function GET() {
       data: {
         tokenLen: result.tokenLen,
         tokenPreview: result.tokenPreview,
-        jwtLen: result.jwtLen,
         oauthResponseStatus: result.oauthResponseStatus,
-        oauthResponseBody: result.oauthResponseBody,
       },
       error: result.error,
     });
@@ -83,7 +79,7 @@ export async function GET() {
     });
   }
 
-  // Step 4: Test Firestore query with the token
+  // Step 4: Test Firestore query (list users)
   try {
     const users = await queryFirestore('users', [], 1);
     steps.push({
@@ -102,11 +98,40 @@ export async function GET() {
     });
   }
 
+  // Step 5: Test readFirestoreDoc (the function used by /api/get-role)
+  try {
+    const users = await queryFirestore('users', [], 1);
+    if (users.length > 0) {
+      const uid = users[0].uid || users[0].id;
+      const doc = await readFirestoreDoc('users', uid);
+      steps.push({
+        step: '5. readFirestoreDoc users/{uid}',
+        success: !!doc,
+        data: doc ? { uid, role: doc.role, email: doc.email, displayName: doc.displayName } : null,
+      });
+    } else {
+      steps.push({
+        step: '5. readFirestoreDoc users/{uid}',
+        success: false,
+        error: 'No users in collection to test with',
+      });
+    }
+  } catch (err: any) {
+    steps.push({
+      step: '5. readFirestoreDoc users/{uid}',
+      success: false,
+      error: `${err?.name || 'Error'}: ${err?.message || String(err)}`,
+    });
+  }
+
   const allSuccess = steps.every((s) => s.success);
   return NextResponse.json({
     timestamp: new Date().toISOString(),
-    approach: 'REST API with detailed diagnostics',
+    approach: 'REST API (no firebase-admin SDK)',
     allStepsSuccess: allSuccess,
     steps,
+    nextAction: allSuccess
+      ? '✅ All steps success! /api/get-role will work. Login at /admin should return super_admin.'
+      : '❌ Some steps failed. Fix the failing step before testing login.',
   }, { status: allSuccess ? 200 : 500 });
 }
