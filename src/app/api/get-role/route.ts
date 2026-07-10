@@ -3,90 +3,85 @@
 // Server-side role lookup using firebase-admin.
 // Bulletproof — doesn't depend on client Firestore SDK state.
 //
-// CRITICAL: All env vars are read INSIDE the handler, not at
-// module load. Next.js dev mode caches module-level reads, so
-// if .env.local is edited after dev server starts, module-level
-// reads return stale values. Reading inside handler ensures
-// we always get the latest env vars.
+// CRITICAL: Use STATIC imports for firebase-admin (not dynamic
+// `await import()`). Dynamic imports fail in Vercel production
+// builds with "ERR_REQUIRE_ESM: require() of ES Module" error.
+// Static imports work in both dev and production.
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server';
+import { initializeApp, getApps, cert, type App as AdminApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: NextRequest) {
-  // ============================================================
-  // Read env vars FRESH on every request (not cached at module load)
-  // ============================================================
+// Lazy-initialized admin app (singleton per server instance)
+let adminApp: AdminApp | null = null;
+
+function getAdminApp(): AdminApp {
+  if (adminApp) return adminApp;
+
+  // Read env vars FRESH (not at module load — avoids dev cache issues)
   const adminProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const adminClientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
   const adminPrivateKeyRaw = process.env.FIREBASE_ADMIN_PRIVATE_KEY || '';
-  // Convert literal \n to actual newlines (needed because .env files
-  // store multi-line values with \n escaped)
   const adminPrivateKey = adminPrivateKeyRaw.replace(/\\n/g, '\n');
 
-  // Debug log (server-side only, not exposed to client)
-  console.log('[api/get-role] env check:', {
+  console.log('[api/get-role] init admin app:', {
     hasProjectId: !!adminProjectId,
     hasClientEmail: !!adminClientEmail,
     hasPrivateKey: !!adminPrivateKey,
     privateKeyLen: adminPrivateKey.length,
-    privateKeyStartsWithBegin: adminPrivateKey.startsWith('-----BEGIN PRIVATE KEY-----'),
-    projectId: adminProjectId || '(missing)',
-    clientEmail: adminClientEmail ? adminClientEmail.substring(0, 30) + '...' : '(missing)',
   });
 
-  // Validate all 3 vars are present
   const missing: string[] = [];
   if (!adminProjectId) missing.push('FIREBASE_ADMIN_PROJECT_ID');
   if (!adminClientEmail) missing.push('FIREBASE_ADMIN_CLIENT_EMAIL');
   if (!adminPrivateKey) missing.push('FIREBASE_ADMIN_PRIVATE_KEY');
 
   if (missing.length > 0) {
-    return NextResponse.json({
-      error: `Firebase Admin SDK belum dikonfigurasi. Missing env vars: ${missing.join(', ')}`,
-      hint: 'Cek .env.local. RESTART dev server setelah edit (Ctrl+C lalu npm run dev). Jika masih gagal, cek /api/debug-env untuk lihat apa yang server baca.',
-      missing,
-    }, { status: 500 });
+    throw new Error(`Firebase Admin SDK belum dikonfigurasi. Missing: ${missing.join(', ')}`);
   }
 
-  // Validate private key format
   if (!adminPrivateKey.includes('BEGIN PRIVATE KEY')) {
-    return NextResponse.json({
-      error: 'FIREBASE_ADMIN_PRIVATE_KEY format tidak valid. Harus berisi "-----BEGIN PRIVATE KEY-----"',
-      hint: 'Pastikan copy seluruh private key dari file JSON, termasuk header/footer. Wrap dengan tanda kutip di .env.local.',
-      privateKeyLen: adminPrivateKey.length,
-      privateKeyStart: adminPrivateKey.substring(0, 50),
-    }, { status: 500 });
+    throw new Error('FIREBASE_ADMIN_PRIVATE_KEY format tidak valid');
   }
 
+  // Reuse existing app if already initialized (avoid duplicate init error)
+  const existing = getApps().find((a) => a.name === 'admin');
+  if (existing) {
+    adminApp = existing;
+    return adminApp;
+  }
+
+  adminApp = initializeApp({
+    credential: cert({
+      projectId: adminProjectId,
+      clientEmail: adminClientEmail,
+      privateKey: adminPrivateKey,
+    }),
+  }, 'admin');
+  return adminApp;
+}
+
+export async function POST(req: NextRequest) {
   try {
+    const app = getAdminApp();
+
     const body = await req.json().catch(() => ({}));
     const idToken = body?.idToken;
     if (!idToken || typeof idToken !== 'string') {
       return NextResponse.json({ error: 'idToken required' }, { status: 400 });
     }
 
-    // Lazy import firebase-admin (only when this route is hit)
-    const { initializeApp, getApps, cert } = await import('firebase-admin/app');
-    const { getAuth } = await import('firebase-admin/auth');
-    const { getFirestore } = await import('firebase-admin/firestore');
-
-    const adminApp = getApps().find((a) => a.name === 'admin') || initializeApp({
-      credential: cert({
-        projectId: adminProjectId,
-        clientEmail: adminClientEmail,
-        privateKey: adminPrivateKey,
-      }),
-    }, 'admin');
-
     // 1. Verify ID token
-    const decoded = await getAuth(adminApp).verifyIdToken(idToken);
+    const decoded = await getAuth(app).verifyIdToken(idToken);
     const uid = decoded.uid;
     const email = decoded.email || '';
 
     // 2. Read users/{uid} via admin SDK
-    const adminDb = getFirestore(adminApp);
+    const adminDb = getFirestore(app);
     const userSnap = await adminDb.collection('users').doc(uid).get();
 
     if (!userSnap.exists) {

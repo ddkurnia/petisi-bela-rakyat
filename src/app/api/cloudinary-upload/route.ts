@@ -2,50 +2,86 @@
 // POST /api/cloudinary-upload
 // Body: FormData { file: File, folder?: string }
 // Auth: Bearer <Firebase ID Token> (must be admin/editor)
+//
+// CRITICAL: Use STATIC imports for firebase-admin (not dynamic).
+// Dynamic imports fail in Vercel production builds.
 import { NextRequest, NextResponse } from 'next/server';
+import { initializeApp, getApps, cert, type App as AdminApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 import { uploadToCloudinaryServer } from '@/lib/firebase/cloudinary';
-import { isCloudinaryConfigured, isFirebaseAdminConfigured, firebaseAdminConfig } from '@/lib/firebase/config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+let adminApp: AdminApp | null = null;
+
+function getAdminApp(): AdminApp {
+  if (adminApp) return adminApp;
+
+  const adminProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const adminClientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+  const adminPrivateKeyRaw = process.env.FIREBASE_ADMIN_PRIVATE_KEY || '';
+  const adminPrivateKey = adminPrivateKeyRaw.replace(/\\n/g, '\n');
+
+  const missing: string[] = [];
+  if (!adminProjectId) missing.push('FIREBASE_ADMIN_PROJECT_ID');
+  if (!adminClientEmail) missing.push('FIREBASE_ADMIN_CLIENT_EMAIL');
+  if (!adminPrivateKey) missing.push('FIREBASE_ADMIN_PRIVATE_KEY');
+
+  if (missing.length > 0) {
+    throw new Error(`Firebase Admin SDK belum dikonfigurasi. Missing: ${missing.join(', ')}`);
+  }
+
+  const existing = getApps().find((a) => a.name === 'admin');
+  if (existing) {
+    adminApp = existing;
+    return adminApp;
+  }
+
+  adminApp = initializeApp({
+    credential: cert({
+      projectId: adminProjectId,
+      clientEmail: adminClientEmail,
+      privateKey: adminPrivateKey,
+    }),
+  }, 'admin');
+  return adminApp;
+}
+
 export async function POST(req: NextRequest) {
-  if (!isCloudinaryConfigured) {
+  // 1. Check Cloudinary config
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const cloudApiKey = process.env.CLOUDINARY_API_KEY;
+  const cloudApiSecret = process.env.CLOUDINARY_API_SECRET;
+  if (!cloudName || !cloudApiKey || !cloudApiSecret) {
     return NextResponse.json({ error: 'Cloudinary belum dikonfigurasi. Set CLOUDINARY_* env vars.' }, { status: 500 });
   }
 
+  // 2. Check auth token
   const authHeader = req.headers.get('authorization') || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   if (!token) return NextResponse.json({ error: 'Unauthorized: token tidak ditemukan' }, { status: 401 });
 
   try {
-    const { initializeApp, getApps, cert } = await import('firebase-admin/app');
-    const { getAuth } = await import('firebase-admin/auth');
-    const { getFirestore } = await import('firebase-admin/firestore');
+    // 3. Get admin app (initializes if needed)
+    const app = getAdminApp();
 
-    if (!isFirebaseAdminConfigured) {
-      return NextResponse.json({ error: 'Firebase Admin SDK belum dikonfigurasi. Set FIREBASE_ADMIN_* env vars.' }, { status: 500 });
-    }
-
-    const adminApp = getApps().find((a) => a.name === 'admin') || initializeApp({
-      credential: cert({
-        projectId: firebaseAdminConfig.projectId,
-        clientEmail: firebaseAdminConfig.clientEmail,
-        privateKey: firebaseAdminConfig.privateKey,
-      }),
-    }, 'admin');
-
-    const decoded = await getAuth(adminApp).verifyIdToken(token);
+    // 4. Verify token & check role
+    const decoded = await getAuth(app).verifyIdToken(token);
     const uid = decoded.uid;
 
-    const adminDb = getFirestore(adminApp);
-    const usersSnap = await adminDb.collection('users').where('uid', '==', uid).limit(1).get();
-    if (usersSnap.empty) return NextResponse.json({ error: 'User belum terdaftar' }, { status: 403 });
-    const userData = usersSnap.docs[0].data() as any;
+    const adminDb = getFirestore(app);
+    const userSnap = await adminDb.collection('users').doc(uid).get();
+    if (!userSnap.exists) {
+      return NextResponse.json({ error: 'User belum terdaftar di Firestore' }, { status: 403 });
+    }
+    const userData = userSnap.data() as any;
     if (!['super_admin', 'admin', 'editor'].includes(userData.role)) {
       return NextResponse.json({ error: 'Anda tidak memiliki izin upload' }, { status: 403 });
     }
 
+    // 5. Process upload
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const folder = (formData.get('folder') as string) || 'pbr';
