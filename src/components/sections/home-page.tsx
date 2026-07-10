@@ -365,11 +365,6 @@ export function HomePage() {
                         </div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                      <div className="absolute top-3 left-3">
-                        <Badge className="bg-primary/95 text-white border-0 text-[10px]">
-                          {person.jabatan}
-                        </Badge>
-                      </div>
                       <div className="absolute bottom-3 left-3 right-3">
                         <h3 className="font-heading font-bold text-white text-sm line-clamp-1">
                           {person.name}
