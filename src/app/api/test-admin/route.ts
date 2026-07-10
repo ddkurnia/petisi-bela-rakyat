@@ -1,16 +1,10 @@
 // API Route: /api/test-admin
 // ============================================================
-// Isolated test for firebase-admin initialization.
+// Isolated test for Firebase REST API auth (no firebase-admin SDK).
 // GET /api/test-admin → { step, success, error? }
-//
-// Use this to diagnose why /api/get-role returns HTTP 500: unknown.
-// This endpoint tests EACH step separately so we can see exactly
-// where firebase-admin fails in Vercel production.
 // ============================================================
 import { NextResponse } from 'next/server';
-import { initializeApp, getApps, cert, type App as AdminApp } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import { verifyIdToken, readFirestoreDoc, queryFirestore } from '@/lib/firebase/rest-api';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,15 +14,18 @@ export async function GET() {
 
   // Step 1: Check env vars
   try {
-    const adminProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
+    const adminProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     const adminClientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
     const adminPrivateKeyRaw = process.env.FIREBASE_ADMIN_PRIVATE_KEY || '';
     const adminPrivateKey = adminPrivateKeyRaw.replace(/\\n/g, '\n');
+    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
     steps.push({
       step: '1. Check env vars',
-      success: !!(adminProjectId && adminClientEmail && adminPrivateKey),
+      success: !!(adminProjectId && adminClientEmail && adminPrivateKey && apiKey),
       data: {
+        hasApiKey: !!apiKey,
+        apiKeyLen: apiKey?.length || 0,
         hasProjectId: !!adminProjectId,
         projectId: adminProjectId || null,
         hasClientEmail: !!adminClientEmail,
@@ -43,111 +40,53 @@ export async function GET() {
     steps.push({ step: '1. Check env vars', success: false, error: String(err) });
   }
 
-  // Step 2: Test cert() creation
+  // Step 2: Test Firestore query (bypasses auth — uses service account)
   try {
-    const adminProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID!;
-    const adminClientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL!;
-    const adminPrivateKey = (process.env.FIREBASE_ADMIN_PRIVATE_KEY || '').replace(/\\n/g, '\n');
-
-    const credential = cert({
-      projectId: adminProjectId,
-      clientEmail: adminClientEmail,
-      privateKey: adminPrivateKey,
-    });
+    const users = await queryFirestore('users', [], 1);
     steps.push({
-      step: '2. Create cert()',
+      step: '2. Firestore query users',
       success: true,
-      data: { credentialType: typeof credential },
+      data: { docsCount: users.length, firstUser: users[0] ? { uid: users[0].uid, role: users[0].role } : null },
     });
   } catch (err: any) {
     steps.push({
-      step: '2. Create cert()',
+      step: '2. Firestore query users',
       success: false,
       error: `${err?.name || 'Error'}: ${err?.message || String(err)}`,
     });
   }
 
-  // Step 3: Initialize app
-  let app: AdminApp;
+  // Step 3: Test read specific doc (admin@belarakyat.org's UID)
   try {
-    const adminProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID!;
-    const adminClientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL!;
-    const adminPrivateKey = (process.env.FIREBASE_ADMIN_PRIVATE_KEY || '').replace(/\\n/g, '\n');
-
-    const existing = getApps().find((a) => a.name === 'admin');
-    app = existing || initializeApp({
-      credential: cert({
-        projectId: adminProjectId,
-        clientEmail: adminClientEmail,
-        privateKey: adminPrivateKey,
-      }),
-    }, 'admin');
-    steps.push({
-      step: '3. Initialize app',
-      success: true,
-      data: { appName: app.name },
-    });
+    // We'll just try to read any user doc — if step 2 returned one, use it
+    const users = await queryFirestore('users', [], 1);
+    if (users.length > 0) {
+      const uid = users[0].uid || users[0].id;
+      const doc = await readFirestoreDoc('users', uid);
+      steps.push({
+        step: '3. Read users/{uid} doc',
+        success: !!doc,
+        data: doc ? { uid, role: doc.role, email: doc.email } : null,
+      });
+    } else {
+      steps.push({
+        step: '3. Read users/{uid} doc',
+        success: false,
+        error: 'No users in collection to test with',
+      });
+    }
   } catch (err: any) {
     steps.push({
-      step: '3. Initialize app',
+      step: '3. Read users/{uid} doc',
       success: false,
       error: `${err?.name || 'Error'}: ${err?.message || String(err)}`,
-    });
-    return NextResponse.json({ steps, error: 'Init failed at step 3' }, { status: 500 });
-  }
-
-  // Step 4: Test getAuth()
-  try {
-    const auth = getAuth(app);
-    steps.push({
-      step: '4. getAuth()',
-      success: true,
-      data: { authType: typeof auth },
-    });
-  } catch (err: any) {
-    steps.push({
-      step: '4. getAuth()',
-      success: false,
-      error: `${err?.name || 'Error'}: ${err?.message || String(err)}`,
-    });
-  }
-
-  // Step 5: Test getFirestore()
-  try {
-    const db = getFirestore(app);
-    steps.push({
-      step: '5. getFirestore()',
-      success: true,
-      data: { dbType: typeof db },
-    });
-  } catch (err: any) {
-    steps.push({
-      step: '5. getFirestore()',
-      success: false,
-      error: `${err?.name || 'Error'}: ${err?.message || String(err)}`,
-    });
-  }
-
-  // Step 6: Test actual Firestore read (users collection)
-  try {
-    const db = getFirestore(app);
-    const snap = await db.collection('users').limit(1).get();
-    steps.push({
-      step: '6. Firestore read users',
-      success: true,
-      data: { docsCount: snap.size, isEmpty: snap.empty },
-    });
-  } catch (err: any) {
-    steps.push({
-      step: '6. Firestore read users',
-      success: false,
-      error: `${err?.code || err?.name || 'Error'}: ${err?.message || String(err)}`,
     });
   }
 
   const allSuccess = steps.every((s) => s.success);
   return NextResponse.json({
     timestamp: new Date().toISOString(),
+    approach: 'REST API (no firebase-admin SDK)',
     allStepsSuccess: allSuccess,
     steps,
   }, { status: allSuccess ? 200 : 500 });
