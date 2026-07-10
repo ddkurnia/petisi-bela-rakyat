@@ -4,6 +4,7 @@
 import type { Metadata } from "next";
 import { WorkPage } from "@/components/sections/work-page";
 import { queryFirestore } from "@/lib/firebase/rest-api";
+import { pickOgImage } from "@/lib/og-image";
 
 interface WorkData {
   id: string;
@@ -39,12 +40,21 @@ export async function generateMetadata({
     return {
       title: "Kategori Tidak Ditemukan",
       description: "Kategori kerja yang Anda cari tidak tersedia.",
+      openGraph: {
+        title: "Kategori Tidak Ditemukan",
+        description: "Kategori kerja yang Anda cari tidak tersedia.",
+        images: pickOgImage(undefined),
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: "Kategori Tidak Ditemukan",
+        images: [pickOgImage(undefined)[0].url],
+      },
     };
   }
 
   const title = work.title;
   const description = work.description || `Bidang kerja Petisi Bela Rakyat`;
-  const imageUrl = work.coverImage || undefined;
   const url = `https://belarakyat.org/kerja-kami/${slug}`;
 
   return {
@@ -55,13 +65,13 @@ export async function generateMetadata({
       description,
       url,
       type: "website",
-      images: imageUrl ? [{ url: imageUrl, width: 1200, height: 630, alt: work.title }] : undefined,
+      images: pickOgImage(work.coverImage, work.title),
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: imageUrl ? [imageUrl] : undefined,
+      images: [pickOgImage(work.coverImage, work.title)[0].url],
     },
   };
 }

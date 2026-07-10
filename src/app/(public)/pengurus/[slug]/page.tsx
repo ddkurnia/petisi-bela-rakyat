@@ -4,6 +4,7 @@
 import type { Metadata } from "next";
 import { PengurusPage } from "@/components/sections/pengurus-page";
 import { queryFirestore } from "@/lib/firebase/rest-api";
+import { pickOgImage } from "@/lib/og-image";
 
 interface PengurusData {
   id: string;
@@ -40,12 +41,21 @@ export async function generateMetadata({
     return {
       title: "Profil Tidak Ditemukan",
       description: "Profil yang Anda cari tidak tersedia.",
+      openGraph: {
+        title: "Profil Tidak Ditemukan",
+        description: "Profil yang Anda cari tidak tersedia.",
+        images: pickOgImage(undefined),
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: "Profil Tidak Ditemukan",
+        images: [pickOgImage(undefined)[0].url],
+      },
     };
   }
 
   const title = `${person.name}${person.gelar ? ', ' + person.gelar : ''} — ${person.jabatan}`;
   const description = person.bio || `Profil ${person.name}, ${person.jabatan} Petisi Bela Rakyat`;
-  const imageUrl = person.photo || undefined;
   const url = `https://belarakyat.org/pengurus/${slug}`;
 
   return {
@@ -56,13 +66,13 @@ export async function generateMetadata({
       description,
       url,
       type: "profile",
-      images: imageUrl ? [{ url: imageUrl, width: 1200, height: 630, alt: person.name }] : undefined,
+      images: pickOgImage(person.photo, person.name),
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: imageUrl ? [imageUrl] : undefined,
+      images: [pickOgImage(person.photo, person.name)[0].url],
     },
   };
 }

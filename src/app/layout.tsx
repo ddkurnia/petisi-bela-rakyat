@@ -21,6 +21,9 @@ const manrope = Manrope({
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://belarakyat.org";
 const siteName = "Petisi Bela Rakyat";
+// Default OG/Twitter image — used for homepage and any page without a custom image.
+// Hosted on Cloudinary for fast CDN delivery to WhatsApp/FB/Twitter crawlers.
+const defaultOgImage = "https://res.cloudinary.com/dnpdjhdgr/image/upload/v1783688377/pbr/famboueolzkyfyaquznx.png";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -56,14 +59,21 @@ export const metadata: Metadata = {
     title: "Petisi Bela Rakyat — Menyatukan Suara Rakyat Menjadi Perubahan",
     description:
       "Gerakan masyarakat sipil independen untuk memperjuangkan kepentingan rakyat melalui advokasi, partisipasi publik, dan aksi nyata.",
-    // OG image provided by src/app/opengraph-image.tsx (1200x630 dynamic)
+    images: [
+      {
+        url: defaultOgImage,
+        width: 1200,
+        height: 630,
+        alt: "Petisi Bela Rakyat",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Petisi Bela Rakyat",
     description:
       "Gerakan masyarakat sipil independen untuk memperjuangkan kepentingan rakyat.",
-    // Twitter image provided by src/app/twitter-image.tsx
+    images: [defaultOgImage],
   },
   robots: {
     index: true,

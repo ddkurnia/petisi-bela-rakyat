@@ -3,11 +3,12 @@
 // ============================================================
 // generateMetadata fetches blog post from Firestore REST API
 // so WhatsApp/Facebook/Twitter previews show the actual post
-// title, excerpt, and cover image (not the default PBR logo).
+// title, excerpt, and cover image (fallback to default PBR image).
 // ============================================================
 import type { Metadata } from "next";
 import { BlogPage } from "@/components/sections/blog-page";
 import { queryFirestore } from "@/lib/firebase/rest-api";
+import { pickOgImage } from "@/lib/og-image";
 
 interface BlogPostData {
   id: string;
@@ -30,7 +31,6 @@ async function getBlogPost(slug: string): Promise<BlogPostData | null> {
     ], 1);
     if (posts.length === 0) return null;
     const post = posts[0] as BlogPostData;
-    // Only return if published (for SEO)
     if (post.status !== 'published') return null;
     return post;
   } catch (err) {
@@ -51,12 +51,21 @@ export async function generateMetadata({
     return {
       title: "Artikel Tidak Ditemukan",
       description: "Artikel yang Anda cari tidak tersedia.",
+      openGraph: {
+        title: "Artikel Tidak Ditemukan",
+        description: "Artikel yang Anda cari tidak tersedia.",
+        images: pickOgImage(undefined),
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: "Artikel Tidak Ditemukan",
+        images: [pickOgImage(undefined)[0].url],
+      },
     };
   }
 
   const title = post.metaTitle || post.title;
   const description = post.metaDescription || post.excerpt || `Artikel oleh ${post.author}`;
-  const imageUrl = post.coverImage || undefined;
   const url = `https://belarakyat.org/blog/${slug}`;
 
   return {
@@ -70,13 +79,13 @@ export async function generateMetadata({
       publishedTime: post.publishedAt,
       authors: [post.author],
       tags: [post.category],
-      images: imageUrl ? [{ url: imageUrl, width: 1200, height: 630, alt: post.title }] : undefined,
+      images: pickOgImage(post.coverImage, post.title),
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: imageUrl ? [imageUrl] : undefined,
+      images: [pickOgImage(post.coverImage, post.title)[0].url],
     },
   };
 }

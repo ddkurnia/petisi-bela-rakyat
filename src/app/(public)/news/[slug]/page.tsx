@@ -4,6 +4,7 @@
 import type { Metadata } from "next";
 import { NewsPage } from "@/components/sections/news-page";
 import { queryFirestore } from "@/lib/firebase/rest-api";
+import { pickOgImage } from "@/lib/og-image";
 
 interface NewsData {
   id: string;
@@ -44,12 +45,21 @@ export async function generateMetadata({
     return {
       title: "Berita Tidak Ditemukan",
       description: "Berita yang Anda cari tidak tersedia.",
+      openGraph: {
+        title: "Berita Tidak Ditemukan",
+        description: "Berita yang Anda cari tidak tersedia.",
+        images: pickOgImage(undefined),
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: "Berita Tidak Ditemukan",
+        images: [pickOgImage(undefined)[0].url],
+      },
     };
   }
 
   const title = article.title;
   const description = article.excerpt || `Berita oleh ${article.author}`;
-  const imageUrl = article.coverImage || undefined;
   const url = `https://belarakyat.org/news/${slug}`;
 
   return {
@@ -63,13 +73,13 @@ export async function generateMetadata({
       publishedTime: article.publishedAt,
       authors: [article.author],
       tags: [article.category],
-      images: imageUrl ? [{ url: imageUrl, width: 1200, height: 630, alt: article.title }] : undefined,
+      images: pickOgImage(article.coverImage, article.title),
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: imageUrl ? [imageUrl] : undefined,
+      images: [pickOgImage(article.coverImage, article.title)[0].url],
     },
   };
 }
