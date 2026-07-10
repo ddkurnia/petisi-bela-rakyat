@@ -1,17 +1,8 @@
 // ============================================================
 // Firebase REST API helpers — alternative to firebase-admin SDK
 // ============================================================
-// WHY: firebase-admin uses Node.js native modules (@google-cloud/firestore,
-// grpc, etc.) that crash Vercel production builds even with
-// serverExternalPackages. This module uses ONLY Node.js built-in
-// `crypto` + `fetch` to talk to Firebase REST APIs directly.
-//
-// Flow:
-//   1. Sign JWT with service account private key (RS256)
-//   2. Exchange JWT for OAuth2 access token
-//   3. Use access token to call Firestore REST API
-//
-// No native dependencies. Works in any Node.js environment.
+// Uses ONLY Node.js built-in `crypto` + `fetch` to talk to Firebase
+// REST APIs directly. No native dependencies.
 // ============================================================
 import { createSign } from 'crypto';
 
@@ -27,7 +18,10 @@ interface ServiceAccount {
 
 let cachedAccessToken: { token: string; expiresAt: number } | null = null;
 
-function getServiceAccount(): ServiceAccount {
+// ============================================================
+// Public diagnostic — expose internal state for /api/test-admin
+// ============================================================
+export function getServiceAccount(): ServiceAccount {
   const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
   const privateKeyRaw = process.env.FIREBASE_ADMIN_PRIVATE_KEY || '';
@@ -49,26 +43,24 @@ function getServiceAccount(): ServiceAccount {
   return { projectId: projectId!, clientEmail: clientEmail!, privateKey };
 }
 
-// ============================================================
-// Base64URL encode (no padding)
-// ============================================================
 function base64UrlEncode(input: Buffer | string): string {
   const buf = typeof input === 'string' ? Buffer.from(input) : input;
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 // ============================================================
-// Create signed JWT (RS256) for service account auth
+// Create signed JWT (RS256) — exposed for diagnostics
 // ============================================================
-function createSignedJwt(sa: ServiceAccount): string {
+export function createSignedJwt(sa: ServiceAccount): string {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: 'RS256', typ: 'JWT' };
+  // Use cloud-platform scope (umbrella — covers Firestore + Datastore + all GCP services)
   const payload = {
     iss: sa.clientEmail,
-    scope: 'https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/firestore https://www.googleapis.com/auth/cloud-platform',
+    scope: 'https://www.googleapis.com/auth/cloud-platform',
     aud: OAUTH_TOKEN_URL,
     iat: now,
-    exp: now + 3600, // 1 hour
+    exp: now + 3600,
   };
 
   const encodedHeader = base64UrlEncode(JSON.stringify(header));
@@ -77,7 +69,11 @@ function createSignedJwt(sa: ServiceAccount): string {
 
   const sign = createSign('RSA-SHA256');
   sign.update(unsigned);
-  const signature = sign.sign(sa.privateKey);
+  // Pass private key as object to handle PEM format properly
+  const signature = sign.sign({
+    key: sa.privateKey,
+    format: 'pem',
+  });
 
   return `${unsigned}.${base64UrlEncode(signature)}`;
 }
@@ -85,41 +81,93 @@ function createSignedJwt(sa: ServiceAccount): string {
 // ============================================================
 // Get OAuth2 access token (cached for 50 minutes)
 // ============================================================
-async function getAccessToken(): Promise<string> {
-  // Return cached token if still valid (with 10min buffer)
+// Exposed for diagnostics — returns full response detail on failure
+// ============================================================
+export async function getAccessTokenWithDiagnostics(): Promise<{
+  success: boolean;
+  token?: string;
+  tokenLen?: number;
+  tokenPreview?: string;
+  error?: string;
+  jwtLen?: number;
+  oauthResponseStatus?: number;
+  oauthResponseBody?: string;
+}> {
+  // Return cached token if still valid
   if (cachedAccessToken && Date.now() < cachedAccessToken.expiresAt - 600000) {
-    return cachedAccessToken.token;
+    return {
+      success: true,
+      token: cachedAccessToken.token,
+      tokenLen: cachedAccessToken.token.length,
+      tokenPreview: cachedAccessToken.token.substring(0, 20) + '...',
+    };
   }
 
-  const sa = getServiceAccount();
-  const jwt = createSignedJwt(sa);
+  try {
+    const sa = getServiceAccount();
+    const jwt = createSignedJwt(sa);
 
-  const res = await fetch(OAUTH_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt,
-    }),
-  });
+    const res = await fetch(OAUTH_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: jwt,
+      }),
+    });
 
-  if (!res.ok) {
-    const errBody = await res.text();
-    throw new Error(`OAuth token exchange failed: HTTP ${res.status} — ${errBody.substring(0, 300)}`);
+    const resBody = await res.text();
+
+    if (!res.ok) {
+      return {
+        success: false,
+        jwtLen: jwt.length,
+        oauthResponseStatus: res.status,
+        oauthResponseBody: resBody.substring(0, 500),
+        error: `OAuth token exchange failed: HTTP ${res.status}`,
+      };
+    }
+
+    const data = JSON.parse(resBody) as { access_token?: string; expires_in?: number };
+    if (!data.access_token) {
+      return {
+        success: false,
+        jwtLen: jwt.length,
+        oauthResponseStatus: res.status,
+        oauthResponseBody: resBody.substring(0, 500),
+        error: 'OAuth response missing access_token field',
+      };
+    }
+
+    cachedAccessToken = {
+      token: data.access_token,
+      expiresAt: Date.now() + ((data.expires_in || 3600) * 1000),
+    };
+
+    return {
+      success: true,
+      token: data.access_token,
+      tokenLen: data.access_token.length,
+      tokenPreview: data.access_token.substring(0, 20) + '...',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: `${err?.name || 'Error'}: ${err?.message || String(err)}`,
+    };
   }
+}
 
-  const data = await res.json() as { access_token: string; expires_in: number };
-  cachedAccessToken = {
-    token: data.access_token,
-    expiresAt: Date.now() + (data.expires_in * 1000),
-  };
-  return data.access_token;
+async function getAccessToken(): Promise<string> {
+  const result = await getAccessTokenWithDiagnostics();
+  if (!result.success || !result.token) {
+    throw new Error(result.error || 'Failed to get access token');
+  }
+  return result.token;
 }
 
 // ============================================================
 // Verify Firebase ID token via REST API
-// ============================================================
-// Returns: { uid, email } or throws
 // ============================================================
 export async function verifyIdToken(idToken: string): Promise<{ uid: string; email: string }> {
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
@@ -151,8 +199,6 @@ export async function verifyIdToken(idToken: string): Promise<{ uid: string; ema
 // ============================================================
 // Read Firestore document via REST API
 // ============================================================
-// GET /v1/projects/{project}/databases/(default)/documents/{collection}/{doc}
-// ============================================================
 export async function readFirestoreDoc(collection: string, docId: string): Promise<any | null> {
   const sa = getServiceAccount();
   const accessToken = await getAccessToken();
@@ -171,7 +217,6 @@ export async function readFirestoreDoc(collection: string, docId: string): Promi
   }
 
   const data = await res.json() as any;
-  // Convert Firestore REST API response format to plain object
   const fields = data.fields || {};
   const result: any = { id: docId };
   for (const [key, value] of Object.entries(fields)) {
