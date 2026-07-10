@@ -176,10 +176,6 @@ export function Footer() {
                 {i < footer.legalLinks.length - 1 && <span className="opacity-30">•</span>}
               </span>
             ))}
-            <span className="opacity-30">•</span>
-            <Link href="/admin" className="hover:text-primary transition-colors">
-              Admin
-            </Link>
           </div>
         </div>
       </div>
