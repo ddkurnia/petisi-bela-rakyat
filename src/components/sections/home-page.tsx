@@ -136,15 +136,46 @@ export function HomePage() {
   const about = settings?.about ?? { visi: "", misi: [], nilai: [], sejarah: "", sejarahTimeline: [], motto: "" };
 
   // Build dynamic org tree and get top pengurus for homepage preview
-  // Strategy: show root (Ketua) + direct children level 1 (Wakil/Sekretaris/Bendahara)
+  // Strategy:
+  //   1. Try tree approach: root (Ketua) + direct children level 1
+  //   2. Fallback: if root has no children (parentId not set for others),
+  //      take top 4 active pengurus sorted by `order` field.
+  //      Priority by jabatan keyword: Ketua > Wakil > Sekretaris > Bendahara > others
+  // This ensures 4 people always show even if admin didn't set parentId.
   const orgTree = buildPengurusTree(pengurus);
   const rootPengurus = orgTree[0]; // Ketua
   const level1Children = rootPengurus?.children || [];
-  // Combine root + level 1 children, limit to 4 for clean grid
-  const topPengurus: PengurusTreeNode[] = [
-    ...(rootPengurus ? [rootPengurus] : []),
-    ...level1Children,
-  ].slice(0, 4);
+
+  // Fallback: if tree has no children, use flat list sorted by priority + order
+  const jabatanPriority = (jabatan: string): number => {
+    const j = (jabatan || '').toLowerCase();
+    if (j.includes('ketua') && !j.includes('wakil')) return 0;
+    if (j.includes('wakil')) return 1;
+    if (j.includes('sekretaris')) return 2;
+    if (j.includes('bendahara')) return 3;
+    return 4;
+  };
+
+  let topPengurus: PengurusTreeNode[];
+  if (rootPengurus && level1Children.length > 0) {
+    // Tree approach: Ketua + children
+    topPengurus = [
+      ...(rootPengurus ? [rootPengurus] : []),
+      ...level1Children,
+    ].slice(0, 4);
+  } else {
+    // Fallback: flat list of active pengurus, sorted by priority then order
+    const activePengurus = pengurus
+      .filter((p) => p.status === 'active')
+      .sort((a, b) => {
+        const pa = jabatanPriority(a.jabatan);
+        const pb = jabatanPriority(b.jabatan);
+        if (pa !== pb) return pa - pb;
+        return a.order - b.order;
+      })
+      .slice(0, 4);
+    topPengurus = activePengurus.map((p) => ({ ...p, children: [], level: 0 }));
+  }
   const totalActivePengurus = pengurus.filter((p) => p.status === "active").length;
   // Count distinct jabatan values for "positions" stat
   const uniqueJabatan = new Set(pengurus.filter((p) => p.status === "active").map((p) => p.jabatan)).size;
