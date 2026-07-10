@@ -56,21 +56,14 @@ export const metadata: Metadata = {
     title: "Petisi Bela Rakyat — Menyatukan Suara Rakyat Menjadi Perubahan",
     description:
       "Gerakan masyarakat sipil independen untuk memperjuangkan kepentingan rakyat melalui advokasi, partisipasi publik, dan aksi nyata.",
-    images: [
-      {
-        url: "/pbr.png",
-        width: 971,
-        height: 938,
-        alt: "Petisi Bela Rakyat",
-      },
-    ],
+    // OG image provided by src/app/opengraph-image.tsx (1200x630 dynamic)
   },
   twitter: {
     card: "summary_large_image",
     title: "Petisi Bela Rakyat",
     description:
       "Gerakan masyarakat sipil independen untuk memperjuangkan kepentingan rakyat.",
-    images: ["/pbr.png"],
+    // Twitter image provided by src/app/twitter-image.tsx
   },
   robots: {
     index: true,
