@@ -61,7 +61,7 @@ export function Hero() {
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white/90 text-xs md:text-sm font-medium mb-6"
           >
             <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-            Gerakan Masyarakat Sipil Independen
+            Gerakan Rakyat, oleh Rakyat
           </motion.div>
 
           <motion.h1

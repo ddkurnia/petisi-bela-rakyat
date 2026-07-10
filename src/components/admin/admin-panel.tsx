@@ -47,8 +47,8 @@ export type AdminSection =
 const menuItems: { id: AdminSection; label: string; icon: React.ElementType; roles: Role[] }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["super_admin", "admin", "editor"] },
   { id: "homepage", label: "Kelola Homepage", icon: Settings, roles: ["super_admin", "admin"] },
-  { id: "pengurus", label: "Kelola Pengurus", icon: Users, roles: ["super_admin", "admin"] },
-  { id: "penasehat", label: "Dewan Penasehat", icon: Crown, roles: ["super_admin", "admin"] },
+  { id: "pengurus", label: "Kelola Tim", icon: Users, roles: ["super_admin", "admin"] },
+  { id: "penasehat", label: "Penasihat", icon: Crown, roles: ["super_admin", "admin"] },
   { id: "relawan", label: "Kelola Relawan", icon: HeartHandshake, roles: ["super_admin", "admin"] },
   { id: "blog", label: "Kelola Blog", icon: FileText, roles: ["super_admin", "admin", "editor"] },
   { id: "news", label: "Kelola News", icon: Newspaper, roles: ["super_admin", "admin", "editor"] },

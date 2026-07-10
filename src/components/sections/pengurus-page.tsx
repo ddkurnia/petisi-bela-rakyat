@@ -24,7 +24,7 @@ export function PengurusPage() {
     if (!member) {
       return (
         <div className="pt-32 container-x">
-          <p>Pengurus tidak ditemukan.</p>
+          <p>Profil tidak ditemukan.</p>
           <Button onClick={() => navigate("pengurus")} className="mt-4">Kembali</Button>
         </div>
       );
@@ -40,7 +40,7 @@ export function PengurusPage() {
             onClick={() => navigate("pengurus")}
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Kembali ke Pengurus
+            Kembali ke Tim
           </Button>
 
           <div className="grid lg:grid-cols-5 gap-8 lg:gap-12">
@@ -102,7 +102,7 @@ export function PengurusPage() {
                 <div className="inline-flex items-center gap-2 mb-4">
                   <span className="h-px w-8 bg-primary" />
                   <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
-                    Profil Pengurus
+                    Profil Tim
                   </span>
                 </div>
                 <h1 className="font-heading text-3xl md:text-5xl font-extrabold tracking-tight">
@@ -187,7 +187,7 @@ export function PengurusPage() {
 
           {/* Other members */}
           <div className="mt-20 pt-12 border-t border-border">
-            <SectionHeading eyebrow="Tim Kami" title="Pengurus Lainnya" align="left" />
+            <SectionHeading eyebrow="Tim Kami" title="Anggota Tim Lainnya" align="left" />
             <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {related.map((m) => (
                 <button
@@ -227,8 +227,8 @@ export function PengurusPage() {
           <Reveal>
             <SectionHeading
               eyebrow="Tentang Kami"
-              title="Pengurus Organisasi"
-              description="Tim pengurus yang menjalankan operasional Petisi Bela Rakyat setiap hari, dengan komitmen yang sama: membela rakyat."
+              title="Tim di Balik Gerakan"
+              description="Orang-orang yang dedikasikan waktu dan tenaganya untuk Petisi Bela Rakyat, dengan komitmen yang sama: membela rakyat."
             />
           </Reveal>
         </div>

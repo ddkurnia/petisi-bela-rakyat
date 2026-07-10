@@ -24,8 +24,8 @@ export function StrukturOrganisasiPage() {
           <Reveal>
             <SectionHeading
               eyebrow="Tentang Kami"
-              title="Struktur Organisasi"
-              description="Susunan kepengurusan Petisi Bela Rakyat yang menjalankan operasional organisasi. Hierarki otomatis terbentuk berdasarkan atasan langsung setiap pengurus."
+              title="Struktur Tim"
+              description="Susunan tim Petisi Bela Rakyat yang menjalankan gerakan ini setiap hari. Hierarki otomatis terbentuk berdasarkan atasan langsung setiap anggota."
             />
           </Reveal>
           <Reveal delay={0.1}>

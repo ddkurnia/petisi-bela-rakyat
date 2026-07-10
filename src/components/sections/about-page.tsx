@@ -26,11 +26,11 @@ const nilaiIcons: Record<string, React.ElementType> = {
 };
 
 const submenu = [
-  { id: "sejarah" as const, label: "Sejarah" },
+  { id: "sejarah" as const, label: "Cerita Kami" },
   { id: "visi-misi" as const, label: "Visi & Misi" },
-  { id: "struktur" as const, label: "Struktur" },
-  { id: "pengurus" as const, label: "Pengurus" },
-  { id: "penasehat" as const, label: "Dewan Penasehat" },
+  { id: "struktur" as const, label: "Struktur Tim" },
+  { id: "pengurus" as const, label: "Tim Kami" },
+  { id: "penasehat" as const, label: "Penasihat" },
   { id: "relawan" as const, label: "Relawan" },
 ];
 

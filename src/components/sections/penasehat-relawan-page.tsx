@@ -19,8 +19,8 @@ export function PenasehatPage() {
           <Reveal>
             <SectionHeading
               eyebrow="Tentang Kami"
-              title="Dewan Penasehat"
-              description="Para tokoh berpengalaman yang memberikan arahan strategis dan advis kepada organisasi."
+              title="Penasihat Kami"
+              description="Tokoh-tokoh berpengalaman yang memberi arahan strategis dan advis untuk gerakan ini."
             />
           </Reveal>
         </div>

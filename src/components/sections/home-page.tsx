@@ -336,13 +336,13 @@ export function HomePage() {
         <div className="container-x">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
             <SectionHeading
-              eyebrow="Organisasi"
-              title="Struktur Pengurus"
-              description="Tim pengurus yang menjalankan operasional Petisi Bela Rakyat setiap hari."
+              eyebrow="Tim Kami"
+              title="Tim di Balik Gerakan"
+              description="Orang-orang yang dedikasikan waktu dan tenaganya untuk Petisi Bela Rakyat setiap hari."
               align="left"
             />
             <Button variant="outline" className="rounded-full self-start md:self-auto" onClick={() => navigate("about", { aboutSection: "struktur" })}>
-              Lihat Struktur Lengkap
+              Lihat Struktur Tim
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </div>
@@ -386,14 +386,14 @@ export function HomePage() {
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">
-                  <strong className="font-heading">{totalActivePengurus} pengurus aktif</strong>
+                  <strong className="font-heading">{totalActivePengurus} anggota tim</strong>
                 </span>
               </div>
               <div className="hidden md:block h-4 w-px bg-border" />
               <div className="flex items-center gap-2">
                 <Briefcase className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">
-                  <strong className="font-heading">{uniqueJabatan} jenis jabatan</strong> dalam struktur
+                  <strong className="font-heading">{uniqueJabatan} peran berbeda</strong> dalam tim
                 </span>
               </div>
               <div className="hidden md:block h-4 w-px bg-border" />
@@ -402,7 +402,7 @@ export function HomePage() {
                 className="text-primary p-0 h-auto"
                 onClick={() => navigate("about", { aboutSection: "pengurus" })}
               >
-                Lihat semua pengurus →
+                Lihat semua tim →
               </Button>
             </div>
           </Reveal>

@@ -147,20 +147,20 @@ export function PengurusManager() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <p className="text-sm text-muted-foreground">
-          {pengurus.filter((p) => p.status === "active").length} aktif dari {pengurus.length} pengurus total
+          {pengurus.filter((p) => p.status === "active").length} aktif dari {pengurus.length} anggota tim total
         </p>
         <Button onClick={openNew} className="bg-primary hover:bg-primary/90 text-white rounded-full">
           <Plus className="h-4 w-4 mr-1.5" />
-          Tambah Pengurus
+          Tambah Anggota Tim
         </Button>
       </div>
 
       <Card className="p-4 md:p-6 border-0 shadow-lg shadow-foreground/5">
         <h3 className="font-heading font-bold text-sm mb-3 flex items-center gap-2">
-          📊 Struktur Hierarki Pengurus
+          📊 Struktur Tim
         </h3>
         <p className="text-xs text-muted-foreground mb-4">
-          Susunan berikut otomatis terbentuk berdasarkan <strong>Atasan Langsung</strong> setiap pengurus. Gunakan tombol ↑↓ untuk mengatur urutan tampil.
+          Susunan berikut otomatis terbentuk berdasarkan <strong>Atasan Langsung</strong> setiap anggota. Gunakan tombol ↑↓ untuk mengatur urutan tampil.
         </p>
         <div className="space-y-2">
           {renderPengurusList()}
@@ -170,7 +170,7 @@ export function PengurusManager() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing?.id ? "Edit" : "Tambah"} Pengurus</DialogTitle>
+            <DialogTitle>{editing?.id ? "Edit" : "Tambah"} Anggota Tim</DialogTitle>
           </DialogHeader>
           {editing && (
             <div className="space-y-4">

@@ -285,13 +285,13 @@ let state: AppState = {
   updateSocials: (s) => state.updateSettings({ socials: s }),
   updateFooter: (s) => state.updateSettings({ footer: { ...state.settings.footer, ...s } as any }),
 
-  addPengurus: (m) => { pengurusService.create({ ...m, slug: m.slug || slugify(m.name) } as any).then(() => toast.success("Pengurus ditambahkan")).catch((e) => handleErr(e, "Gagal tambah pengurus")); },
-  updatePengurus: (id, m) => { pengurusService.update(id, m).then(() => toast.success("Pengurus diperbarui")).catch((e) => handleErr(e, "Gagal update pengurus")); },
-  deletePengurus: (id) => { pengurusService.delete(id).then(() => toast.success("Pengurus dihapus")).catch((e) => handleErr(e, "Gagal hapus pengurus")); },
+  addPengurus: (m) => { pengurusService.create({ ...m, slug: m.slug || slugify(m.name) } as any).then(() => toast.success("Anggota tim ditambahkan")).catch((e) => handleErr(e, "Gagal tambah anggota tim")); },
+  updatePengurus: (id, m) => { pengurusService.update(id, m).then(() => toast.success("Anggota tim diperbarui")).catch((e) => handleErr(e, "Gagal update anggota tim")); },
+  deletePengurus: (id) => { pengurusService.delete(id).then(() => toast.success("Anggota tim dihapus")).catch((e) => handleErr(e, "Gagal hapus anggota tim")); },
 
-  addPenasehat: (p) => { penasehatService.create(p as any).then(() => toast.success("Penasehat ditambahkan")).catch((e) => handleErr(e, "Gagal tambah penasehat")); },
-  updatePenasehat: (id, p) => { penasehatService.update(id, p).then(() => toast.success("Penasehat diperbarui")).catch((e) => handleErr(e, "Gagal update penasehat")); },
-  deletePenasehat: (id) => { penasehatService.delete(id).then(() => toast.success("Penasehat dihapus")).catch((e) => handleErr(e, "Gagal hapus penasehat")); },
+  addPenasehat: (p) => { penasehatService.create(p as any).then(() => toast.success("Penasihat ditambahkan")).catch((e) => handleErr(e, "Gagal tambah penasihat")); },
+  updatePenasehat: (id, p) => { penasehatService.update(id, p).then(() => toast.success("Penasihat diperbarui")).catch((e) => handleErr(e, "Gagal update penasihat")); },
+  deletePenasehat: (id) => { penasehatService.delete(id).then(() => toast.success("Penasihat dihapus")).catch((e) => handleErr(e, "Gagal hapus penasihat")); },
 
   addRelawan: (r) => { relawanService.create(r as any).then(() => toast.success("Relawan ditambahkan")).catch((e) => handleErr(e, "Gagal tambah relawan")); },
   updateRelawan: (id, r) => { relawanService.update(id, r).then(() => toast.success("Relawan diperbarui")).catch((e) => handleErr(e, "Gagal update relawan")); },

@@ -30,11 +30,11 @@ const mainMenu: { label: string; href: string }[] = [
 ];
 
 const aboutSubmenu = [
-  { label: "Sejarah", href: "/sejarah", icon: History },
+  { label: "Cerita Kami", href: "/sejarah", icon: History },
   { label: "Visi & Misi", href: "/visi-misi", icon: Target },
-  { label: "Struktur Organisasi", href: "/struktur-organisasi", icon: Building2 },
-  { label: "Pengurus", href: "/pengurus", icon: Users },
-  { label: "Dewan Penasehat", href: "/dewan-penasehat", icon: Crown },
+  { label: "Struktur Tim", href: "/struktur-organisasi", icon: Building2 },
+  { label: "Tim Kami", href: "/pengurus", icon: Users },
+  { label: "Penasihat", href: "/dewan-penasehat", icon: Crown },
   { label: "Relawan", href: "/relawan", icon: Heart },
 ];
 
