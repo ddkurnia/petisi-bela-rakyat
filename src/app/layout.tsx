@@ -96,6 +96,12 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
     shortcut: "/favicon.png",
   },
+  // Google Search Console verification — set GOOGLE_SITE_VERIFICATION
+  // env var with the content value from Google Search Console.
+  // Format: "google-site-verification=xxxxxxx"
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
+  },
 };
 
 export const viewport: Viewport = {
@@ -134,6 +140,21 @@ const organizationSchema = {
   },
 };
 
+// WebSite schema — helps Google show sitelinks search box
+const websiteSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Petisi Bela Rakyat",
+  url: siteUrl,
+  description: "Gerakan masyarakat sipil independen untuk memperjuangkan kepentingan rakyat.",
+  inLanguage: "id-ID",
+  publisher: {
+    "@type": "NGO",
+    name: "Petisi Bela Rakyat",
+    url: siteUrl,
+  },
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -146,6 +167,12 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(organizationSchema),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteSchema),
           }}
         />
       </head>

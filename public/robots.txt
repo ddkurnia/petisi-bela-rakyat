@@ -4,6 +4,8 @@ Allow: /
 # Sitemap
 Sitemap: https://belarakyat.org/sitemap.xml
 
-# Block admin
+# Block admin & API routes from indexing
 Disallow: /admin
-Disallow: /api/admin
+Disallow: /api/
+
+# Allow specific public API routes if needed (none currently)
