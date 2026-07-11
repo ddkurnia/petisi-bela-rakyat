@@ -24,6 +24,7 @@ const mainMenu: { label: string; href: string }[] = [
   { label: "Kampanye", href: "/kampanye" },
   { label: "News", href: "/news" },
   { label: "Blog", href: "/blog" },
+  { label: "Proposal", href: "/proposal" },
   { label: "Galeri", href: "/galeri" },
   { label: "Transparansi", href: "/transparansi" },
   { label: "Kontak", href: "/kontak" },

@@ -32,6 +32,7 @@ import {
   pengurusService, penasehatService, relawanService,
   supporterService, galleryService, workService,
   transparencyService, reportService, settingsService, messageService,
+  proposalService,
 } from "@/services";
 import type { Unsubscribe } from "firebase/firestore";
 
@@ -43,13 +44,14 @@ export type {
   TransparencyRecord, TransparencyReport, WorkCategory,
   SocialLink, ContactInfo, AboutSection, FooterSettings,
   HomepageSettings, SiteSettings, Message,
+  Proposal, BudgetItem, BankAccount,
 } from "@/types";
 
 import type {
   User, TeamMember, Pengurus, Penasehat, Relawan,
   BlogPost, NewsArticle, Campaign, Supporter, GalleryItem,
   TransparencyRecord, TransparencyReport, WorkCategory,
-  SiteSettings, Message,
+  SiteSettings, Message, Proposal,
 } from "@/types";
 
 // ============================================================
@@ -59,7 +61,7 @@ export const rolePermissions: Record<Role, string[]> = {
   super_admin: ["*"],
   admin: [
     "dashboard", "homepage", "team", "pengurus", "orgstructure", "penasehat", "relawan",
-    "blog", "news", "campaigns", "supporters", "media", "transparency", "settings",
+    "blog", "news", "campaigns", "supporters", "media", "transparency", "proposals", "settings",
   ],
   editor: ["dashboard", "blog", "news"],
 };
@@ -145,6 +147,7 @@ interface AppState {
   work: WorkCategory[];
   transparency: TransparencyRecord[];
   reports: TransparencyReport[];
+  proposals: Proposal[];
 
   updateSettings: (s: Partial<SiteSettings>) => void;
   updateHomepage: (s: Partial<SiteSettings["homepage"]>) => void;
@@ -205,6 +208,10 @@ interface AppState {
   deleteWork: (id: string) => void;
 
   addMessage: (m: Omit<Message, "id">) => void;
+
+  addProposal: (p: Omit<Proposal, "id">) => void;
+  updateProposal: (id: string, p: Partial<Proposal>) => void;
+  deleteProposal: (id: string) => void;
 }
 
 // ============================================================
@@ -257,6 +264,7 @@ let state: AppState = {
   work: [],
   transparency: [],
   reports: [],
+  proposals: [],
 
   updateSettings: (s) => {
     // Deep merge — partial update shouldn't wipe existing fields
@@ -337,6 +345,10 @@ let state: AppState = {
   deleteWork: (id) => { workService.delete(id).then(() => toast.success("Kategori kerja dihapus")).catch((e) => handleErr(e, "Gagal hapus kategori")); },
 
   addMessage: (m) => { messageService.create(m as any).then(() => toast.success("Pesan terkirim")).catch((e) => handleErr(e, "Gagal mengirim pesan")); },
+
+  addProposal: (p) => { proposalService.create(p as any).then(() => toast.success("Proposal ditambahkan")).catch((e) => handleErr(e, "Gagal tambah proposal")); },
+  updateProposal: (id, p) => { proposalService.update(id, p).then(() => toast.success("Proposal diperbarui")).catch((e) => handleErr(e, "Gagal update proposal")); },
+  deleteProposal: (id) => { proposalService.delete(id).then(() => toast.success("Proposal dihapus")).catch((e) => handleErr(e, "Gagal hapus proposal")); },
 };
 
 // ============================================================
@@ -374,6 +386,7 @@ function storeSet(partial: Partial<AppState>) {
 // ============================================================
 let publicBlogUnsub: Unsubscribe | null = null;
 let publicNewsUnsub: Unsubscribe | null = null;
+let publicProposalUnsub: Unsubscribe | null = null;
 let publicSubscribersInitialized = false;
 
 function initPublicSubscribers() {
@@ -408,6 +421,8 @@ function initPublicSubscribers() {
   workService.subscribe((items) => storeSet({ work: items }));
   transparencyService.subscribe((items) => storeSet({ transparency: items }));
   reportService.subscribe((items) => storeSet({ reports: items }));
+  // Proposals — published only for public (admin sees all via upgradeToAdminSubscribers)
+  publicProposalUnsub = proposalService.subscribePublished((items) => storeSet({ proposals: items }));
 }
 
 // ============================================================
@@ -418,16 +433,18 @@ let adminSubscribersInitialized = false;
 function upgradeToAdminSubscribers() {
   if (adminSubscribersInitialized) return;
   adminSubscribersInitialized = true;
-  console.log('%c[PBR-STORE upgradeToAdminSubscribers]', 'color:#16a34a;font-weight:bold', 'swapping blog/news to admin mode (all statuses)');
+  console.log('%c[PBR-STORE upgradeToAdminSubscribers]', 'color:#16a34a;font-weight:bold', 'swapping blog/news/proposals to admin mode (all statuses)');
 
   // Unsubscribe public (published-only) listeners
   if (publicBlogUnsub) { publicBlogUnsub(); publicBlogUnsub = null; }
   if (publicNewsUnsub) { publicNewsUnsub(); publicNewsUnsub = null; }
+  if (publicProposalUnsub) { publicProposalUnsub(); publicProposalUnsub = null; }
 
   // Subscribe admin (all-statuses) listeners — these satisfy Firestore
   // rules because isAdmin() returns true for the logged-in admin.
   blogService.subscribe((items) => storeSet({ blog: items }));
   newsService.subscribe((items) => storeSet({ news: items }));
+  proposalService.subscribe((items) => storeSet({ proposals: items }));
 }
 
 // ============================================================

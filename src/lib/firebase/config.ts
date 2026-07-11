@@ -54,6 +54,7 @@ export const COLLECTIONS = {
   MEDIA: 'media',
   MESSAGES: 'messages',
   USERS: 'users',
+  PROPOSALS: 'proposals',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

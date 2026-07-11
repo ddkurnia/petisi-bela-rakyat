@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, Newspaper, Megaphone, ImageIcon,
   Wallet, Settings, LogOut, Menu, X, Lock, Mail, Plus, Pencil, Trash2,
   Save, BarChart3, HeartHandshake, ExternalLink, Crown, Building2,
-  ShieldCheck, Briefcase, UserCog, Smartphone,
+  ShieldCheck, Briefcase, UserCog, Smartphone, HandHeart,
 } from "lucide-react";
 import { useStore, canAccess, type Role } from "@/lib/store";
 import { useRouter } from "next/navigation";
@@ -38,11 +38,12 @@ import { MediaManager } from "./sections/media-manager";
 import { TransparencyManager } from "./sections/transparency-manager";
 import { SettingsManager } from "./sections/settings-manager";
 import { MobileAppManager } from "./sections/mobile-app-manager";
+import { ProposalManager } from "./sections/proposal-manager";
 
 export type AdminSection =
   | "dashboard" | "homepage" | "pengurus" | "penasehat" | "relawan"
   | "blog" | "news" | "campaigns" | "supporters" | "media"
-  | "transparency" | "settings" | "mobileapp";
+  | "transparency" | "settings" | "mobileapp" | "proposals";
 
 const menuItems: { id: AdminSection; label: string; icon: React.ElementType; roles: Role[] }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["super_admin", "admin", "editor"] },
@@ -56,6 +57,7 @@ const menuItems: { id: AdminSection; label: string; icon: React.ElementType; rol
   { id: "supporters", label: "Dukungan Tokoh", icon: UserCog, roles: ["super_admin", "admin"] },
   { id: "media", label: "Kelola Media", icon: ImageIcon, roles: ["super_admin", "admin"] },
   { id: "transparency", label: "Kelola Transparansi", icon: Wallet, roles: ["super_admin", "admin"] },
+  { id: "proposals", label: "Proposal & Donasi", icon: HandHeart, roles: ["super_admin", "admin"] },
   { id: "mobileapp", label: "Mobile App", icon: Smartphone, roles: ["super_admin", "admin"] },
   { id: "settings", label: "Pengaturan Situs", icon: ShieldCheck, roles: ["super_admin"] },
 ];
@@ -312,6 +314,7 @@ export function AdminPanel() {
               {section === "media" && <MediaManager />}
               {section === "transparency" && <TransparencyManager />}
               {section === "mobileapp" && <MobileAppManager />}
+              {section === "proposals" && <ProposalManager />}
               {section === "settings" && <SettingsManager />}
             </motion.div>
           </AnimatePresence>

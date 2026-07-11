@@ -15,7 +15,7 @@ import { COLLECTIONS } from '@/lib/firebase/config';
 import type {
   BlogPost, NewsArticle, Campaign, Pengurus, Penasehat, Relawan,
   Supporter, GalleryItem, WorkCategory, TransparencyRecord, TransparencyReport,
-  SiteSettings, Message, User,
+  SiteSettings, Message, User, Proposal,
 } from '@/types';
 
 const now = () => new Date().toISOString();
@@ -211,6 +211,22 @@ export const userService = {
   create: (data: User) => createItem(COLLECTIONS.USERS, data as any),
   update: (id: string, data: Partial<User>) => updateItem(COLLECTIONS.USERS, id, data),
   delete: (id: string) => deleteItem(COLLECTIONS.USERS, id),
+};
+
+// ============================================================
+// Proposals — proposal bantuan kegiatan + anggaran
+// ============================================================
+export const proposalService = {
+  getAll: () => getAll<Proposal>(COLLECTIONS.PROPOSALS),
+  getById: (id: string) => getById<Proposal>(COLLECTIONS.PROPOSALS, id),
+  create: (data: Omit<Proposal, 'id'>) => createItem(COLLECTIONS.PROPOSALS, data as any),
+  update: (id: string, data: Partial<Proposal>) => updateItem(COLLECTIONS.PROPOSALS, id, data),
+  delete: (id: string) => deleteItem(COLLECTIONS.PROPOSALS, id),
+  // Admin: see all (including drafts)
+  subscribe: (cb: (items: Proposal[]) => void) => subscribeToCollection<Proposal>(COLLECTIONS.PROPOSALS, cb),
+  // Public: see only published
+  subscribePublished: (cb: (items: Proposal[]) => void) =>
+    subscribeToCollection<Proposal>(COLLECTIONS.PROPOSALS, cb, where('status', '==', 'published')),
 };
 
 // Re-export `limit` for consumers that need pagination

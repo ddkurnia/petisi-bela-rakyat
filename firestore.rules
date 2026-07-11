@@ -86,6 +86,10 @@ service cloud.firestore {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
+    match /proposals/{id} {
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
     match /messages/{id} {
       allow create: if true;
       allow read, update, delete: if isAdmin();

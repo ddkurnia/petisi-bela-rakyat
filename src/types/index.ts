@@ -214,3 +214,57 @@ export interface Message {
   message: string;
   createdAt?: string;
 }
+
+// ============================================================
+// Proposal — proposal bantuan kegiatan + estimasi anggaran
+// ============================================================
+export interface BudgetItem {
+  id: string;
+  category: string;          // e.g. "Transportasi", "Konsumsi", "Honor", "Perlengkapan"
+  description: string;
+  quantity: number;
+  unit: string;              // e.g. "orang", "pack", "hari"
+  unitPrice: number;
+}
+
+export interface BankAccount {
+  id: string;
+  bankName: string;          // e.g. "BCA", "Mandiri", "BRI", "BSI"
+  accountNumber: string;
+  accountHolder: string;
+  logoUrl?: string;          // optional bank logo
+}
+
+export interface Proposal {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;        // ringkasan proposal (markdown supported)
+  organizer: string;          // nama penyelenggara / penanggung jawab
+  contactPerson: string;
+  contactPhone: string;
+  contactEmail: string;
+
+  // Kegiatan details
+  activityName: string;
+  activityDate: string;       // tanggal pelaksanaan
+  activityLocation: string;
+  activityDuration: string;   // e.g. "3 hari", "1 bulan"
+  targetBeneficiaries: string; // siapa penerima manfaat
+  expectedOutcome: string;    // hasil yang diharapkan
+
+  // Anggaran
+  budgetItems: BudgetItem[];
+  currency: string;           // "IDR"
+
+  // Donasi
+  bankAccounts: BankAccount[];
+  qrisUrl?: string;           // URL gambar QRIS (opsional)
+  donationDeadline?: string;  // batas waktu donasi
+
+  // Status
+  status: 'draft' | 'published' | 'completed' | 'cancelled';
+  publishedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}

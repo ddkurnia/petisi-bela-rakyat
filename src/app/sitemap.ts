@@ -50,6 +50,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/blog", priority: 0.8, changeFrequency: "daily" },
     { path: "/galeri", priority: 0.7, changeFrequency: "weekly" },
     { path: "/transparansi", priority: 0.7, changeFrequency: "monthly" },
+    { path: "/proposal", priority: 0.9, changeFrequency: "weekly" },
     { path: "/kontak", priority: 0.6, changeFrequency: "monthly" },
     { path: "/aplikasi", priority: 0.7, changeFrequency: "monthly" },
   ];
