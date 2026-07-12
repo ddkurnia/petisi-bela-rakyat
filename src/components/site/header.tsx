@@ -85,8 +85,8 @@ export function Header() {
         scrolled || pathname !== "/" ? "glass border-b border-border/60 shadow-sm" : "bg-transparent"
       }`}
     >
-      <div className="container-x flex items-center justify-between h-16 md:h-18">
-        <Link href="/" className="flex items-center" aria-label="Petisi Bela Rakyat Home">
+      <div className="container-x flex items-center justify-between h-16 md:h-18 gap-2">
+        <Link href="/" className="flex items-center min-w-0 shrink" aria-label="Petisi Bela Rakyat Home">
           <Logo />
         </Link>
 
@@ -139,7 +139,7 @@ export function Header() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <LanguageSwitcher compact />
 
           <Button
