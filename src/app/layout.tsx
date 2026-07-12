@@ -175,6 +175,12 @@ export default function RootLayout({
             __html: JSON.stringify(websiteSchema),
           }}
         />
+        {/* Google AdSense — publisher ID: ca-pub-6218465141589887 */}
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6218465141589887"
+          crossOrigin="anonymous"
+        />
       </head>
       <body
         className={`${inter.variable} ${manrope.variable} antialiased bg-background text-foreground`}
