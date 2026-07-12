@@ -9,6 +9,7 @@ import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { LanguageSwitcher } from "./language-switcher";
+import { useLang } from "@/lib/i18n/context";
 import { Logo } from "@/components/logo";
 import {
   DropdownMenu,
@@ -19,25 +20,25 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
-const mainMenu: { label: string; href: string }[] = [
-  { label: "Home", href: "/" },
-  { label: "Kerja Kami", href: "/kerja-kami" },
-  { label: "Kampanye", href: "/kampanye" },
-  { label: "News", href: "/news" },
-  { label: "Blog", href: "/blog" },
-  { label: "Proposal", href: "/proposal" },
-  { label: "Galeri", href: "/galeri" },
-  { label: "Transparansi", href: "/transparansi" },
-  { label: "Kontak", href: "/kontak" },
+const mainMenu: { key: string; href: string }[] = [
+  { key: "nav.home", href: "/" },
+  { key: "nav.ourWork", href: "/kerja-kami" },
+  { key: "nav.campaigns", href: "/kampanye" },
+  { key: "nav.news", href: "/news" },
+  { key: "nav.blog", href: "/blog" },
+  { key: "nav.proposal", href: "/proposal" },
+  { key: "nav.gallery", href: "/galeri" },
+  { key: "nav.transparency", href: "/transparansi" },
+  { key: "nav.contact", href: "/kontak" },
 ];
 
 const aboutSubmenu = [
-  { label: "Cerita Kami", href: "/sejarah", icon: History },
-  { label: "Visi & Misi", href: "/visi-misi", icon: Target },
-  { label: "Struktur Tim", href: "/struktur-organisasi", icon: Building2 },
-  { label: "Tim Kami", href: "/pengurus", icon: Users },
-  { label: "Penasihat", href: "/dewan-penasehat", icon: Crown },
-  { label: "Relawan", href: "/relawan", icon: Heart },
+  { key: "nav.ourStory", href: "/sejarah", icon: History },
+  { key: "nav.visionMission", href: "/visi-misi", icon: Target },
+  { key: "nav.teamStructure", href: "/struktur-organisasi", icon: Building2 },
+  { key: "nav.ourTeam", href: "/pengurus", icon: Users },
+  { key: "nav.advisors", href: "/dewan-penasehat", icon: Crown },
+  { key: "nav.volunteers", href: "/relawan", icon: Heart },
 ];
 
 function isPathActive(pathname: string, href: string): boolean {
@@ -54,6 +55,7 @@ export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, setTheme } = useTheme();
+  const { t } = useLang();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -99,13 +101,13 @@ export function Header() {
                     : "text-foreground/80 hover:text-primary hover:bg-primary/5"
                 }`}
               >
-                Tentang Kami
+                {t('nav.aboutUs')}
                 <ChevronDown className="h-3.5 w-3.5" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">
               <DropdownMenuLabel className="text-xs uppercase tracking-wider text-muted-foreground">
-                Tentang Kami
+                {t('nav.aboutUs')}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               {aboutSubmenu.map((item) => {
@@ -114,7 +116,7 @@ export function Header() {
                   <DropdownMenuItem key={item.href} asChild>
                     <Link href={item.href} className="cursor-pointer p-2 flex items-center">
                       <Icon className="h-4 w-4 text-primary mr-2" />
-                      <span>{item.label}</span>
+                      <span>{t(item.key)}</span>
                     </Link>
                   </DropdownMenuItem>
                 );
@@ -132,7 +134,7 @@ export function Header() {
                   : "text-foreground/80 hover:text-primary hover:bg-primary/5"
               }`}
             >
-              {item.label}
+              {t(item.key)}
             </Link>
           ))}
         </nav>
@@ -157,7 +159,7 @@ export function Header() {
           <Link href="/kampanye">
             <Button className="hidden sm:inline-flex bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/30 rounded-full">
               <PenLine className="h-4 w-4 mr-1.5" />
-              Tandatangani Petisi
+              {t('home.signPetition')}
             </Button>
           </Link>
 
@@ -188,7 +190,7 @@ export function Header() {
                 <nav className="flex-1 overflow-y-auto p-4 space-y-1">
                   <div className="space-y-1">
                     <div className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Tentang Kami
+                      {t('nav.aboutUs')}
                     </div>
                     {aboutSubmenu.map((item) => {
                       const Icon = item.icon;
@@ -203,7 +205,7 @@ export function Header() {
                           }`}
                         >
                           <Icon className="h-4 w-4" />
-                          {item.label}
+                          {t(item.key)}
                         </Link>
                       );
                     })}
@@ -219,7 +221,7 @@ export function Header() {
                           : "hover:bg-primary/10 text-foreground"
                       }`}
                     >
-                      {item.label}
+                      {t(item.key)}
                     </Link>
                   ))}
                 </nav>
@@ -227,7 +229,7 @@ export function Header() {
                   <Link href="/kampanye">
                     <Button className="w-full bg-primary hover:bg-primary/90 text-white rounded-full">
                       <PenLine className="h-4 w-4 mr-2" />
-                      Tandatangani Petisi
+                      {t('home.signPetition')}
                     </Button>
                   </Link>
                 </div>

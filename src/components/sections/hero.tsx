@@ -5,17 +5,19 @@ import { ArrowRight, PenLine, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 import { useNav } from "@/lib/nav";
+import { useLang } from "@/lib/i18n/context";
 
 export function Hero() {
   const settings = useStore((s) => s.settings);
   const { navigate } = useNav();
+  const { t } = useLang();
   // Defensive: settings.homepage may be undefined if Firestore doc is partial
   const hero = settings?.homepage?.hero ?? {
     image: "",
     headline: "Menyatukan Suara Rakyat Menjadi Perubahan",
     subheadline: "",
-    primaryCta: "Pelajari Lebih Lanjut",
-    secondaryCta: "Lihat Kampanye",
+    primaryCta: t("hero.primaryCta"),
+    secondaryCta: t("hero.secondaryCta"),
   };
   const stats = settings?.homepage?.stats ?? [{ label: "Pendukung", value: 0, suffix: "+" }];
 
@@ -61,7 +63,7 @@ export function Hero() {
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white/90 text-xs md:text-sm font-medium mb-6"
           >
             <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-            Gerakan Rakyat, oleh Rakyat
+            {t("hero.badge")}
           </motion.div>
 
           <motion.h1
@@ -134,7 +136,7 @@ export function Hero() {
         transition={{ delay: 1, duration: 1 }}
         className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center text-white/60"
       >
-        <span className="text-[10px] uppercase tracking-widest mb-2">Scroll</span>
+        <span className="text-[10px] uppercase tracking-widest mb-2">{t("hero.scroll")}</span>
         <div className="h-10 w-6 rounded-full border border-white/30 flex items-start justify-center p-1">
           <motion.span
             animate={{ y: [0, 12, 0] }}

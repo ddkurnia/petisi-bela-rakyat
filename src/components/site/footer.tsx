@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Facebook, Instagram, Twitter, Youtube, Mail, MapPin, ArrowRight, Clock, MessageCircle } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { useStore } from "@/lib/store";
+import { useLang } from "@/lib/i18n/context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -29,6 +30,7 @@ const footerMenu: { label: string; href: string }[] = [
 
 export function Footer() {
   const settings = useStore((s) => s.settings);
+  const { t } = useLang();
   const year = new Date().getFullYear();
   // Defensive — Firestore doc may be partial
   const footer = settings?.footer ?? { description: "", copyrightText: "© 2026 Petisi Bela Rakyat", legalLinks: [] };
@@ -53,7 +55,7 @@ export function Footer() {
                 {about.motto}
               </h3>
               <p className="mt-2 text-white/70 text-sm md:text-base">
-                Dapatkan kabar terbaru dari setiap kampanye dan peluang untuk berkontribusi.
+                {t("footer.getLatest")}
               </p>
             </motion.div>
             <div className="flex flex-col sm:flex-row gap-3 md:justify-end">
@@ -65,7 +67,7 @@ export function Footer() {
               </Link>
               <Link href="/kontak">
                 <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 rounded-full bg-transparent w-full sm:w-auto">
-                  Hubungi Kami
+                  {t("nav.contact")}
                 </Button>
               </Link>
             </div>
@@ -119,7 +121,7 @@ export function Footer() {
 
           <div className="lg:col-span-3">
             <h4 className="font-heading text-sm font-bold uppercase tracking-wider text-white/90 mb-4">
-              Kontak
+              {t("footer.contact")}
             </h4>
             <ul className="space-y-3 text-sm">
               <li className="flex items-start gap-2.5 text-white/70">
@@ -172,8 +174,8 @@ export function Footer() {
           <div className="flex items-center gap-4 text-xs text-white/50 flex-wrap justify-center">
             {/* Default legal links if admin hasn't set custom ones */}
             {(footer.legalLinks && footer.legalLinks.length > 0 ? footer.legalLinks : [
-              { label: "Kebijakan Privasi", url: "/kebijakan-privasi" },
-              { label: "Syarat & Ketentuan", url: "/syarat-ketentuan" },
+              { label: t("footer.privacyPolicy"), url: "/kebijakan-privasi" },
+              { label: t("footer.terms"), url: "/syarat-ketentuan" },
             ]).map((link, i, arr) => (
               <span key={link.label} className="flex items-center gap-4">
                 {link.url?.startsWith('/') ? (

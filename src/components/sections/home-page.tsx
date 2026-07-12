@@ -12,6 +12,7 @@ import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
 import { useStore, getInitials, type PengurusTreeNode } from "@/lib/store";
 import { useNav } from "@/lib/nav";
+import { useLang } from "@/lib/i18n/context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -121,6 +122,7 @@ function SupporterCarousel() {
 export function HomePage() {
   const { navigate } = useNav();
   const settings = useStore((s) => s.settings);
+  const { t } = useLang();
   const work = useStore((s) => s.work);
   const supporters = useStore((s) => s.supporters);
   const news = useStore((s) => s.news);
@@ -181,13 +183,13 @@ export function HomePage() {
         <div className="container-x">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6 md:mb-8">
             <SectionHeading
-              eyebrow="Tim Kami"
-              title="Tim di Balik Gerakan"
-              description="Orang-orang yang dedikasikan waktu dan tenaganya untuk Petisi Bela Rakyat."
+              eyebrow={t("home.teamEyebrow")}
+              title={t("home.teamTitle")}
+              description={t("home.teamDesc")}
               align="left"
             />
             <Button variant="outline" size="sm" className="rounded-full self-start md:self-auto shrink-0" onClick={() => navigate("about", { aboutSection: "struktur" })}>
-              Lihat Struktur Tim
+              {t("home.viewTeamStructure")}
               <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
             </Button>
           </div>
@@ -237,8 +239,8 @@ export function HomePage() {
                     <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-2 group-hover:bg-primary/20 transition-colors">
                       <ArrowRight className="h-5 w-5 text-primary" />
                     </div>
-                    <p className="font-heading font-bold text-xs text-primary">Lihat Semua</p>
-                    <p className="text-[9px] text-muted-foreground mt-0.5">{totalActivePengurus} anggota tim</p>
+                    <p className="font-heading font-bold text-xs text-primary">{t("home.viewAll")}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">{totalActivePengurus} {t("home.activeMembers")}</p>
                   </div>
                 </Card>
               </button>
@@ -253,14 +255,14 @@ export function HomePage() {
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">
-                  <strong className="font-heading">{totalActivePengurus} anggota tim</strong>
+                  <strong className="font-heading">{totalActivePengurus} {t("home.activeMembers")}</strong>
                 </span>
               </div>
               <div className="hidden md:block h-4 w-px bg-border" />
               <div className="flex items-center gap-2">
                 <Briefcase className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">
-                  <strong className="font-heading">{uniqueJabatan} peran berbeda</strong>
+                  <strong className="font-heading">{uniqueJabatan} {t("home.differentRoles")}</strong>
                 </span>
               </div>
               <div className="hidden md:block h-4 w-px bg-border" />
@@ -269,7 +271,7 @@ export function HomePage() {
                 className="text-primary p-0 h-auto"
                 onClick={() => navigate("about", { aboutSection: "pengurus" })}
               >
-                Lihat semua tim →
+                {t("home.viewAllTeam")} →
               </Button>
             </div>
           </div>
@@ -373,9 +375,9 @@ export function HomePage() {
       <section className="py-16 md:py-28 bg-background">
         <div className="container-x">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
-            <SectionHeading eyebrow="News" title="Berita Terbaru" align="left" />
+            <SectionHeading eyebrow={t("home.newsEyebrow")} title={t("home.newsTitle")} align="left" />
             <Button variant="outline" className="rounded-full self-start md:self-auto" onClick={() => navigate("news")}>
-              Lihat Semua
+              {t("common.viewAll")}
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </div>
@@ -412,8 +414,8 @@ export function HomePage() {
       <section className="py-16 md:py-28 bg-secondary/40">
         <div className="container-x">
           <SectionHeading
-            eyebrow="Fokus Perjuangan"
-            title="Fokus Perjuangan Kami"
+            eyebrow={t("home.workEyebrow")}
+            title={t("home.workTitle")}
             description="Kami fokus pada isu-isu strategis yang berdampak langsung pada kehidupan rakyat — dari infrastruktur hingga advokasi hukum."
           />
           <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
@@ -490,10 +492,10 @@ export function HomePage() {
                 Aksi Nyata Hari Ini
               </div>
               <h2 className="font-heading text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight">
-                Satu tanda tangan Anda bisa <span className="text-gradient-red">mengubah nasib ribuan rakyat</span>.
+                {t("home.finalCtaTitle")}
               </h2>
               <p className="mt-6 text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                Kami tidak akan berhenti sebelum suara rakyat didengar. Bergabunglah dengan gerakan ini — mulai dari satu tanda tangan Anda.
+                {t("home.finalCtaDesc")}
               </p>
               <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
@@ -502,7 +504,7 @@ export function HomePage() {
                   onClick={() => navigate("campaigns")}
                 >
                   <PenLine className="h-5 w-5 mr-2" />
-                  Tandatangani Petisi
+                  {t("home.signPetition")}
                 </Button>
                 <Button
                   size="lg"
@@ -510,7 +512,7 @@ export function HomePage() {
                   className="rounded-full h-12 px-8"
                   onClick={() => navigate("contact")}
                 >
-                  Hubungi Kami
+                  {t("nav.contact")}
                 </Button>
               </div>
             </div>
