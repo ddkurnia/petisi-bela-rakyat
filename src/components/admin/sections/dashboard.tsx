@@ -1,8 +1,9 @@
 "use client";
 
-import { FileText, Newspaper, Megaphone, Users, Image as ImageIcon, HeartHandshake, Eye, Crown, BarChart3, Share2, TrendingUp } from "lucide-react";
+import { FileText, Newspaper, Megaphone, Users, Image as ImageIcon, HeartHandshake, Eye, Crown, BarChart3, Share2, TrendingUp, Activity, Globe2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { Card } from "@/components/ui/card";
+import { useVisitorStats } from "@/hooks/use-visitor-stats";
 
 export function AdminDashboard() {
   const blog = useStore((s) => s.blog);
@@ -13,6 +14,7 @@ export function AdminDashboard() {
   const gallery = useStore((s) => s.gallery);
   const penasehat = useStore((s) => s.penasehat);
   const relawan = useStore((s) => s.relawan);
+  const visitorStats = useVisitorStats(5000); // poll every 5s
 
   const stats = [
     { label: "Pengurus Aktif", value: pengurus.filter((p) => p.status === "active").length, total: pengurus.length, icon: Users, color: "bg-blue-500/10 text-blue-600" },
@@ -52,6 +54,28 @@ export function AdminDashboard() {
             Selamat datang kembali! 👋
           </h2>
           <p className="mt-1 text-white/70">Berikut ringkasan aktivitas organisasi Anda hari ini.</p>
+
+          {/* Live visitor stats */}
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 backdrop-blur border border-white/20">
+              <Activity className="h-4 w-4 text-green-400 animate-pulse" />
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-white/60">Visitor Hari Ini</div>
+                <div className="font-heading text-lg font-bold text-white">
+                  {visitorStats.loading ? '...' : visitorStats.todayVisitors.toLocaleString('id-ID')}
+                </div>
+              </div>
+            </div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 backdrop-blur border border-white/20">
+              <Globe2 className="h-4 w-4 text-blue-400" />
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-white/60">Total Visitor</div>
+                <div className="font-heading text-lg font-bold text-white">
+                  {visitorStats.loading ? '...' : visitorStats.totalVisitors.toLocaleString('id-ID')}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </Card>
 

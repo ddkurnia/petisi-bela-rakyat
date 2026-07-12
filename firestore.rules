@@ -90,6 +90,12 @@ service cloud.firestore {
       allow read: if resource.data.status == 'published' || isAdmin();
       allow create, update, delete: if isAdmin();
     }
+    match /stats/{id} {
+      // Stats are read by admin via API route (firebase-admin REST)
+      // Client SDK cannot read directly — admin uses /api/track-visit GET
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
     match /messages/{id} {
       allow create: if true;
       allow read, update, delete: if isAdmin();
