@@ -8,6 +8,7 @@ import { SectionHeading } from "./section-heading";
 import { useStore, formatDate } from "@/lib/store";
 import { useNav } from "@/lib/nav";
 import { T, useTranslatedText } from "@/lib/i18n/use-translated-text";
+import { LoadingState } from "./loading-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,7 @@ const blogCategories = [
 export function BlogPage() {
   const { navigate, blogSlug } = useNav();
   const blog = useStore((s) => s.blog);
+  const blogLoaded = useStore((s) => s.loaded.blog);
   const incrementBlogView = useStore((s) => s.incrementBlogView);
   const incrementBlogShare = useStore((s) => s.incrementBlogShare);
   const [search, setSearch] = useState("");
@@ -58,6 +60,11 @@ export function BlogPage() {
   // Detail
   if (blogSlug) {
     const post = blog.find((p) => p.slug === blogSlug);
+    // Show loading while Firestore data hasn't arrived yet
+    if (!post && !blogLoaded) {
+      return <LoadingState />;
+    }
+    // Data loaded but post not found → genuinely not found
     if (!post) {
       return (
         <div className="pt-32 container-x">

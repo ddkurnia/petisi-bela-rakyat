@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
 import { useStore } from "@/lib/store";
+import { LoadingState } from "./loading-state";
 import { useNav } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -85,10 +86,16 @@ const workDetails: Record<string, { programs: string[]; outcomes: string[] }> = 
 export function WorkPage() {
   const { navigate, workSlug } = useNav();
   const work = useStore((s) => s.work);
+  const workLoaded = useStore((s) => s.loaded.work);
 
   // Detail view
   if (workSlug) {
     const w = work.find((x) => x.slug === workSlug);
+    // Show loading while Firestore data hasn't arrived yet
+    if (!w && !workLoaded) {
+      return <LoadingState />;
+    }
+    // Data loaded but work not found → genuinely not found
     if (!w) {
       return (
         <div className="pt-32 container-x">

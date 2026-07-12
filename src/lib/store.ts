@@ -149,6 +149,24 @@ interface AppState {
   reports: TransparencyReport[];
   proposals: Proposal[];
 
+  // Loading flags — true setelah first onSnapshot callback fires
+  // Halaman detail pakai ini untuk bedakan "loading" vs "tidak ditemukan"
+  loaded: {
+    settings: boolean;
+    pengurus: boolean;
+    penasehat: boolean;
+    relawan: boolean;
+    blog: boolean;
+    news: boolean;
+    campaigns: boolean;
+    supporters: boolean;
+    gallery: boolean;
+    work: boolean;
+    transparency: boolean;
+    reports: boolean;
+    proposals: boolean;
+  };
+
   updateSettings: (s: Partial<SiteSettings>) => void;
   updateHomepage: (s: Partial<SiteSettings["homepage"]>) => void;
   updateAbout: (s: Partial<SiteSettings["about"]>) => void;
@@ -265,6 +283,22 @@ let state: AppState = {
   transparency: [],
   reports: [],
   proposals: [],
+
+  loaded: {
+    settings: false,
+    pengurus: false,
+    penasehat: false,
+    relawan: false,
+    blog: false,
+    news: false,
+    campaigns: false,
+    supporters: false,
+    gallery: false,
+    work: false,
+    transparency: false,
+    reports: false,
+    proposals: false,
+  },
 
   updateSettings: (s) => {
     // Deep merge — partial update shouldn't wipe existing fields
@@ -437,29 +471,31 @@ function initPublicSubscribers() {
   // the UI always has complete structure to render.
   settingsService.subscribe((s) => {
     if (!s) {
-      storeSet({ settings: DEFAULT_SETTINGS });
+      storeSet({ settings: DEFAULT_SETTINGS, loaded: { ...state.loaded, settings: true } });
       return;
     }
     const merged = mergeSettings(DEFAULT_SETTINGS, s);
-    storeSet({ settings: merged });
+    storeSet({ settings: merged, loaded: { ...state.loaded, settings: true } });
   });
 
   // Blog & News — published only (Firestore rules require this filter for public)
-  publicBlogUnsub = blogService.subscribePublished((items) => storeSet({ blog: items }));
-  publicNewsUnsub = newsService.subscribePublished((items) => storeSet({ news: items }));
+  // Set loaded flag true on first update so detail pages can show "not found"
+  // instead of "loading..."
+  publicBlogUnsub = blogService.subscribePublished((items) => storeSet({ blog: items, loaded: { ...state.loaded, blog: true } }));
+  publicNewsUnsub = newsService.subscribePublished((items) => storeSet({ news: items, loaded: { ...state.loaded, news: true } }));
 
   // Other collections — fully public
-  campaignService.subscribe((items) => storeSet({ campaigns: items }));
-  pengurusService.subscribe((items) => storeSet({ pengurus: items }));
-  penasehatService.subscribe((items) => storeSet({ penasehat: items }));
-  relawanService.subscribe((items) => storeSet({ relawan: items }));
-  supporterService.subscribe((items) => storeSet({ supporters: items }));
-  galleryService.subscribe((items) => storeSet({ gallery: items }));
-  workService.subscribe((items) => storeSet({ work: items }));
-  transparencyService.subscribe((items) => storeSet({ transparency: items }));
-  reportService.subscribe((items) => storeSet({ reports: items }));
+  campaignService.subscribe((items) => storeSet({ campaigns: items, loaded: { ...state.loaded, campaigns: true } }));
+  pengurusService.subscribe((items) => storeSet({ pengurus: items, loaded: { ...state.loaded, pengurus: true } }));
+  penasehatService.subscribe((items) => storeSet({ penasehat: items, loaded: { ...state.loaded, penasehat: true } }));
+  relawanService.subscribe((items) => storeSet({ relawan: items, loaded: { ...state.loaded, relawan: true } }));
+  supporterService.subscribe((items) => storeSet({ supporters: items, loaded: { ...state.loaded, supporters: true } }));
+  galleryService.subscribe((items) => storeSet({ gallery: items, loaded: { ...state.loaded, gallery: true } }));
+  workService.subscribe((items) => storeSet({ work: items, loaded: { ...state.loaded, work: true } }));
+  transparencyService.subscribe((items) => storeSet({ transparency: items, loaded: { ...state.loaded, transparency: true } }));
+  reportService.subscribe((items) => storeSet({ reports: items, loaded: { ...state.loaded, reports: true } }));
   // Proposals — published only for public (admin sees all via upgradeToAdminSubscribers)
-  publicProposalUnsub = proposalService.subscribePublished((items) => storeSet({ proposals: items }));
+  publicProposalUnsub = proposalService.subscribePublished((items) => storeSet({ proposals: items, loaded: { ...state.loaded, proposals: true } }));
 }
 
 // ============================================================
@@ -479,9 +515,9 @@ function upgradeToAdminSubscribers() {
 
   // Subscribe admin (all-statuses) listeners — these satisfy Firestore
   // rules because isAdmin() returns true for the logged-in admin.
-  blogService.subscribe((items) => storeSet({ blog: items }));
-  newsService.subscribe((items) => storeSet({ news: items }));
-  proposalService.subscribe((items) => storeSet({ proposals: items }));
+  blogService.subscribe((items) => storeSet({ blog: items, loaded: { ...state.loaded, blog: true } }));
+  newsService.subscribe((items) => storeSet({ news: items, loaded: { ...state.loaded, news: true } }));
+  proposalService.subscribe((items) => storeSet({ proposals: items, loaded: { ...state.loaded, proposals: true } }));
 }
 
 // ============================================================

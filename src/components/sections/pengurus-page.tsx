@@ -10,10 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ShareButtons } from "@/components/share-buttons";
+import { LoadingState } from "./loading-state";
 
 export function PengurusPage() {
   const { navigate, pengurusSlug } = useNav();
   const pengurus = useStore((s) => s.pengurus);
+  const pengurusLoaded = useStore((s) => s.loaded.pengurus);
   const settings = useStore((s) => s.settings);
   const activePengurus = pengurus.filter((p) => p.status === "active");
   const sorted = [...activePengurus].sort((a, b) => a.order - b.order);
@@ -21,6 +23,11 @@ export function PengurusPage() {
   // Detail view
   if (pengurusSlug) {
     const member = pengurus.find((p) => p.slug === pengurusSlug);
+    // Show loading while Firestore data hasn't arrived yet
+    if (!member && !pengurusLoaded) {
+      return <LoadingState />;
+    }
+    // Data loaded but member not found → genuinely not found
     if (!member) {
       return (
         <div className="pt-32 container-x">

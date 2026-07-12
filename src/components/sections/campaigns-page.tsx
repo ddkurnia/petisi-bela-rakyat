@@ -8,6 +8,7 @@ import { SectionHeading } from "./section-heading";
 import { useStore } from "@/lib/store";
 import { PetitionSignForm } from "./petition-sign-form";
 import { T } from "@/lib/i18n/use-translated-text";
+import { LoadingState } from "./loading-state";
 import { useNav } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -25,12 +26,18 @@ const statusMap = {
 export function CampaignsPage() {
   const { navigate, campaignSlug } = useNav();
   const campaigns = useStore((s) => s.campaigns);
+  const campaignsLoaded = useStore((s) => s.loaded.campaigns);
   const incrementCampaignShare = useStore((s) => s.incrementCampaignShare);
   const [filter, setFilter] = useState<string>("all");
 
   // Detail view
   if (campaignSlug) {
     const c = campaigns.find((x) => x.slug === campaignSlug);
+    // Show loading while Firestore data hasn't arrived yet
+    if (!c && !campaignsLoaded) {
+      return <LoadingState />;
+    }
+    // Data loaded but campaign not found → genuinely not found
     if (!c) {
       return (
         <div className="pt-32 container-x">

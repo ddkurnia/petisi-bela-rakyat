@@ -8,6 +8,7 @@ import { SectionHeading } from "./section-heading";
 import { useStore, formatDate } from "@/lib/store";
 import { useNav } from "@/lib/nav";
 import { T } from "@/lib/i18n/use-translated-text";
+import { LoadingState } from "./loading-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ const PER_PAGE = 6;
 export function NewsPage() {
   const { navigate, newsSlug } = useNav();
   const news = useStore((s) => s.news);
+  const newsLoaded = useStore((s) => s.loaded.news);
   const incrementNewsView = useStore((s) => s.incrementNewsView);
   const incrementNewsShare = useStore((s) => s.incrementNewsShare);
   const [search, setSearch] = useState("");
@@ -66,6 +68,11 @@ export function NewsPage() {
   // Detail
   if (newsSlug) {
     const article = news.find((n) => n.slug === newsSlug);
+    // Show loading while Firestore data hasn't arrived yet
+    if (!article && !newsLoaded) {
+      return <LoadingState />;
+    }
+    // Data loaded but article not found → genuinely not found
     if (!article) {
       return (
         <div className="pt-32 container-x">
