@@ -182,6 +182,106 @@ export function HomePage() {
 
   return (
     <div>
+      {/* ===== SECTION 0: TIM DI BALIK GERAKAN (Horizontal Scroll) ===== */}
+      <section className="py-12 md:py-16 bg-gradient-to-b from-primary/5 to-background">
+        <div className="container-x">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6 md:mb-8">
+            <SectionHeading
+              eyebrow="Tim Kami"
+              title="Tim di Balik Gerakan"
+              description="Orang-orang yang dedikasikan waktu dan tenaganya untuk Petisi Bela Rakyat."
+              align="left"
+            />
+            <Button variant="outline" size="sm" className="rounded-full self-start md:self-auto shrink-0" onClick={() => navigate("about", { aboutSection: "struktur" })}>
+              Lihat Struktur Tim
+              <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Horizontal scroll — foto kecil, bisa scroll ke kanan */}
+        <div className="overflow-x-auto scrollbar-hide pb-4">
+          <div className="flex gap-3 md:gap-4 px-4 md:px-8 lg:px-12 min-w-max">
+            {topPengurus.map((person, i) => (
+              <Reveal key={person.id} delay={i * 0.05}>
+                <button
+                  onClick={() => person.slug && navigate("pengurus", { pengurusSlug: person.slug })}
+                  className="group text-left w-32 md:w-40 shrink-0"
+                >
+                  <Card className="overflow-hidden h-full border-0 shadow-md shadow-foreground/5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                    <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                      {person.photo ? (
+                        <img src={person.photo} alt={person.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                      ) : (
+                        <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary to-red-700 text-white flex items-center justify-center font-heading font-bold text-base">
+                          {getInitials(person.name)}
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                      <div className="absolute bottom-2 left-2 right-2">
+                        <h3 className="font-heading font-bold text-white text-xs line-clamp-1">
+                          {person.name}
+                        </h3>
+                        {person.gelar && (
+                          <p className="text-white/70 text-[9px] line-clamp-1">{person.gelar}</p>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                </button>
+              </Reveal>
+            ))}
+
+            {/* Card "Lihat Semua" di akhir scroll */}
+            <Reveal delay={topPengurus.length * 0.05}>
+              <button
+                onClick={() => navigate("about", { aboutSection: "pengurus" })}
+                className="group text-left w-32 md:w-40 shrink-0"
+              >
+                <Card className="overflow-hidden h-full border-2 border-dashed border-primary/30 hover:border-primary hover:bg-primary/5 transition-all duration-300">
+                  <div className="aspect-[4/5] flex flex-col items-center justify-center p-3 text-center">
+                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-2 group-hover:bg-primary/20 transition-colors">
+                      <ArrowRight className="h-5 w-5 text-primary" />
+                    </div>
+                    <p className="font-heading font-bold text-xs text-primary">Lihat Semua</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">{totalActivePengurus} anggota tim</p>
+                  </div>
+                </Card>
+              </button>
+            </Reveal>
+          </div>
+        </div>
+
+        {/* Quick stats line */}
+        <Reveal delay={0.4}>
+          <div className="container-x mt-6">
+            <div className="flex flex-wrap items-center justify-center gap-4 md:gap-8 text-center">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">
+                  <strong className="font-heading">{totalActivePengurus} anggota tim</strong>
+                </span>
+              </div>
+              <div className="hidden md:block h-4 w-px bg-border" />
+              <div className="flex items-center gap-2">
+                <Briefcase className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">
+                  <strong className="font-heading">{uniqueJabatan} peran berbeda</strong>
+                </span>
+              </div>
+              <div className="hidden md:block h-4 w-px bg-border" />
+              <Button
+                variant="link"
+                className="text-primary p-0 h-auto"
+                onClick={() => navigate("about", { aboutSection: "pengurus" })}
+              >
+                Lihat semua tim →
+              </Button>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
       {/* ===== SECTION 1: TENTANG PETISI BELA RAKYAT (2-column) ===== */}
       <section className="py-16 md:py-28 bg-background">
         <div className="container-x">
@@ -328,84 +428,6 @@ export function HomePage() {
               </button>
             </Reveal>
           </div>
-        </div>
-      </section>
-
-      {/* ===== SECTION 3: STRUKTUR PENGURUS ===== */}
-      <section className="py-16 md:py-28 bg-background">
-        <div className="container-x">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
-            <SectionHeading
-              eyebrow="Tim Kami"
-              title="Tim di Balik Gerakan"
-              description="Orang-orang yang dedikasikan waktu dan tenaganya untuk Petisi Bela Rakyat setiap hari."
-              align="left"
-            />
-            <Button variant="outline" className="rounded-full self-start md:self-auto" onClick={() => navigate("about", { aboutSection: "struktur" })}>
-              Lihat Struktur Tim
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-          </div>
-
-          {/* Top pengurus preview - dynamic from tree */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-            {topPengurus.map((person, i) => (
-              <Reveal key={person.id} delay={i * 0.08}>
-                <button
-                  onClick={() => person.slug && navigate("pengurus", { pengurusSlug: person.slug })}
-                  className="group text-left w-full"
-                >
-                  <Card className="overflow-hidden h-full border-0 shadow-lg shadow-foreground/5 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
-                    <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                      {person.photo ? (
-                        <img src={person.photo} alt={person.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                      ) : (
-                        <div className="h-20 w-20 rounded-full bg-gradient-to-br from-primary to-red-700 text-white flex items-center justify-center font-heading font-bold text-2xl">
-                          {getInitials(person.name)}
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                      <div className="absolute bottom-3 left-3 right-3">
-                        <h3 className="font-heading font-bold text-white text-sm line-clamp-1">
-                          {person.name}
-                        </h3>
-                        {person.gelar && (
-                          <p className="text-white/70 text-[10px] line-clamp-1">{person.gelar}</p>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                </button>
-              </Reveal>
-            ))}
-          </div>
-
-          {/* Quick stats line */}
-          <Reveal delay={0.4}>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-4 md:gap-8 text-center">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">
-                  <strong className="font-heading">{totalActivePengurus} anggota tim</strong>
-                </span>
-              </div>
-              <div className="hidden md:block h-4 w-px bg-border" />
-              <div className="flex items-center gap-2">
-                <Briefcase className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">
-                  <strong className="font-heading">{uniqueJabatan} peran berbeda</strong> dalam tim
-                </span>
-              </div>
-              <div className="hidden md:block h-4 w-px bg-border" />
-              <Button
-                variant="link"
-                className="text-primary p-0 h-auto"
-                onClick={() => navigate("about", { aboutSection: "pengurus" })}
-              >
-                Lihat semua tim →
-              </Button>
-            </div>
-          </Reveal>
         </div>
       </section>
 
