@@ -139,9 +139,9 @@ export function HomePage() {
   // Strategy:
   //   1. Try tree approach: root (Ketua) + direct children level 1
   //   2. Fallback: if root has no children (parentId not set for others),
-  //      take top 4 active pengurus sorted by `order` field.
-  //      Priority by jabatan keyword: Ketua > Wakil > Sekretaris > Bendahara > others
-  // This ensures 4 people always show even if admin didn't set parentId.
+  //      take top 8 active pengurus sorted by `order` field.
+  //      Priority by jabatan keyword: Ketua > Wakil > Sekretaris > Bendahara > Koordinator > Bidang > others
+  // This ensures 8 people always show even if admin didn't set parentId.
   const orgTree = buildPengurusTree(pengurus);
   const rootPengurus = orgTree[0]; // Ketua
   const level1Children = rootPengurus?.children || [];
@@ -153,7 +153,10 @@ export function HomePage() {
     if (j.includes('wakil')) return 1;
     if (j.includes('sekretaris')) return 2;
     if (j.includes('bendahara')) return 3;
-    return 4;
+    if (j.includes('koordinator')) return 4;
+    if (j.includes('bidang') || j.includes('penanggung jawab') || j.includes('pj')) return 5;
+    if (j.includes('humas')) return 6;
+    return 7;
   };
 
   let topPengurus: PengurusTreeNode[];
@@ -162,7 +165,7 @@ export function HomePage() {
     topPengurus = [
       ...(rootPengurus ? [rootPengurus] : []),
       ...level1Children,
-    ].slice(0, 4);
+    ].slice(0, 8);
   } else {
     // Fallback: flat list of active pengurus, sorted by priority then order
     const activePengurus = pengurus
@@ -173,7 +176,7 @@ export function HomePage() {
         if (pa !== pb) return pa - pb;
         return a.order - b.order;
       })
-      .slice(0, 4);
+      .slice(0, 8);
     topPengurus = activePengurus.map((p) => ({ ...p, children: [], level: 0 }));
   }
   const totalActivePengurus = pengurus.filter((p) => p.status === "active").length;
