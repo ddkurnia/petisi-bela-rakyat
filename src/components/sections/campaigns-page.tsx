@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, PenLine, Users, MapPin, Calendar, Share2, CheckCircle2, Megaphone } from "lucide-react";
+import { ArrowLeft, ArrowRight, MapPin, Calendar, Share2, CheckCircle2, Megaphone, Users } from "lucide-react";
 import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
 import { useStore } from "@/lib/store";
@@ -13,7 +13,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ShareButtons } from "@/components/share-buttons";
 import { formatDate } from "@/lib/store";
-import { toast } from "sonner";
 
 const statusMap = {
   active: { label: "Aktif", variant: "bg-primary text-white" },
@@ -25,7 +24,6 @@ const statusMap = {
 export function CampaignsPage() {
   const { navigate, campaignSlug } = useNav();
   const campaigns = useStore((s) => s.campaigns);
-  const updateCampaign = useStore((s) => s.updateCampaign);
   const incrementCampaignShare = useStore((s) => s.incrementCampaignShare);
   const [filter, setFilter] = useState<string>("all");
 
@@ -40,7 +38,6 @@ export function CampaignsPage() {
         </div>
       );
     }
-    const pct = Math.min(100, Math.round((c.supporters / c.goal) * 100));
     const status = statusMap[c.status];
     const related = campaigns.filter((x) => x.slug !== campaignSlug).slice(0, 2);
 
@@ -83,6 +80,17 @@ export function CampaignsPage() {
                 </div>
               </Reveal>
 
+              {/* Petition signature form — DI BAWAH FOTO, full width, paling terlihat */}
+              <Reveal delay={0.15}>
+                <div className="mt-8">
+                  <PetitionSignForm
+                    campaignId={c.id}
+                    campaignTitle={c.title}
+                    goal={c.goal}
+                  />
+                </div>
+              </Reveal>
+
               <Reveal delay={0.2}>
                 <div className="mt-8">
                   <h2 className="font-heading text-2xl font-bold mb-3">Tentang Kampanye</h2>
@@ -106,39 +114,13 @@ export function CampaignsPage() {
               </Reveal>
             </div>
 
-            {/* Sidebar */}
+            {/* Sidebar — info + share (sticky di desktop) */}
             <div className="lg:col-span-1">
               <Reveal delay={0.15}>
-                <div className="lg:sticky lg:top-28">
+                <div className="lg:sticky lg:top-28 space-y-4">
                   <Card className="p-6 md:p-7 border-0 shadow-xl shadow-foreground/5">
-                    <div className="text-center">
-                      <div className="font-heading text-4xl font-extrabold text-primary">
-                        {c.supporters.toLocaleString("id-ID")}
-                      </div>
-                      <div className="text-sm text-muted-foreground">pendukung</div>
-                    </div>
-                    <div className="mt-4 h-3 w-full rounded-full bg-secondary overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${pct}%` }}
-                        transition={{ duration: 1, ease: "easeOut" }}
-                        className="h-full bg-gradient-to-r from-primary to-red-400 rounded-full"
-                      />
-                    </div>
-                    <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-                      <span>{pct}% tercapai</span>
-                      <span>Target: {c.goal.toLocaleString("id-ID")}</span>
-                    </div>
-                    {/* Petition signature form — change.org style, anti-spam, realtime */}
-                    <div className="mt-6">
-                      <PetitionSignForm
-                        campaignId={c.id}
-                        campaignTitle={c.title}
-                        goal={c.goal}
-                      />
-                    </div>
                     {/* Big share button - Sebarkan Petisi */}
-                    <div className="mt-3 p-4 rounded-2xl bg-primary/5 border border-primary/20">
+                    <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20">
                       <p className="text-xs font-bold text-center mb-3 text-primary uppercase tracking-wide">
                         📢 Sebarkan Petisi Ini
                       </p>
@@ -165,7 +147,7 @@ export function CampaignsPage() {
                     </div>
                   </Card>
 
-                  <div className="mt-4 p-4 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-start gap-3">
+                  <div className="p-4 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-start gap-3">
                     <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
                     <div className="text-xs text-foreground/80">
                       <strong className="block mb-0.5">Transparan & Aman</strong>
