@@ -53,6 +53,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/proposal", priority: 0.9, changeFrequency: "weekly" },
     { path: "/kontak", priority: 0.6, changeFrequency: "monthly" },
     { path: "/aplikasi", priority: 0.7, changeFrequency: "monthly" },
+    { path: "/kebijakan-privasi", priority: 0.5, changeFrequency: "monthly" },
+    { path: "/syarat-ketentuan", priority: 0.5, changeFrequency: "monthly" },
   ];
 
   const staticEntries: MetadataRoute.Sitemap = staticPages.map((p) => ({

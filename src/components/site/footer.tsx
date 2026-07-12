@@ -170,10 +170,18 @@ export function Footer() {
             {copyright}
           </p>
           <div className="flex items-center gap-4 text-xs text-white/50 flex-wrap justify-center">
-            {footer.legalLinks.map((link, i) => (
+            {/* Default legal links if admin hasn't set custom ones */}
+            {(footer.legalLinks && footer.legalLinks.length > 0 ? footer.legalLinks : [
+              { label: "Kebijakan Privasi", url: "/kebijakan-privasi" },
+              { label: "Syarat & Ketentuan", url: "/syarat-ketentuan" },
+            ]).map((link, i, arr) => (
               <span key={link.label} className="flex items-center gap-4">
-                <button className="hover:text-primary transition-colors">{link.label}</button>
-                {i < footer.legalLinks.length - 1 && <span className="opacity-30">•</span>}
+                {link.url?.startsWith('/') ? (
+                  <Link href={link.url} className="hover:text-primary transition-colors">{link.label}</Link>
+                ) : (
+                  <button className="hover:text-primary transition-colors">{link.label}</button>
+                )}
+                {i < arr.length - 1 && <span className="opacity-30">•</span>}
               </span>
             ))}
           </div>
