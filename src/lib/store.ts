@@ -322,7 +322,14 @@ let state: AppState = {
       body: JSON.stringify({ collection: 'blog', id }),
     }).catch((e) => console.error('[incrementBlogView]', e));
   },
-  incrementBlogShare: (id) => { blogService.incrementShare(id).then(() => toast.success("Tersebar!")).catch((e) => handleErr(e, "Gagal update share counter")); },
+  incrementBlogShare: (id) => {
+    // Use server-side API route — public visitors can't update Firestore directly
+    fetch('/api/increment-view', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collection: 'blog', id, field: 'shares' }),
+    }).then(() => toast.success("Tersebar!")).catch((e) => console.error('[incrementBlogShare]', e));
+  },
 
   addNews: (p) => { newsService.create({ ...p, slug: p.slug || slugify(p.title), views: 0, shares: 0 } as any).then(() => toast.success("Berita ditambahkan")).catch((e) => handleErr(e, "Gagal tambah berita")); },
   updateNews: (id, p) => { newsService.update(id, p).then(() => toast.success("Berita diperbarui")).catch((e) => handleErr(e, "Gagal update berita")); },
@@ -335,12 +342,26 @@ let state: AppState = {
       body: JSON.stringify({ collection: 'news', id }),
     }).catch((e) => console.error('[incrementNewsView]', e));
   },
-  incrementNewsShare: (id) => { newsService.incrementShare(id).then(() => toast.success("Tersebar!")).catch((e) => handleErr(e, "Gagal update share counter")); },
+  incrementNewsShare: (id) => {
+    // Use server-side API route (same as incrementBlogShare)
+    fetch('/api/increment-view', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collection: 'news', id, field: 'shares' }),
+    }).then(() => toast.success("Tersebar!")).catch((e) => console.error('[incrementNewsShare]', e));
+  },
 
   addCampaign: (c) => { campaignService.create({ ...c, slug: c.slug || slugify(c.title), shares: 0 } as any).then(() => toast.success("Kampanye ditambahkan")).catch((e) => handleErr(e, "Gagal tambah kampanye")); },
   updateCampaign: (id, c) => { campaignService.update(id, c).then(() => toast.success("Kampanye diperbarui")).catch((e) => handleErr(e, "Gagal update kampanye")); },
   deleteCampaign: (id) => { campaignService.delete(id).then(() => toast.success("Kampanye dihapus")).catch((e) => handleErr(e, "Gagal hapus kampanye")); },
-  incrementCampaignShare: (id) => { campaignService.incrementShare(id).then(() => toast.success("Tersebar!")).catch((e) => handleErr(e, "Gagal update share counter")); },
+  incrementCampaignShare: (id) => {
+    // Use server-side API route (same as blog/news)
+    fetch('/api/increment-view', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collection: 'campaigns', id, field: 'shares' }),
+    }).then(() => toast.success("Tersebar!")).catch((e) => console.error('[incrementCampaignShare]', e));
+  },
 
   addSupporter: (s) => { supporterService.create(s as any).then(() => toast.success("Tokoh ditambahkan")).catch((e) => handleErr(e, "Gagal tambah tokoh")); },
   updateSupporter: (id, s) => { supporterService.update(id, s).then(() => toast.success("Tokoh diperbarui")).catch((e) => handleErr(e, "Gagal update tokoh")); },
