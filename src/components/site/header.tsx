@@ -8,6 +8,7 @@ import { Menu, X, PenLine, Sun, Moon, ChevronDown, Users, Building2, Crown, Hear
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { LanguageSwitcher } from "./language-switcher";
 import { Logo } from "@/components/logo";
 import {
   DropdownMenu,
@@ -137,6 +138,8 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <LanguageSwitcher compact />
+
           <Button
             variant="ghost"
             size="icon"
