@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { NewsPage } from "@/components/sections/news-page";
 import { queryFirestore } from "@/lib/firebase/rest-api";
 import { pickOgImage } from "@/lib/og-image";
+import { whatsappMetaTags, withTimeout } from "@/lib/whatsapp-meta";
 
 interface NewsData {
   id: string;
@@ -20,9 +21,10 @@ interface NewsData {
 
 async function getNewsArticle(slug: string): Promise<NewsData | null> {
   try {
-    const articles = await queryFirestore('news', [
-      { field: 'slug', op: 'EQUAL', value: slug },
-    ], 1);
+    const articles = await withTimeout(
+      queryFirestore('news', [{ field: 'slug', op: 'EQUAL', value: slug }], 1),
+      5000
+    );
     if (articles.length === 0) return null;
     const article = articles[0] as NewsData;
     if (article.status !== 'published') return null;
@@ -55,12 +57,15 @@ export async function generateMetadata({
         title: "Berita Tidak Ditemukan",
         images: [pickOgImage(undefined)[0].url],
       },
+      other: whatsappMetaTags(undefined),
     };
   }
 
   const title = article.title;
   const description = article.excerpt || `Berita oleh ${article.author}`;
   const url = `https://belarakyat.org/news/${slug}`;
+  const ogImages = pickOgImage(article.coverImage, article.title);
+  const imageUrl = ogImages[0].url;
 
   return {
     title,
@@ -73,14 +78,15 @@ export async function generateMetadata({
       publishedTime: article.publishedAt,
       authors: [article.author],
       tags: [article.category],
-      images: pickOgImage(article.coverImage, article.title),
+      images: ogImages,
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [pickOgImage(article.coverImage, article.title)[0].url],
+      images: [imageUrl],
     },
+    other: whatsappMetaTags(imageUrl),
   };
 }
 

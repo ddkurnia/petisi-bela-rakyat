@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { CampaignsPage } from "@/components/sections/campaigns-page";
 import { queryFirestore } from "@/lib/firebase/rest-api";
 import { pickOgImage } from "@/lib/og-image";
+import { whatsappMetaTags, withTimeout } from "@/lib/whatsapp-meta";
 
 interface CampaignData {
   id: string;
@@ -18,9 +19,10 @@ interface CampaignData {
 
 async function getCampaign(slug: string): Promise<CampaignData | null> {
   try {
-    const campaigns = await queryFirestore('campaigns', [
-      { field: 'slug', op: 'EQUAL', value: slug },
-    ], 1);
+    const campaigns = await withTimeout(
+      queryFirestore('campaigns', [{ field: 'slug', op: 'EQUAL', value: slug }], 1),
+      5000
+    );
     if (campaigns.length === 0) return null;
     return campaigns[0] as CampaignData;
   } catch (err) {
@@ -51,12 +53,15 @@ export async function generateMetadata({
         title: "Kampanye Tidak Ditemukan",
         images: [pickOgImage(undefined)[0].url],
       },
+      other: whatsappMetaTags(undefined),
     };
   }
 
   const title = campaign.title;
   const description = campaign.description || `Kampanye di ${campaign.location}`;
   const url = `https://belarakyat.org/kampanye/${slug}`;
+  const ogImages = pickOgImage(campaign.coverImage, campaign.title);
+  const imageUrl = ogImages[0].url;
 
   return {
     title,
@@ -66,14 +71,15 @@ export async function generateMetadata({
       description,
       url,
       type: "website",
-      images: pickOgImage(campaign.coverImage, campaign.title),
+      images: ogImages,
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [pickOgImage(campaign.coverImage, campaign.title)[0].url],
+      images: [imageUrl],
     },
+    other: whatsappMetaTags(imageUrl),
   };
 }
 

@@ -4,6 +4,7 @@
 import type { Metadata } from "next";
 import { ProposalPage } from "@/components/sections/proposal-page";
 import { pickOgImage } from "@/lib/og-image";
+import { whatsappMetaTags } from "@/lib/whatsapp-meta";
 
 export const metadata: Metadata = {
   title: "Proposal Bantuan & Anggaran",
@@ -21,6 +22,7 @@ export const metadata: Metadata = {
     description: "Dukung kegiatan kami melalui donasi via transfer bank atau QRIS.",
     images: [pickOgImage(undefined, "Proposal Bantuan Petisi Bela Rakyat")[0].url],
   },
+  other: whatsappMetaTags(undefined),
 };
 
 export default function Page() {

@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { PengurusPage } from "@/components/sections/pengurus-page";
 import { queryFirestore } from "@/lib/firebase/rest-api";
 import { pickOgImage } from "@/lib/og-image";
+import { whatsappMetaTags, withTimeout } from "@/lib/whatsapp-meta";
 
 interface PengurusData {
   id: string;
@@ -18,9 +19,10 @@ interface PengurusData {
 
 async function getPengurus(slug: string): Promise<PengurusData | null> {
   try {
-    const items = await queryFirestore('pengurus', [
-      { field: 'slug', op: 'EQUAL', value: slug },
-    ], 1);
+    const items = await withTimeout(
+      queryFirestore('pengurus', [{ field: 'slug', op: 'EQUAL', value: slug }], 1),
+      5000
+    );
     if (items.length === 0) return null;
     return items[0] as PengurusData;
   } catch (err) {
@@ -51,12 +53,15 @@ export async function generateMetadata({
         title: "Profil Tidak Ditemukan",
         images: [pickOgImage(undefined)[0].url],
       },
+      other: whatsappMetaTags(undefined),
     };
   }
 
   const title = `${person.name}${person.gelar ? ', ' + person.gelar : ''} — ${person.jabatan}`;
   const description = person.bio || `Profil ${person.name}, ${person.jabatan} Petisi Bela Rakyat`;
   const url = `https://belarakyat.org/pengurus/${slug}`;
+  const ogImages = pickOgImage(person.photo, person.name);
+  const imageUrl = ogImages[0].url;
 
   return {
     title,
@@ -66,14 +71,15 @@ export async function generateMetadata({
       description,
       url,
       type: "profile",
-      images: pickOgImage(person.photo, person.name),
+      images: ogImages,
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [pickOgImage(person.photo, person.name)[0].url],
+      images: [imageUrl],
     },
+    other: whatsappMetaTags(imageUrl),
   };
 }
 

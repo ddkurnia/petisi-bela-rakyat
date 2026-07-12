@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { WorkPage } from "@/components/sections/work-page";
 import { queryFirestore } from "@/lib/firebase/rest-api";
 import { pickOgImage } from "@/lib/og-image";
+import { whatsappMetaTags, withTimeout } from "@/lib/whatsapp-meta";
 
 interface WorkData {
   id: string;
@@ -17,9 +18,10 @@ interface WorkData {
 
 async function getWork(slug: string): Promise<WorkData | null> {
   try {
-    const items = await queryFirestore('work', [
-      { field: 'slug', op: 'EQUAL', value: slug },
-    ], 1);
+    const items = await withTimeout(
+      queryFirestore('work', [{ field: 'slug', op: 'EQUAL', value: slug }], 1),
+      5000
+    );
     if (items.length === 0) return null;
     return items[0] as WorkData;
   } catch (err) {
@@ -50,12 +52,15 @@ export async function generateMetadata({
         title: "Kategori Tidak Ditemukan",
         images: [pickOgImage(undefined)[0].url],
       },
+      other: whatsappMetaTags(undefined),
     };
   }
 
   const title = work.title;
   const description = work.description || `Bidang kerja Petisi Bela Rakyat`;
   const url = `https://belarakyat.org/kerja-kami/${slug}`;
+  const ogImages = pickOgImage(work.coverImage, work.title);
+  const imageUrl = ogImages[0].url;
 
   return {
     title,
@@ -65,14 +70,15 @@ export async function generateMetadata({
       description,
       url,
       type: "website",
-      images: pickOgImage(work.coverImage, work.title),
+      images: ogImages,
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [pickOgImage(work.coverImage, work.title)[0].url],
+      images: [imageUrl],
     },
+    other: whatsappMetaTags(imageUrl),
   };
 }
 

@@ -63,9 +63,11 @@ export const metadata: Metadata = {
     images: [
       {
         url: defaultOgImage,
+        secureUrl: defaultOgImage,
         width: 1200,
         height: 630,
         alt: "Petisi Bela Rakyat",
+        type: "image/png",
       },
     ],
   },
@@ -74,7 +76,14 @@ export const metadata: Metadata = {
     title: "Petisi Bela Rakyat",
     description:
       "Gerakan masyarakat sipil independen untuk memperjuangkan kepentingan rakyat.",
-    images: [defaultOgImage],
+    images: [
+      {
+        url: defaultOgImage,
+        width: 1200,
+        height: 630,
+        alt: "Petisi Bela Rakyat",
+      },
+    ],
   },
   robots: {
     index: true,
@@ -86,6 +95,16 @@ export const metadata: Metadata = {
       "max-snippet": -1,
       "max-video-preview": -1,
     },
+  },
+  // Additional meta tags for WhatsApp Business compatibility
+  // WhatsApp sometimes needs these raw meta tags to be present
+  other: {
+    "og:image:secure_url": defaultOgImage,
+    "og:image:type": "image/png",
+    "og:image:width": "1200",
+    "og:image:height": "630",
+    "article:publisher": "https://belarakyat.org",
+    "article:author": "Petisi Bela Rakyat",
   },
   manifest: "/manifest.webmanifest",
   icons: {
