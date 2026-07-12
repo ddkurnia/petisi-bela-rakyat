@@ -7,6 +7,7 @@ import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
 import { useStore, formatDate } from "@/lib/store";
 import { useNav } from "@/lib/nav";
+import { T, useTranslatedText } from "@/lib/i18n/use-translated-text";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -103,7 +104,7 @@ export function BlogPage() {
               </div>
             </div>
             <h1 className="font-heading text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">
-              {post.title}
+              <T>{post.title}</T>
             </h1>
             <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
@@ -142,20 +143,20 @@ export function BlogPage() {
           <Reveal delay={0.2}>
             <div className="mt-8 prose-pbr max-w-none">
               <p className="text-base md:text-lg text-foreground/80 leading-relaxed font-medium">
-                {post.excerpt}
+                <T>{post.excerpt}</T>
               </p>
               {post.content.split("\n").map((line, i) => {
                 if (line.startsWith("## ")) {
-                  return <h2 key={i}>{line.replace("## ", "")}</h2>;
+                  return <h2 key={i}><T>{line.replace("## ", "")}</T></h2>;
                 }
                 if (line.startsWith("### ")) {
-                  return <h3 key={i}>{line.replace("### ", "")}</h3>;
+                  return <h3 key={i}><T>{line.replace("### ", "")}</T></h3>;
                 }
                 if (line.startsWith("- ")) {
-                  return <li key={i}>{line.replace("- ", "")}</li>;
+                  return <li key={i}><T>{line.replace("- ", "")}</T></li>;
                 }
                 if (line.trim()) {
-                  return <p key={i}>{line}</p>;
+                  return <p key={i}><T>{line}</T></p>;
                 }
                 return null;
               })}
@@ -273,10 +274,10 @@ export function BlogPage() {
                     <div className="p-6 md:p-10 flex flex-col justify-center">
                       <Badge className="self-start bg-primary/10 text-primary border-0 mb-3">{featured.category}</Badge>
                       <h2 className="font-heading text-2xl md:text-3xl font-extrabold leading-tight tracking-tight group-hover:text-primary transition-colors">
-                        {featured.title}
+                        <T>{featured.title}</T>
                       </h2>
                       <p className="mt-3 text-sm md:text-base text-muted-foreground leading-relaxed line-clamp-3">
-                        {featured.excerpt}
+                        <T>{featured.excerpt}</T>
                       </p>
                       <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="inline-flex items-center gap-1">
@@ -328,10 +329,10 @@ export function BlogPage() {
                           </span>
                         </div>
                         <h3 className="font-heading text-base md:text-lg font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors">
-                          {p.title}
+                          <T>{p.title}</T>
                         </h3>
                         <p className="mt-2 text-sm text-muted-foreground line-clamp-2 leading-relaxed">
-                          {p.excerpt}
+                          <T>{p.excerpt}</T>
                         </p>
                       </div>
                     </Card>

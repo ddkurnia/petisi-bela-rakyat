@@ -13,6 +13,7 @@ import { SectionHeading } from "./section-heading";
 import { useStore, getInitials, type PengurusTreeNode } from "@/lib/store";
 import { useNav } from "@/lib/nav";
 import { useLang } from "@/lib/i18n/context";
+import { T } from "@/lib/i18n/use-translated-text";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -317,10 +318,10 @@ export function HomePage() {
                   </span>
                 </div>
                 <h2 className="font-heading text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-tight">
-                  {homepage.about.title}
+                  <T>{homepage.about.title}</T>
                 </h2>
                 <p className="mt-5 text-muted-foreground text-base md:text-lg leading-relaxed">
-                  {homepage.about.description}
+                  <T>{homepage.about.description}</T>
                 </p>
               </Reveal>
 
@@ -333,7 +334,7 @@ export function HomePage() {
                     <h3 className="font-heading text-base md:text-lg font-bold">Visi</h3>
                   </div>
                   <p className="text-sm md:text-base text-foreground/80 leading-relaxed">
-                    {about.visi}
+                    <T>{about.visi}</T>
                   </p>
                 </div>
               </Reveal>
@@ -350,7 +351,7 @@ export function HomePage() {
                     {about.misi.slice(0, 3).map((m, i) => (
                       <div key={i} className="flex items-start gap-2.5">
                         <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                        <span className="text-sm md:text-base text-foreground/80">{m}</span>
+                        <span className="text-sm md:text-base text-foreground/80"><T>{m}</T></span>
                       </div>
                     ))}
                   </div>
@@ -399,8 +400,8 @@ export function HomePage() {
                         <span className="opacity-50">•</span>
                         <span>{n.author}</span>
                       </div>
-                      <h3 className="font-heading text-base md:text-lg font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors">{n.title}</h3>
-                      <p className="mt-2 text-sm text-muted-foreground line-clamp-2 leading-relaxed">{n.excerpt}</p>
+                      <h3 className="font-heading text-base md:text-lg font-bold"><T>{n.title}</T></h3>
+                      <p className="mt-2 text-sm text-muted-foreground line-clamp-2 leading-relaxed"><T>{n.excerpt}</T></p>
                     </div>
                   </Card>
                 </button>
@@ -435,11 +436,11 @@ export function HomePage() {
                           <Icon className="h-5 w-5 text-primary" />
                         </div>
                         <div className="absolute bottom-4 left-4 right-4">
-                          <h3 className="font-heading text-lg md:text-xl font-bold text-white">{w.title}</h3>
+                          <h3 className="font-heading text-lg md:text-xl font-bold text-white"><T>{w.title}</T></h3>
                         </div>
                       </div>
                       <div className="p-5 md:p-6">
-                        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{w.description}</p>
+                        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3"><T>{w.description}</T></p>
                         <div className="mt-4 inline-flex items-center text-sm font-semibold text-primary group-hover:gap-2 transition-all gap-1">
                           Lihat Detail
                           <ArrowRight className="h-3.5 w-3.5" />

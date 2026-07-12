@@ -7,6 +7,7 @@ import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
 import { useStore } from "@/lib/store";
 import { PetitionSignForm } from "./petition-sign-form";
+import { T } from "@/lib/i18n/use-translated-text";
 import { useNav } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -58,7 +59,7 @@ export function CampaignsPage() {
               <Reveal>
                 <Badge className={`${status.variant} border-0 mb-4`}>{status.label}</Badge>
                 <h1 className="font-heading text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">
-                  {c.title}
+                  <T>{c.title}</T>
                 </h1>
                 <p className="mt-3 text-sm md:text-base text-muted-foreground flex items-center gap-3 flex-wrap">
                   <span className="inline-flex items-center gap-1.5">
@@ -96,7 +97,7 @@ export function CampaignsPage() {
                   <h2 className="font-heading text-2xl font-bold mb-3">Tentang Kampanye</h2>
                   <div className="prose-pbr max-w-none">
                     <p className="text-base md:text-lg text-foreground/80 leading-relaxed">
-                      {c.description}
+                      <T>{c.description}</T>
                     </p>
                     <h3>Mengapa Ini Penting</h3>
                     <p>
@@ -177,8 +178,8 @@ export function CampaignsPage() {
                         </div>
                         <div className="p-5">
                           <Badge className="bg-primary/10 text-primary border-0 mb-2">{r.status}</Badge>
-                          <h3 className="font-heading font-bold leading-tight line-clamp-2">{r.title}</h3>
-                          <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{r.description}</p>
+                          <h3 className="font-heading font-bold leading-tight line-clamp-2"><T>{r.title}</T></h3>
+                          <p className="mt-2 text-sm text-muted-foreground line-clamp-2"><T>{r.description}</T></p>
                         </div>
                       </div>
                     </Card>
@@ -255,13 +256,13 @@ export function CampaignsPage() {
                             {c.location}
                           </div>
                           <h3 className="font-heading text-xl md:text-2xl font-bold text-white leading-tight">
-                            {c.title}
+                            <T>{c.title}</T>
                           </h3>
                         </div>
                       </div>
                       <div className="p-5 md:p-6">
                         <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
-                          {c.description}
+                          <T>{c.description}</T>
                         </p>
                         <div className="mt-4">
                           <div className="flex justify-between text-xs text-muted-foreground mb-2">
