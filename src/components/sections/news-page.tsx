@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Search, Calendar, User, Eye, Tag, Share2 } from "lucide-react";
 import { Reveal } from "@/components/animation";
@@ -49,6 +49,18 @@ export function NewsPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const currentPage = Math.min(page, totalPages);
   const paginated = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
+
+  // Increment view counter when viewing news detail (once per slug per session)
+  const viewedNewsSlugs = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!newsSlug) return;
+    if (viewedNewsSlugs.current.has(newsSlug)) return;
+    const article = news.find((n) => n.slug === newsSlug);
+    if (article) {
+      viewedNewsSlugs.current.add(newsSlug);
+      incrementNewsView(article.id);
+    }
+  }, [newsSlug, news, incrementNewsView]);
 
   // Detail
   if (newsSlug) {
@@ -230,7 +242,6 @@ export function NewsPage() {
                   <button
                     onClick={() => {
                       navigate("news", { newsSlug: n.slug });
-                      incrementNewsView(n.id);
                     }}
                     className="group text-left w-full h-full"
                   >

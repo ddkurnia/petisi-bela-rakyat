@@ -312,13 +312,29 @@ let state: AppState = {
   addBlog: (p) => { blogService.create({ ...p, slug: p.slug || slugify(p.title), views: 0, shares: 0 } as any).then(() => toast.success("Blog ditambahkan")).catch((e) => handleErr(e, "Gagal tambah blog")); },
   updateBlog: (id, p) => { blogService.update(id, p).then(() => toast.success("Blog diperbarui")).catch((e) => handleErr(e, "Gagal update blog")); },
   deleteBlog: (id) => { blogService.delete(id).then(() => toast.success("Blog dihapus")).catch((e) => handleErr(e, "Gagal hapus blog")); },
-  incrementBlogView: (id) => { blogService.incrementView(id).catch((e) => console.error('[incrementBlogView]', e)); },
+  incrementBlogView: (id) => {
+    // Use server-side API route — public visitors can't update Firestore
+    // directly (rules: allow update: if isAdmin()). API route uses service
+    // account credentials which bypass rules.
+    fetch('/api/increment-view', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collection: 'blog', id }),
+    }).catch((e) => console.error('[incrementBlogView]', e));
+  },
   incrementBlogShare: (id) => { blogService.incrementShare(id).then(() => toast.success("Tersebar!")).catch((e) => handleErr(e, "Gagal update share counter")); },
 
   addNews: (p) => { newsService.create({ ...p, slug: p.slug || slugify(p.title), views: 0, shares: 0 } as any).then(() => toast.success("Berita ditambahkan")).catch((e) => handleErr(e, "Gagal tambah berita")); },
   updateNews: (id, p) => { newsService.update(id, p).then(() => toast.success("Berita diperbarui")).catch((e) => handleErr(e, "Gagal update berita")); },
   deleteNews: (id) => { newsService.delete(id).then(() => toast.success("Berita dihapus")).catch((e) => handleErr(e, "Gagal hapus berita")); },
-  incrementNewsView: (id) => { newsService.incrementView(id).catch((e) => console.error('[incrementNewsView]', e)); },
+  incrementNewsView: (id) => {
+    // Use server-side API route (same as incrementBlogView)
+    fetch('/api/increment-view', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collection: 'news', id }),
+    }).catch((e) => console.error('[incrementNewsView]', e));
+  },
   incrementNewsShare: (id) => { newsService.incrementShare(id).then(() => toast.success("Tersebar!")).catch((e) => handleErr(e, "Gagal update share counter")); },
 
   addCampaign: (c) => { campaignService.create({ ...c, slug: c.slug || slugify(c.title), shares: 0 } as any).then(() => toast.success("Kampanye ditambahkan")).catch((e) => handleErr(e, "Gagal tambah kampanye")); },
