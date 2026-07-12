@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, PenLine, Users, MapPin, Calendar, Share2, CheckC
 import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
 import { useStore } from "@/lib/store";
+import { PetitionSignForm } from "./petition-sign-form";
 import { useNav } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -42,13 +43,6 @@ export function CampaignsPage() {
     const pct = Math.min(100, Math.round((c.supporters / c.goal) * 100));
     const status = statusMap[c.status];
     const related = campaigns.filter((x) => x.slug !== campaignSlug).slice(0, 2);
-
-    const handleSign = () => {
-      updateCampaign(c.id, { supporters: c.supporters + 1 });
-      toast.success("Terima kasih! Tanda tangan Anda tercatat.", {
-        description: `${c.supporters + 1} pendukung sejauh ini`,
-      });
-    };
 
     return (
       <div className="pt-24 md:pt-32 pb-20">
@@ -135,13 +129,14 @@ export function CampaignsPage() {
                       <span>{pct}% tercapai</span>
                       <span>Target: {c.goal.toLocaleString("id-ID")}</span>
                     </div>
-                    <Button
-                      className="mt-6 w-full bg-primary hover:bg-primary/90 text-white rounded-full h-12"
-                      onClick={handleSign}
-                    >
-                      <PenLine className="h-4 w-4 mr-2" />
-                      Tandatangani Petisi
-                    </Button>
+                    {/* Petition signature form — change.org style, anti-spam, realtime */}
+                    <div className="mt-6">
+                      <PetitionSignForm
+                        campaignId={c.id}
+                        campaignTitle={c.title}
+                        goal={c.goal}
+                      />
+                    </div>
                     {/* Big share button - Sebarkan Petisi */}
                     <div className="mt-3 p-4 rounded-2xl bg-primary/5 border border-primary/20">
                       <p className="text-xs font-bold text-center mb-3 text-primary uppercase tracking-wide">

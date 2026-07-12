@@ -268,3 +268,28 @@ export interface Proposal {
   createdAt?: string;
   updatedAt?: string;
 }
+
+// ============================================================
+// PetitionSignature — tanda tangan petisi (change.org style)
+// ============================================================
+export interface PetitionSignature {
+  id?: string;
+  campaignId: string;          // ID kampanye yang ditandatangani
+  name: string;
+  email: string;
+  address: string;             // alamat lengkap
+  city: string;                // kota/kabupaten
+  province: string;            // provinsi
+  // Geolocation (opsional, dari browser API)
+  latitude?: number | null;
+  longitude?: number | null;
+  locationLabel?: string;      // reverse-geocoded label (mis. "Jakarta, ID")
+  // Anti-spam
+  deviceFingerprint: string;   // unique per device (localStorage + IP hash)
+  ipAddress?: string;          // hashed IP (privacy-friendly)
+  userAgent?: string;          // browser info
+  // Metadata
+  comment?: string;            // pesan dukungan (opsional)
+  isVerified: boolean;         // email verification status
+  createdAt?: string;
+}

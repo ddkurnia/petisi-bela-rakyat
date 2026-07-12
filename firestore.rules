@@ -96,6 +96,14 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if isAdmin();
     }
+    match /petition_signatures/{id} {
+      // Public can create signatures (anti-spam handled in API route)
+      // Read: public can read (for displaying signatures list)
+      // Update/delete: admin only
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isAdmin();
+    }
     match /messages/{id} {
       allow create: if true;
       allow read, update, delete: if isAdmin();
