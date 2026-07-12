@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
-import { useStore, buildPengurusTree, getInitials, type PengurusTreeNode } from "@/lib/store";
+import { useStore, getInitials, type PengurusTreeNode } from "@/lib/store";
 import { useNav } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -135,52 +135,41 @@ export function HomePage() {
   };
   const about = settings?.about ?? { visi: "", misi: [], nilai: [], sejarah: "", sejarahTimeline: [], motto: "" };
 
-  // Build dynamic org tree and get top pengurus for homepage preview
-  // Strategy (HYBRID — ensures Sekretaris & others always show):
-  //   1. Start with Ketua (root) + direct children (Wakil, etc. yang set parentId)
-  //   2. Jika total < 8, tambah pengurus aktif lainnya yang BELUM masuk list,
-  //      sorted by jabatan priority (Sekretaris, Bendahara, Koordinator, dll)
-  //   3. Slice to 8
+  // Build top pengurus for homepage preview
+  // Strategy: Sort ALL active pengurus by jabatan priority, then by order field.
+  // This guarantees consistent order: Ketua → Wakil Ketua → Sekretaris →
+  // Wakil Sekretaris → Bendahara → Wakil Bendahara → Koordinator → Bidang → ...
   //
-  // Ini mengatasi case di mana Sekretaris TIDAK set parentId — dia jadi
-  // root node terpisah, tapi tetap masuk list via step 2 (fallback add-on).
-  const orgTree = buildPengurusTree(pengurus);
-  const rootPengurus = orgTree[0]; // Ketua (root pertama by order)
-  const level1Children = rootPengurus?.children || [];
-
-  // Priority by jabatan keyword
+  // We DON'T use tree approach here because tree sorts by `order` field only,
+  // not by jabatan. Flat sort by priority ensures correct leadership order
+  // regardless of whether admin set parentId or not.
   const jabatanPriority = (jabatan: string): number => {
     const j = (jabatan || '').toLowerCase();
+    // Wakil Sekretaris harus setelah Sekretaris (bukan sebelum)
+    if (j.includes('wakil') && j.includes('sekretaris')) return 3;
+    if (j.includes('wakil') && j.includes('bendahara')) return 5;
     if (j.includes('ketua') && !j.includes('wakil')) return 0;
-    if (j.includes('wakil')) return 1;
+    if (j.includes('wakil') && j.includes('ketua')) return 1;
+    if (j.includes('wakil')) return 6; // wakil lainnya
     if (j.includes('sekretaris')) return 2;
-    if (j.includes('bendahara')) return 3;
-    if (j.includes('koordinator')) return 4;
-    if (j.includes('bidang') || j.includes('penanggung jawab') || j.includes('pj')) return 5;
-    if (j.includes('humas')) return 6;
-    return 7;
+    if (j.includes('bendahara')) return 4;
+    if (j.includes('koordinator')) return 7;
+    if (j.includes('bidang') || j.includes('penanggung jawab') || j.includes('pj')) return 8;
+    if (j.includes('humas')) return 9;
+    return 10;
   };
 
-  // Step 1: Ketua + children dari tree
-  const treeMembers: PengurusTreeNode[] = [
-    ...(rootPengurus ? [rootPengurus] : []),
-    ...level1Children,
-  ];
-
-  // Step 2: Tambah pengurus aktif lainnya yang belum masuk list
-  const memberIds = new Set(treeMembers.map((p) => p.id));
-  const others = pengurus
-    .filter((p) => p.status === 'active' && !memberIds.has(p.id))
+  // Sort all active pengurus by priority, then by order field
+  const topPengurus: PengurusTreeNode[] = pengurus
+    .filter((p) => p.status === 'active')
     .sort((a, b) => {
       const pa = jabatanPriority(a.jabatan);
       const pb = jabatanPriority(b.jabatan);
       if (pa !== pb) return pa - pb;
       return a.order - b.order;
     })
+    .slice(0, 8)
     .map((p) => ({ ...p, children: [], level: 0 } as PengurusTreeNode));
-
-  // Gabung + slice 8
-  const topPengurus: PengurusTreeNode[] = [...treeMembers, ...others].slice(0, 8);
   const totalActivePengurus = pengurus.filter((p) => p.status === "active").length;
   // Count distinct jabatan values for "positions" stat
   const uniqueJabatan = new Set(pengurus.filter((p) => p.status === "active").map((p) => p.jabatan)).size;
