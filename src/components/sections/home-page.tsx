@@ -375,7 +375,46 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ===== SECTION 2: FOKUS PERJUANGAN KAMI (Work) ===== */}
+      {/* ===== SECTION 2: BERITA TERBARU (News) ===== */}
+      <section className="py-16 md:py-28 bg-background">
+        <div className="container-x">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
+            <SectionHeading eyebrow="News" title="Berita Terbaru" align="left" />
+            <Button variant="outline" className="rounded-full self-start md:self-auto" onClick={() => navigate("news")}>
+              Lihat Semua
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {news.slice(0, 3).map((n, i) => (
+              <Reveal key={n.id} delay={i * 0.1}>
+                <button
+                  onClick={() => navigate("news", { newsSlug: n.slug })}
+                  className="group text-left w-full h-full"
+                >
+                  <Card className="overflow-hidden h-full border-0 shadow-lg shadow-foreground/5 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+                    <div className="relative h-52 overflow-hidden">
+                      <img src={n.coverImage} alt={n.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                      <Badge className="absolute top-3 left-3 bg-primary text-white border-0">{n.category}</Badge>
+                    </div>
+                    <div className="p-5 md:p-6">
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
+                        <span>{formatDate(n.publishedAt)}</span>
+                        <span className="opacity-50">•</span>
+                        <span>{n.author}</span>
+                      </div>
+                      <h3 className="font-heading text-base md:text-lg font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors">{n.title}</h3>
+                      <p className="mt-2 text-sm text-muted-foreground line-clamp-2 leading-relaxed">{n.excerpt}</p>
+                    </div>
+                  </Card>
+                </button>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== SECTION 3: FOKUS PERJUANGAN KAMI (Work) ===== */}
       <section className="py-16 md:py-28 bg-secondary/40">
         <div className="container-x">
           <SectionHeading
@@ -442,45 +481,6 @@ export function HomePage() {
           />
           <div className="mt-12">
             <SupporterCarousel />
-          </div>
-        </div>
-      </section>
-
-      {/* ===== SECTION 5: BERITA TERBARU (News) ===== */}
-      <section className="py-16 md:py-28 bg-background">
-        <div className="container-x">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
-            <SectionHeading eyebrow="News" title="Berita Terbaru" align="left" />
-            <Button variant="outline" className="rounded-full self-start md:self-auto" onClick={() => navigate("news")}>
-              Lihat Semua
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {news.slice(0, 3).map((n, i) => (
-              <Reveal key={n.id} delay={i * 0.1}>
-                <button
-                  onClick={() => navigate("news", { newsSlug: n.slug })}
-                  className="group text-left w-full h-full"
-                >
-                  <Card className="overflow-hidden h-full border-0 shadow-lg shadow-foreground/5 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
-                    <div className="relative h-52 overflow-hidden">
-                      <img src={n.coverImage} alt={n.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                      <Badge className="absolute top-3 left-3 bg-primary text-white border-0">{n.category}</Badge>
-                    </div>
-                    <div className="p-5 md:p-6">
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
-                        <span>{formatDate(n.publishedAt)}</span>
-                        <span className="opacity-50">•</span>
-                        <span>{n.author}</span>
-                      </div>
-                      <h3 className="font-heading text-base md:text-lg font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors">{n.title}</h3>
-                      <p className="mt-2 text-sm text-muted-foreground line-clamp-2 leading-relaxed">{n.excerpt}</p>
-                    </div>
-                  </Card>
-                </button>
-              </Reveal>
-            ))}
           </div>
         </div>
       </section>
