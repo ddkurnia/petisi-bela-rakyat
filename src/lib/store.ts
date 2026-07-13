@@ -61,7 +61,7 @@ export const rolePermissions: Record<Role, string[]> = {
   super_admin: ["*"],
   admin: [
     "dashboard", "homepage", "team", "pengurus", "orgstructure", "penasehat", "relawan",
-    "blog", "news", "campaigns", "supporters", "media", "transparency", "proposals", "settings",
+    "blog", "news", "campaigns", "supporters", "media", "transparency", "proposals", "typography", "settings",
   ],
   editor: ["dashboard", "blog", "news"],
 };
@@ -90,6 +90,18 @@ const DEFAULT_SETTINGS: SiteSettings = {
   contact: { address: "", whatsapp: "", email: "", phone: "", mapEmbed: "", mapLink: "", operationHours: "" },
   socials: [],
   footer: { description: "", copyrightText: "© 2026 Petisi Bela Rakyat", legalLinks: [] },
+  typography: {
+    bodyFontSize: 16,
+    bodyFontWeight: 400,
+    bodyLineHeight: 1.6,
+    headingFontSize: 1.0,
+    headingFontWeight: 700,
+    articleFontSize: 16,
+    articleFontWeight: 400,
+    articleLineHeight: 1.8,
+    cardTitleWeight: 700,
+    cardTextSize: 14,
+  },
 };
 
 // ============================================================

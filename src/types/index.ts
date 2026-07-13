@@ -194,6 +194,19 @@ export interface HomepageSettings {
   stats: { label: string; value: number; suffix: string }[];
 }
 
+export interface TypographySettings {
+  bodyFontSize: number;       // px, default 16
+  bodyFontWeight: number;     // 300-800, default 400
+  bodyLineHeight: number;     // 1.2-2.0, default 1.6
+  headingFontSize: number;    // multiplier, default 1.0 (relative to base)
+  headingFontWeight: number;  // 400-900, default 700
+  articleFontSize: number;    // px, default 16 (khusus konten artikel blog/news)
+  articleFontWeight: number;  // 300-700, default 400
+  articleLineHeight: number;  // 1.4-2.2, default 1.8
+  cardTitleWeight: number;    // 400-900, default 700
+  cardTextSize: number;       // px, default 14
+}
+
 export interface SiteSettings {
   siteName: string;
   tagline: string;
@@ -203,6 +216,7 @@ export interface SiteSettings {
   contact: ContactInfo;
   socials: SocialLink[];
   footer: FooterSettings;
+  typography?: TypographySettings;
 }
 
 export interface Message {
