@@ -22,9 +22,10 @@ const manrope = Manrope({
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://belarakyat.org";
 const siteName = "Petisi Bela Rakyat";
-// Default OG/Twitter image — used for homepage and any page without a custom image.
-// Hosted on Cloudinary for fast CDN delivery to WhatsApp/FB/Twitter crawlers.
-const defaultOgImage = "https://res.cloudinary.com/dnpdjhdgr/image/upload/v1783688377/pbr/famboueolzkyfyaquznx.png";
+// Default OG/Twitter image — proxied through our own domain via /api/og-image.
+// WhatsApp crawlers reject cross-domain images (Cloudinary ≠ belarakyat.org).
+// By proxying through /api/og-image, WhatsApp sees same-origin → reliable preview.
+const defaultOgImage = "/api/og-image";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

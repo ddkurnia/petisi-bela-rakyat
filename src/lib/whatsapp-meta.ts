@@ -2,18 +2,18 @@
 // WhatsApp-compatible metadata helpers
 // ============================================================
 // WhatsApp & WhatsApp Business need extra og: tags that Next.js
-// doesn't generate by default:
-//   - og:image:secure_url (duplicate of og:image, but as raw meta)
-//   - og:image:type (image/png, image/jpeg)
-//   - og:image:width
-//   - og:image:height
-//
-// This helper generates the `other` field for Next.js metadata
-// to include these tags.
+// doesn't generate by default. Also, WhatsApp sometimes rejects
+// cross-domain images — we now proxy all images through /api/og-image
+// to serve them from our own domain.
 // ============================================================
-import { DEFAULT_OG_IMAGE, DEFAULT_OG_IMAGE_WIDTH, DEFAULT_OG_IMAGE_HEIGHT } from "./og-image";
 
-function getImageType(url: string): string {
+// Default OG image proxy URL (same-domain)
+const DEFAULT_OG_PROXY = "/api/og-image";
+const DEFAULT_OG_WIDTH = 1200;
+const DEFAULT_OG_HEIGHT = 630;
+
+function getImageType(url?: string | null): string {
+  if (!url) return 'image/png';
   const lower = url.toLowerCase();
   if (lower.includes('.png')) return 'image/png';
   if (lower.includes('.jpg') || lower.includes('.jpeg')) return 'image/jpeg';
@@ -22,13 +22,21 @@ function getImageType(url: string): string {
   return 'image/png';
 }
 
+// Build same-domain proxy URL
+function buildProxyUrl(imageUrl?: string | null): string {
+  if (imageUrl && imageUrl.trim()) {
+    return `/api/og-image?url=${encodeURIComponent(imageUrl)}`;
+  }
+  return DEFAULT_OG_PROXY;
+}
+
 export function whatsappMetaTags(imageUrl?: string | null): Record<string, string> {
-  const img = imageUrl && imageUrl.trim() ? imageUrl : DEFAULT_OG_IMAGE;
+  const proxyUrl = buildProxyUrl(imageUrl);
   return {
-    "og:image:secure_url": img,
-    "og:image:type": getImageType(img),
-    "og:image:width": String(DEFAULT_OG_IMAGE_WIDTH),
-    "og:image:height": String(DEFAULT_OG_IMAGE_HEIGHT),
+    "og:image:secure_url": proxyUrl,
+    "og:image:type": getImageType(imageUrl),
+    "og:image:width": String(DEFAULT_OG_WIDTH),
+    "og:image:height": String(DEFAULT_OG_HEIGHT),
     "article:publisher": "https://belarakyat.org",
   };
 }
