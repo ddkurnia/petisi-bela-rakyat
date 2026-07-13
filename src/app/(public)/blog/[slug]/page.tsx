@@ -2,8 +2,8 @@
 // Blog Detail Page — Server Component with dynamic metadata
 // ============================================================
 // generateMetadata fetches blog post from Firestore REST API
-// with 5s timeout (prevents WhatsApp crawler timeout).
-// Includes WhatsApp-specific og:image:secure_url, og:image:type.
+// with 8s timeout. Uses Cloudinary transformation for cover images
+// to ensure 1200x630 dimensions (WhatsApp requirement).
 // ============================================================
 import type { Metadata } from "next";
 import { BlogPage } from "@/components/sections/blog-page";
@@ -27,10 +27,10 @@ interface BlogPostData {
 
 async function getBlogPost(slug: string): Promise<BlogPostData | null> {
   try {
-    // 5s timeout — fall back to default image if Firestore is slow
+    // 8s timeout — WhatsApp crawler waits ~10s, we leave 2s buffer
     const posts = await withTimeout(
       queryFirestore('blog', [{ field: 'slug', op: 'EQUAL', value: slug }], 1),
-      5000
+      8000
     );
     if (posts.length === 0) return null;
     const post = posts[0] as BlogPostData;
@@ -51,18 +51,20 @@ export async function generateMetadata({
   const post = await getBlogPost(slug);
 
   if (!post) {
+    // Fallback: use default image if Firestore timed out or post not found
+    const ogImages = pickOgImage(undefined);
     return {
       title: "Artikel Tidak Ditemukan",
       description: "Artikel yang Anda cari tidak tersedia.",
       openGraph: {
         title: "Artikel Tidak Ditemukan",
         description: "Artikel yang Anda cari tidak tersedia.",
-        images: pickOgImage(undefined),
+        images: ogImages,
       },
       twitter: {
         card: "summary_large_image",
         title: "Artikel Tidak Ditemukan",
-        images: [pickOgImage(undefined)[0].url],
+        images: [ogImages[0].url],
       },
       other: whatsappMetaTags(undefined),
     };
@@ -71,6 +73,8 @@ export async function generateMetadata({
   const title = post.metaTitle || post.title;
   const description = post.metaDescription || post.excerpt || `Artikel oleh ${post.author}`;
   const url = `https://belarakyat.org/blog/${slug}`;
+  // pickOgImage applies Cloudinary transformation (w_1200,h_630,c_fill)
+  // if coverImage is from Cloudinary, otherwise uses /og-default.png
   const ogImages = pickOgImage(post.coverImage, post.title);
   const imageUrl = ogImages[0].url;
 

@@ -21,7 +21,7 @@ async function getPengurus(slug: string): Promise<PengurusData | null> {
   try {
     const items = await withTimeout(
       queryFirestore('pengurus', [{ field: 'slug', op: 'EQUAL', value: slug }], 1),
-      5000
+      8000
     );
     if (items.length === 0) return null;
     return items[0] as PengurusData;
@@ -40,18 +40,19 @@ export async function generateMetadata({
   const person = await getPengurus(slug);
 
   if (!person) {
+    const ogImages = pickOgImage(undefined);
     return {
       title: "Profil Tidak Ditemukan",
       description: "Profil yang Anda cari tidak tersedia.",
       openGraph: {
         title: "Profil Tidak Ditemukan",
         description: "Profil yang Anda cari tidak tersedia.",
-        images: pickOgImage(undefined),
+        images: ogImages,
       },
       twitter: {
         card: "summary_large_image",
         title: "Profil Tidak Ditemukan",
-        images: [pickOgImage(undefined)[0].url],
+        images: [ogImages[0].url],
       },
       other: whatsappMetaTags(undefined),
     };

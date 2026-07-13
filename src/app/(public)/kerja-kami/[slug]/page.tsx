@@ -20,7 +20,7 @@ async function getWork(slug: string): Promise<WorkData | null> {
   try {
     const items = await withTimeout(
       queryFirestore('work', [{ field: 'slug', op: 'EQUAL', value: slug }], 1),
-      5000
+      8000
     );
     if (items.length === 0) return null;
     return items[0] as WorkData;
@@ -39,18 +39,19 @@ export async function generateMetadata({
   const work = await getWork(slug);
 
   if (!work) {
+    const ogImages = pickOgImage(undefined);
     return {
       title: "Kategori Tidak Ditemukan",
       description: "Kategori kerja yang Anda cari tidak tersedia.",
       openGraph: {
         title: "Kategori Tidak Ditemukan",
         description: "Kategori kerja yang Anda cari tidak tersedia.",
-        images: pickOgImage(undefined),
+        images: ogImages,
       },
       twitter: {
         card: "summary_large_image",
         title: "Kategori Tidak Ditemukan",
-        images: [pickOgImage(undefined)[0].url],
+        images: [ogImages[0].url],
       },
       other: whatsappMetaTags(undefined),
     };

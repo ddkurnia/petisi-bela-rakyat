@@ -21,7 +21,7 @@ async function getCampaign(slug: string): Promise<CampaignData | null> {
   try {
     const campaigns = await withTimeout(
       queryFirestore('campaigns', [{ field: 'slug', op: 'EQUAL', value: slug }], 1),
-      5000
+      8000
     );
     if (campaigns.length === 0) return null;
     return campaigns[0] as CampaignData;
@@ -40,18 +40,19 @@ export async function generateMetadata({
   const campaign = await getCampaign(slug);
 
   if (!campaign) {
+    const ogImages = pickOgImage(undefined);
     return {
       title: "Kampanye Tidak Ditemukan",
       description: "Kampanye yang Anda cari tidak tersedia.",
       openGraph: {
         title: "Kampanye Tidak Ditemukan",
         description: "Kampanye yang Anda cari tidak tersedia.",
-        images: pickOgImage(undefined),
+        images: ogImages,
       },
       twitter: {
         card: "summary_large_image",
         title: "Kampanye Tidak Ditemukan",
-        images: [pickOgImage(undefined)[0].url],
+        images: [ogImages[0].url],
       },
       other: whatsappMetaTags(undefined),
     };

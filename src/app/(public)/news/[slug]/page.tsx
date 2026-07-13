@@ -23,7 +23,7 @@ async function getNewsArticle(slug: string): Promise<NewsData | null> {
   try {
     const articles = await withTimeout(
       queryFirestore('news', [{ field: 'slug', op: 'EQUAL', value: slug }], 1),
-      5000
+      8000
     );
     if (articles.length === 0) return null;
     const article = articles[0] as NewsData;
@@ -44,18 +44,19 @@ export async function generateMetadata({
   const article = await getNewsArticle(slug);
 
   if (!article) {
+    const ogImages = pickOgImage(undefined);
     return {
       title: "Berita Tidak Ditemukan",
       description: "Berita yang Anda cari tidak tersedia.",
       openGraph: {
         title: "Berita Tidak Ditemukan",
         description: "Berita yang Anda cari tidak tersedia.",
-        images: pickOgImage(undefined),
+        images: ogImages,
       },
       twitter: {
         card: "summary_large_image",
         title: "Berita Tidak Ditemukan",
-        images: [pickOgImage(undefined)[0].url],
+        images: [ogImages[0].url],
       },
       other: whatsappMetaTags(undefined),
     };
