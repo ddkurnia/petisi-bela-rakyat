@@ -1,14 +1,7 @@
 // ============================================================
 // WhatsApp-compatible metadata helpers
 // ============================================================
-// WhatsApp & WhatsApp Business need extra og: tags that Next.js
-// doesn't generate by default. Also, WhatsApp sometimes rejects
-// cross-domain images — we now proxy all images through /api/og-image
-// to serve them from our own domain.
-// ============================================================
 
-// Default OG image proxy URL (same-domain)
-const DEFAULT_OG_PROXY = "/api/og-image";
 const DEFAULT_OG_WIDTH = 1200;
 const DEFAULT_OG_HEIGHT = 630;
 
@@ -22,18 +15,9 @@ function getImageType(url?: string | null): string {
   return 'image/png';
 }
 
-// Build same-domain proxy URL
-function buildProxyUrl(imageUrl?: string | null): string {
-  if (imageUrl && imageUrl.trim()) {
-    return `/api/og-image?url=${encodeURIComponent(imageUrl)}`;
-  }
-  return DEFAULT_OG_PROXY;
-}
-
 export function whatsappMetaTags(imageUrl?: string | null): Record<string, string> {
-  const proxyUrl = buildProxyUrl(imageUrl);
   return {
-    "og:image:secure_url": proxyUrl,
+    "og:image:secure_url": imageUrl || "",
     "og:image:type": getImageType(imageUrl),
     "og:image:width": String(DEFAULT_OG_WIDTH),
     "og:image:height": String(DEFAULT_OG_HEIGHT),
@@ -41,8 +25,7 @@ export function whatsappMetaTags(imageUrl?: string | null): Record<string, strin
   };
 }
 
-// Timeout wrapper for Firestore fetches — prevents WhatsApp crawler
-// timeout if Firestore API is slow (cold start on Vercel)
+// Timeout wrapper for Firestore fetches
 export function withTimeout<T>(promise: Promise<T>, ms: number = 5000): Promise<T> {
   return Promise.race([
     promise,
