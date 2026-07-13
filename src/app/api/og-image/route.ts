@@ -35,8 +35,8 @@ export async function GET(req: NextRequest) {
     });
 
     if (!res.ok) {
-      // Fallback: return 302 redirect to Cloudinary directly
-      return NextResponse.redirect(imageUrl, { status: 302 });
+      // Fallback: redirect to our own static default image (same domain)
+      return NextResponse.redirect(new URL('/og-default.png', req.url), { status: 302 });
     }
 
     const contentType = res.headers.get('content-type') || 'image/png';
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err: any) {
     console.error('[api/og-image] error:', err?.message);
-    // Fallback: redirect to Cloudinary
-    return NextResponse.redirect(DEFAULT_IMAGE, { status: 302 });
+    // Fallback: redirect to our own static default image (same domain)
+    return NextResponse.redirect(new URL('/og-default.png', req.url), { status: 302 });
   }
 }

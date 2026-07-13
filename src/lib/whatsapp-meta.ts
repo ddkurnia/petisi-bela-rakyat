@@ -1,6 +1,10 @@
 // ============================================================
 // WhatsApp-compatible metadata helpers
 // ============================================================
+// All OG images now served from belarakyat.org (same domain):
+// - Default: /og-default.png (static file)
+// - Custom: /api/og-image?url=... (proxy)
+// ============================================================
 
 const DEFAULT_OG_WIDTH = 1200;
 const DEFAULT_OG_HEIGHT = 630;
@@ -15,9 +19,17 @@ function getImageType(url?: string | null): string {
   return 'image/png';
 }
 
+function buildSameDomainUrl(imageUrl?: string | null): string {
+  if (imageUrl && imageUrl.trim()) {
+    return `/api/og-image?url=${encodeURIComponent(imageUrl)}`;
+  }
+  return "/og-default.png";
+}
+
 export function whatsappMetaTags(imageUrl?: string | null): Record<string, string> {
+  const url = buildSameDomainUrl(imageUrl);
   return {
-    "og:image:secure_url": imageUrl || "",
+    "og:image:secure_url": url,
     "og:image:type": getImageType(imageUrl),
     "og:image:width": String(DEFAULT_OG_WIDTH),
     "og:image:height": String(DEFAULT_OG_HEIGHT),

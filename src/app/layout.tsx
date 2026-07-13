@@ -22,10 +22,10 @@ const manrope = Manrope({
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://belarakyat.org";
 const siteName = "Petisi Bela Rakyat";
-// Default OG image — Cloudinary with transformation w_1200,h_630,c_fill
-// This ensures: (1) correct dimensions match meta tags, (2) small file size (~300KB not 2.4MB)
-// Direct URL (no proxy) to avoid WhatsApp crawler timeout
-const defaultOgImage = "https://res.cloudinary.com/dnpdjhdgr/image/upload/w_1200,h_630,c_fill,q_auto,f_png/v1783688377/pbr/famboueolzkyfyaquznx.png";
+// Default OG image — served from our own domain as static file.
+// WhatsApp rejects cross-domain images (Cloudinary ≠ belarakyat.org).
+// /og-default.png is a 1200x630, 353KB optimized image in public/ folder.
+const defaultOgImage = "/og-default.png";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

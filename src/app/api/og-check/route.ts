@@ -94,12 +94,12 @@ export async function GET(req: NextRequest) {
       recommendation: !checks.hasOgImage
         ? 'og:image missing — WhatsApp tidak akan show preview'
         : imageAnalysis === 'cross-domain'
-          ? 'Image cross-domain — WhatsApp mungkin reject. Gunakan /api/og-image proxy.'
+          ? 'Image cross-domain — WhatsApp mungkin reject. Hubungi admin untuk fix.'
           : !checks.hasOgImageSecureUrl
             ? 'og:image:secure_url missing — WhatsApp butuh ini'
             : !checks.hasOgImageType
               ? 'og:image:type missing — WhatsApp butuh ini'
-              : '✅ Semua tags OK — WhatsApp harus muncul preview. Kalau belum, cache WhatsApp (30 hari). Coba ?v=test untuk bypass.',
+              : '✅ Semua tags OK + same-domain image. WhatsApp harus muncul preview. Kalau belum, cache WhatsApp (30 hari). Coba ?v=test untuk bypass.',
     });
   } catch (err: any) {
     return NextResponse.json({
