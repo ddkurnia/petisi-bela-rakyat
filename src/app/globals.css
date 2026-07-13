@@ -321,3 +321,25 @@ h6 { font-size: calc(1rem * var(--pbr-heading-scale)); font-weight: var(--pbr-he
 .card p {
   font-size: var(--pbr-card-text-size);
 }
+
+/* ============================================================
+   Rich text content styles (prose-pbr)
+   ============================================================ */
+.prose-pbr h1 { font-size: 1.75rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.75rem; }
+.prose-pbr h2 { font-size: 1.5rem; font-weight: 700; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+.prose-pbr h3 { font-size: 1.25rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; }
+.prose-pbr p { margin-bottom: 0.75rem; }
+.prose-pbr ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+.prose-pbr ol { list-style: decimal; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+.prose-pbr li { margin-bottom: 0.25rem; }
+.prose-pbr blockquote { border-left: 3px solid var(--primary); padding-left: 1rem; margin: 1rem 0; font-style: italic; color: hsl(var(--muted-foreground)); }
+.prose-pbr a { color: var(--primary); text-decoration: underline; }
+.prose-pbr img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+
+/* Rich text editor placeholder */
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  opacity: 0.6;
+}

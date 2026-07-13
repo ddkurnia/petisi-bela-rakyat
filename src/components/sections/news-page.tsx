@@ -134,21 +134,26 @@ export function NewsPage() {
               <p className="text-base md:text-lg text-foreground/80 leading-relaxed font-medium">
                 <T>{article.excerpt}</T>
               </p>
-              {article.content.split("\n").map((line, i) => {
-                if (line.startsWith("## ")) {
-                  return <h2 key={i}><T>{line.replace("## ", "")}</T></h2>;
-                }
-                if (line.startsWith("### ")) {
-                  return <h3 key={i}><T>{line.replace("### ", "")}</T></h3>;
-                }
-                if (line.startsWith("- ")) {
-                  return <li key={i}><T>{line.replace("- ", "")}</T></li>;
-                }
-                if (line.trim()) {
-                  return <p key={i}><T>{line}</T></p>;
-                }
-                return null;
-              })}
+              {/* Render HTML content from rich text editor */}
+              {article.content.includes("<") ? (
+                <div dangerouslySetInnerHTML={{ __html: article.content }} />
+              ) : (
+                article.content.split("\n").map((line, i) => {
+                  if (line.startsWith("## ")) {
+                    return <h2 key={i}><T>{line.replace("## ", "")}</T></h2>;
+                  }
+                  if (line.startsWith("### ")) {
+                    return <h3 key={i}><T>{line.replace("### ", "")}</T></h3>;
+                  }
+                  if (line.startsWith("- ")) {
+                    return <li key={i}><T>{line.replace("- ", "")}</T></li>;
+                  }
+                  if (line.trim()) {
+                    return <p key={i}><T>{line}</T></p>;
+                  }
+                  return null;
+                })
+              )}
             </div>
           </Reveal>
 

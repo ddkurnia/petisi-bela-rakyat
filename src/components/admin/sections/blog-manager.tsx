@@ -16,6 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ImageUpload, MultiImageUpload } from "../image-upload";
+import { RichTextEditor } from "../rich-text-editor";
 import { toast } from "sonner";
 
 const blogCategories = ["Infrastruktur", "Hukum", "Kebijakan Publik", "Aspirasi Rakyat", "Kepulauan Meranti"];
@@ -200,15 +201,13 @@ export function BlogManager() {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label>Konten (Markdown: ## Heading, - list item)</Label>
-                <Textarea
-                  value={editing.content}
-                  onChange={(e) => setEditing({ ...editing, content: e.target.value })}
-                  rows={10}
-                  className="rounded-xl resize-y font-mono text-sm"
-                />
-              </div>
+              <RichTextEditor
+                label="Konten Artikel"
+                value={editing.content}
+                onChange={(html) => setEditing({ ...editing, content: html })}
+                placeholder="Tulis artikel di sini... Gunakan toolbar untuk format (bold, ukuran font, heading, dll)"
+                minHeight={350}
+              />
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">

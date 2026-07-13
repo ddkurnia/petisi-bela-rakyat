@@ -16,6 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ImageUpload } from "../image-upload";
+import { RichTextEditor } from "../rich-text-editor";
 import { toast } from "sonner";
 
 const newsCategories = ["Kampanye", "Advokasi", "Organisasi", "Aksi", "Audiensi"];
@@ -129,8 +130,13 @@ export function NewsManager() {
                 <Textarea value={editing.excerpt} onChange={(e) => setEditing({ ...editing, excerpt: e.target.value })} rows={2} className="rounded-xl resize-none" />
               </div>
               <div className="space-y-1.5">
-                <Label>Konten (Markdown)</Label>
-                <Textarea value={editing.content} onChange={(e) => setEditing({ ...editing, content: e.target.value })} rows={8} className="rounded-xl resize-y font-mono text-sm" />
+              <RichTextEditor
+                label="Konten Berita"
+                value={editing.content}
+                onChange={(html) => setEditing({ ...editing, content: html })}
+                placeholder="Tulis berita di sini... Gunakan toolbar untuk format"
+                minHeight={300}
+              />
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
