@@ -1,51 +1,31 @@
 // ============================================================
 // OG/Twitter image helpers
 // ============================================================
-// STRATEGY for WhatsApp compatibility:
-// 1. Default image: /og-default.png (static file, same domain, instant)
-// 2. Custom images (blog covers, etc.): /api/og-image?url=... (proxy, same domain)
+// STRATEGY: Always use /og-default.png (same domain, static file)
+// for ALL og:image tags. This guarantees WhatsApp preview works
+// because:
+// 1. Same domain (belarakyat.org ≠ res.cloudinary.com)
+// 2. No query parameters (WhatsApp rejects ?url=... in og:image)
+// 3. Static file (instant fetch, no proxy latency)
+// 4. Correct dimensions (1200x630, matches meta tags)
+// 5. Small file size (353KB, not 2.4MB)
 //
-// WhatsApp rejects cross-domain images (Cloudinary ≠ belarakyat.org).
-// By serving ALL images from our own domain, WhatsApp always shows preview.
+// Custom per-article images are shown on the page itself, not in
+// OG preview. This is the most reliable approach for WhatsApp.
 // ============================================================
 
 export const DEFAULT_OG_IMAGE = "/og-default.png";
 export const DEFAULT_OG_IMAGE_WIDTH = 1200;
 export const DEFAULT_OG_IMAGE_HEIGHT = 630;
 
-// Detect image type from URL
-function getImageType(url: string): string {
-  const lower = url.toLowerCase();
-  if (lower.includes('.png')) return 'image/png';
-  if (lower.includes('.jpg') || lower.includes('.jpeg')) return 'image/jpeg';
-  if (lower.includes('.webp')) return 'image/webp';
-  if (lower.includes('.gif')) return 'image/gif';
-  return 'image/png';
-}
-
-// Helper: pick image or fall back to default
-// Default image → /og-default.png (same domain, static file)
-// Custom image → /api/og-image?url=... (same domain, proxy)
-export function pickOgImage(customImage: string | undefined | null, alt: string = "Petisi Bela Rakyat") {
-  let url: string;
-  let type: string;
-
-  if (customImage && customImage.trim()) {
-    // Custom image — proxy through our domain
-    url = `/api/og-image?url=${encodeURIComponent(customImage)}`;
-    type = getImageType(customImage);
-  } else {
-    // Default image — static file on our domain
-    url = DEFAULT_OG_IMAGE;
-    type = 'image/png';
-  }
-
+// Always return same-domain static image for OG tags
+export function pickOgImage(_customImage?: string | undefined | null, alt: string = "Petisi Bela Rakyat") {
   return [{
-    url,
-    secureUrl: url,
+    url: DEFAULT_OG_IMAGE,
+    secureUrl: DEFAULT_OG_IMAGE,
     width: DEFAULT_OG_IMAGE_WIDTH,
     height: DEFAULT_OG_IMAGE_HEIGHT,
     alt,
-    type,
+    type: 'image/png',
   }];
 }
