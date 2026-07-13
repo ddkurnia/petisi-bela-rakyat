@@ -17,7 +17,7 @@ export default function PublicLayout({
 
   return (
     <NavProvider>
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="min-h-screen flex flex-col bg-background pbr-public">
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />

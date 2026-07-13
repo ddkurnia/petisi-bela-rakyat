@@ -274,6 +274,7 @@
 
 /* ============================================================
    Typography settings — controlled by admin via CSS variables
+   IMPORTANT: Only apply to .pbr-public scope (NOT admin panel)
    ============================================================ */
 :root {
   --pbr-body-font-size: 16px;
@@ -288,38 +289,24 @@
   --pbr-card-text-size: 14px;
 }
 
-/* Body text */
-body, p, span, li, td, th {
+/* Only apply typography to public website (NOT admin panel) */
+.pbr-public p {
   font-size: var(--pbr-body-font-size);
   font-weight: var(--pbr-body-font-weight);
   line-height: var(--pbr-body-line-height);
 }
 
-/* Headings — scaled by --pbr-heading-scale */
-h1 { font-size: calc(2.5rem * var(--pbr-heading-scale)); font-weight: var(--pbr-heading-font-weight); }
-h2 { font-size: calc(2rem * var(--pbr-heading-scale)); font-weight: var(--pbr-heading-font-weight); }
-h3 { font-size: calc(1.5rem * var(--pbr-heading-scale)); font-weight: var(--pbr-heading-font-weight); }
-h4 { font-size: calc(1.25rem * var(--pbr-heading-scale)); font-weight: var(--pbr-heading-font-weight); }
-h5 { font-size: calc(1.125rem * var(--pbr-heading-scale)); font-weight: var(--pbr-heading-font-weight); }
-h6 { font-size: calc(1rem * var(--pbr-heading-scale)); font-weight: var(--pbr-heading-font-weight); }
+.pbr-public h1 { font-size: calc(2.5rem * var(--pbr-heading-scale)); font-weight: var(--pbr-heading-font-weight); }
+.pbr-public h2 { font-size: calc(2rem * var(--pbr-heading-scale)); font-weight: var(--pbr-heading-font-weight); }
+.pbr-public h3 { font-size: calc(1.5rem * var(--pbr-heading-scale)); font-weight: var(--pbr-heading-font-weight); }
+.pbr-public h4 { font-size: calc(1.25rem * var(--pbr-heading-scale)); font-weight: var(--pbr-heading-font-weight); }
 
 /* Article content (blog/news detail) */
-.prose-pbr p,
-.prose-pbr li {
+.pbr-public .prose-pbr p,
+.pbr-public .prose-pbr li {
   font-size: var(--pbr-article-font-size);
   font-weight: var(--pbr-article-font-weight);
   line-height: var(--pbr-article-line-height);
-}
-
-/* Card titles */
-.card h3,
-.card h4 {
-  font-weight: var(--pbr-card-title-weight);
-}
-
-/* Card text */
-.card p {
-  font-size: var(--pbr-card-text-size);
 }
 
 /* ============================================================
