@@ -274,7 +274,9 @@
 
 /* ============================================================
    Typography settings — controlled by admin via CSS variables
-   IMPORTANT: Only apply to .pbr-public scope (NOT admin panel)
+   IMPORTANT: ONLY apply to .prose-pbr (article content) — NOT
+   to global h1-h6 or p, because that overrides Tailwind text-xs,
+   text-sm etc. in cards, buttons, navigation.
    ============================================================ */
 :root {
   --pbr-body-font-size: 16px;
@@ -289,19 +291,8 @@
   --pbr-card-text-size: 14px;
 }
 
-/* Only apply typography to public website (NOT admin panel) */
-.pbr-public p {
-  font-size: var(--pbr-body-font-size);
-  font-weight: var(--pbr-body-font-weight);
-  line-height: var(--pbr-body-line-height);
-}
-
-.pbr-public h1 { font-size: calc(2.5rem * var(--pbr-heading-scale)); font-weight: var(--pbr-heading-font-weight); }
-.pbr-public h2 { font-size: calc(2rem * var(--pbr-heading-scale)); font-weight: var(--pbr-heading-font-weight); }
-.pbr-public h3 { font-size: calc(1.5rem * var(--pbr-heading-scale)); font-weight: var(--pbr-heading-font-weight); }
-.pbr-public h4 { font-size: calc(1.25rem * var(--pbr-heading-scale)); font-weight: var(--pbr-heading-font-weight); }
-
-/* Article content (blog/news detail) */
+/* ONLY apply typography to article content (.prose-pbr) */
+/* Do NOT override global h1-h6 or p — that breaks Tailwind text-xs etc. */
 .pbr-public .prose-pbr p,
 .pbr-public .prose-pbr li {
   font-size: var(--pbr-article-font-size);
