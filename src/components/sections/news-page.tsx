@@ -9,6 +9,7 @@ import { useStore, formatDate } from "@/lib/store";
 import { useNav } from "@/lib/nav";
 import { T } from "@/lib/i18n/use-translated-text";
 import { LogoSpinner } from "./logo-spinner";
+import { CommentSection } from "./comment-section";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -169,6 +170,9 @@ export function NewsPage() {
               onShare={() => incrementNewsShare(article.id)}
             />
           </div>
+
+          {/* Comments */}
+          <CommentSection articleId={article.id} articleType="news" />
 
           {/* Related */}
           <div className="mt-16 pt-10 border-t border-border">

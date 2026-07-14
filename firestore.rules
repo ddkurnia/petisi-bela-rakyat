@@ -104,6 +104,15 @@ service cloud.firestore {
       allow create: if true;
       allow update, delete: if isAdmin();
     }
+    match /newsletter_subscribers/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+    match /comments/{id} {
+      allow create: if true;
+      allow read: if true;
+      allow update, delete: if isAdmin();
+    }
     match /messages/{id} {
       allow create: if true;
       allow read, update, delete: if isAdmin();

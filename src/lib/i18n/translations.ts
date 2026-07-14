@@ -29,6 +29,7 @@ export const translations = {
     transparency: { id: 'Transparansi', en: 'Transparency', zh: '透明度' },
     proposal: { id: 'Proposal', en: 'Proposal', zh: '提案' },
     contact: { id: 'Kontak', en: 'Contact', zh: '联系' },
+    faq: { id: 'FAQ', en: 'FAQ', zh: '常见问题' },
     // About submenu
     ourStory: { id: 'Cerita Kami', en: 'Our Story', zh: '我们的故事' },
     visionMission: { id: 'Visi & Misi', en: 'Vision & Mission', zh: '愿景与使命' },

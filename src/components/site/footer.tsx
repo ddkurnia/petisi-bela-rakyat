@@ -6,6 +6,7 @@ import { Facebook, Instagram, Twitter, Youtube, Mail, MapPin, ArrowRight, Clock,
 import { Logo } from "@/components/logo";
 import { useStore } from "@/lib/store";
 import { useLang } from "@/lib/i18n/context";
+import { NewsletterForm } from "./newsletter-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -57,6 +58,9 @@ export function Footer() {
               <p className="mt-2 text-white/70 text-sm md:text-base">
                 {t("footer.getLatest")}
               </p>
+              <div className="mt-4">
+                <NewsletterForm />
+              </div>
             </motion.div>
             <div className="flex flex-col sm:flex-row gap-3 md:justify-end">
               <Link href="/kampanye">

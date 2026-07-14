@@ -4,6 +4,7 @@ import { Header } from "@/components/site/header";
 import { Footer } from "@/components/site/footer";
 import { PWAInstallPrompt } from "@/components/pwa/install-prompt";
 import { FloatingActions } from "@/components/pwa/floating-actions";
+import { CookieConsent } from "@/components/site/cookie-consent";
 import { NavProvider } from "@/lib/nav";
 import { useVisitorTracker } from "@/hooks/use-visitor-tracker";
 
@@ -23,6 +24,7 @@ export default function PublicLayout({
         <Footer />
         <PWAInstallPrompt />
         <FloatingActions />
+        <CookieConsent />
       </div>
     </NavProvider>
   );

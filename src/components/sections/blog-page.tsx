@@ -9,6 +9,7 @@ import { useStore, formatDate } from "@/lib/store";
 import { useNav } from "@/lib/nav";
 import { T, useTranslatedText } from "@/lib/i18n/use-translated-text";
 import { LogoSpinner } from "./logo-spinner";
+import { CommentSection } from "./comment-section";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -195,6 +196,9 @@ export function BlogPage() {
               onShare={() => incrementBlogShare(post.id)}
             />
           </div>
+
+          {/* Comments */}
+          <CommentSection articleId={post.id} articleType="blog" />
 
           {/* Related */}
           {related.length > 0 && (

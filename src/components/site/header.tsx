@@ -4,11 +4,12 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Menu, X, PenLine, Sun, Moon, ChevronDown, Users, Building2, Crown, Heart, History, Target } from "lucide-react";
+import { Menu, X, PenLine, Sun, Moon, ChevronDown, Users, Building2, Crown, Heart, History, Target, Search } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { LanguageSwitcher } from "./language-switcher";
+import { GlobalSearch } from "./global-search";
 import { useLang } from "@/lib/i18n/context";
 import { Logo } from "@/components/logo";
 import {
@@ -30,6 +31,7 @@ const mainMenu: { key: string; href: string }[] = [
   { key: "nav.gallery", href: "/galeri" },
   { key: "nav.transparency", href: "/transparansi" },
   { key: "nav.contact", href: "/kontak" },
+  { key: "nav.faq", href: "/faq" },
 ];
 
 const aboutSubmenu = [
@@ -54,6 +56,7 @@ export function Header() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const { theme, setTheme } = useTheme();
   const { t } = useLang();
   const [mounted, setMounted] = useState(false);
@@ -141,6 +144,18 @@ export function Header() {
 
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <LanguageSwitcher compact />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full h-9 w-9"
+            onClick={() => setSearchOpen(true)}
+            aria-label="Search"
+          >
+            <Search className="h-4 w-4" />
+          </Button>
+
+          <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
 
           <Button
             variant="ghost"
