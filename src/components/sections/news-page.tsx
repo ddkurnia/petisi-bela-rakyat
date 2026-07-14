@@ -8,7 +8,7 @@ import { SectionHeading } from "./section-heading";
 import { useStore, formatDate } from "@/lib/store";
 import { useNav } from "@/lib/nav";
 import { T } from "@/lib/i18n/use-translated-text";
-import { LoadingState } from "./loading-state";
+import { LogoSpinner } from "./logo-spinner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -70,7 +70,7 @@ export function NewsPage() {
     const article = news.find((n) => n.slug === newsSlug);
     // Show loading while Firestore data hasn't arrived yet
     if (!article && !newsLoaded) {
-      return <LoadingState />;
+      return <LogoSpinner />;
     }
     // Data loaded but article not found → genuinely not found
     if (!article) {

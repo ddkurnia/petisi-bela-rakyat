@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { Reveal } from "@/components/animation";
 import { SectionHeading } from "./section-heading";
 import { useStore } from "@/lib/store";
-import { LoadingState } from "./loading-state";
+import { LogoSpinner } from "./logo-spinner";
 import { useNav } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -93,7 +93,7 @@ export function WorkPage() {
     const w = work.find((x) => x.slug === workSlug);
     // Show loading while Firestore data hasn't arrived yet
     if (!w && !workLoaded) {
-      return <LoadingState />;
+      return <LogoSpinner />;
     }
     // Data loaded but work not found → genuinely not found
     if (!w) {

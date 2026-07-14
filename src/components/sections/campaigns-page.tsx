@@ -8,7 +8,7 @@ import { SectionHeading } from "./section-heading";
 import { useStore } from "@/lib/store";
 import { PetitionSignForm } from "./petition-sign-form";
 import { T } from "@/lib/i18n/use-translated-text";
-import { LoadingState } from "./loading-state";
+import { LogoSpinner } from "./logo-spinner";
 import { useNav } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -35,7 +35,7 @@ export function CampaignsPage() {
     const c = campaigns.find((x) => x.slug === campaignSlug);
     // Show loading while Firestore data hasn't arrived yet
     if (!c && !campaignsLoaded) {
-      return <LoadingState />;
+      return <LogoSpinner />;
     }
     // Data loaded but campaign not found → genuinely not found
     if (!c) {

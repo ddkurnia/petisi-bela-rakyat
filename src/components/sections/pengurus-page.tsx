@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ShareButtons } from "@/components/share-buttons";
-import { LoadingState } from "./loading-state";
+import { LogoSpinner } from "./logo-spinner";
 
 export function PengurusPage() {
   const { navigate, pengurusSlug } = useNav();
@@ -25,7 +25,7 @@ export function PengurusPage() {
     const member = pengurus.find((p) => p.slug === pengurusSlug);
     // Show loading while Firestore data hasn't arrived yet
     if (!member && !pengurusLoaded) {
-      return <LoadingState />;
+      return <LogoSpinner />;
     }
     // Data loaded but member not found → genuinely not found
     if (!member) {
