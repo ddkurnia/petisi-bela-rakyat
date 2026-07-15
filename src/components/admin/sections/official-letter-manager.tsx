@@ -117,8 +117,8 @@ export function OfficialLetterManager() {
     try {
       const token = await fbUser.getIdToken();
       const [lettersRes, instRes] = await Promise.all([
-        fetch(`/api/official-letters?search=${search}&status=${statusFilter}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/institutions', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/official-letters?search=${search}&status=${statusFilter}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }),
+        fetch('/api/institutions', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }),
       ]);
       const lettersData = await lettersRes.json();
       const instData = await instRes.json();
@@ -148,6 +148,7 @@ export function OfficialLetterManager() {
       const res = await fetch('/api/official-letters', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        cache: 'no-store',
         body: JSON.stringify({ action, letterData }),
       });
       const data = await res.json();
@@ -167,28 +168,45 @@ export function OfficialLetterManager() {
     const fbUser = getCurrentFirebaseUser();
     if (!fbUser) return;
     const token = await fbUser.getIdToken();
-    await fetch(`/api/official-letters?id=${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    await fetch(`/api/official-letters?id=${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
     toast.success('Surat dihapus');
-    fetchData();
+    await fetchData();
   };
 
   const handleAddInstitution = async (inst: any) => {
     const fbUser = getCurrentFirebaseUser();
-    if (!fbUser) return;
+    if (!fbUser) { toast.error('Sesi berakhir'); return; }
     const token = await fbUser.getIdToken();
-    const res = await fetch('/api/institutions', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(inst) });
-    const data = await res.json();
-    if (data.ok) { toast.success('Instansi ditambahkan'); fetchData(); }
-    else toast.error(data.error || 'Gagal');
+    try {
+      const res = await fetch('/api/institutions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+        body: JSON.stringify(inst),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success('Instansi ditambahkan');
+        // Small delay to allow Firestore consistency
+        await new Promise((r) => setTimeout(r, 500));
+        await fetchData();
+      } else {
+        toast.error(data.error || 'Gagal menambahkan instansi');
+      }
+    } catch (e) {
+      console.error('add institution error', e);
+      toast.error('Gagal menambahkan instansi');
+    }
   };
 
   const handleDeleteInstitution = async (id: string) => {
     const fbUser = getCurrentFirebaseUser();
     if (!fbUser) return;
     const token = await fbUser.getIdToken();
-    await fetch(`/api/institutions?id=${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    await fetch(`/api/institutions?id=${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
     toast.success('Instansi dihapus');
-    fetchData();
+    await new Promise((r) => setTimeout(r, 300));
+    await fetchData();
   };
 
   return (
@@ -671,13 +689,23 @@ function InstitutionManager({ institutions, onAdd, onDelete }: {
   const [form, setForm] = useState<Institution>({ name: '', email: '', website: '', phone: '', address: '', category: 'lainnya' });
   const [filter, setFilter] = useState('all');
 
+  const [saving, setSaving] = useState(false);
+
   const filtered = filter === 'all' ? institutions : institutions.filter((i) => i.category === filter);
 
-  const save = () => {
+  const save = async () => {
     if (!form.name || !form.email) { toast.error('Nama dan email wajib'); return; }
-    onAdd(form);
-    setForm({ name: '', email: '', website: '', phone: '', address: '', category: 'lainnya' });
-    setShowForm(false);
+    if (saving) return;
+    setSaving(true);
+    try {
+      await onAdd(form);
+      setForm({ name: '', email: '', website: '', phone: '', address: '', category: 'lainnya' });
+      setShowForm(false);
+    } catch (e) {
+      console.error('save institution error', e);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -761,8 +789,8 @@ function InstitutionManager({ institutions, onAdd, onDelete }: {
           </div>
           <DialogFooter>
             <Button variant="outline" className="rounded-full" onClick={() => setShowForm(false)}>Batal</Button>
-            <Button className="bg-primary hover:bg-primary/90 text-white rounded-full" onClick={save}>
-              <Save className="h-4 w-4 mr-1" /> Simpan
+            <Button className="bg-primary hover:bg-primary/90 text-white rounded-full" onClick={save} disabled={saving}>
+              <Save className="h-4 w-4 mr-1" /> {saving ? 'Menyimpan...' : 'Simpan'}
             </Button>
           </DialogFooter>
         </DialogContent>
