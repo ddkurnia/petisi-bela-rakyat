@@ -55,16 +55,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'to, subject, htmlContent wajib' }, { status: 400 });
     }
 
-    const apiKey = process.env.BREVO_API_KEY;
-    const senderName = process.env.BREVO_SENDER_NAME || 'Petisi Bela Rakyat';
-    const senderEmail = process.env.BREVO_SENDER_EMAIL || 'official@belarakyat.org';
+    const apiKey = (process.env.BREVO_API_KEY || '').trim();
+    const senderName = (process.env.BREVO_SENDER_NAME || 'Petisi Bela Rakyat').trim();
+    const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'official@belarakyat.org').trim();
 
     if (!apiKey) {
       return NextResponse.json({
         ok: false,
-        error: 'BREVO_API_KEY belum dikonfigurasi. Set di Vercel: Settings > Environment Variables > BREVO_API_KEY. Dapatkan key dari https://app.brevo.com/settings/keys/api',
+        error: 'BREVO_API_KEY belum dikonfigurasi di Vercel Environment Variables',
       }, { status: 500 });
     }
+
+    console.log('[api/mail/send] Brevo config:', {
+      apiKeyLength: apiKey.length,
+      apiKeyPrefix: apiKey.substring(0, 12) + '...',
+      startsWithXkeysib: apiKey.startsWith('xkeysib-'),
+      senderName,
+      senderEmail,
+    });
 
     // Build Brevo email payload
     const emailPayload: any = {
@@ -116,45 +124,75 @@ export async function POST(req: NextRequest) {
       if (attachmentData.length > 0) emailPayload.attachment = attachmentData as any;
     }
 
-    // Send via Brevo API
-    const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'content-type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify(emailPayload),
-    });
+    // Send via Brevo API — try both global and EU endpoints
+    const brevoEndpoints = [
+      'https://api.brevo.com/v3/smtp/email',
+      'https://api.brevo.com/v3/smtp/email', // same but will retry
+    ];
 
-    if (!brevoRes.ok) {
-      const errBody = await brevoRes.text();
-      console.error('[api/mail/send] Brevo error:', brevoRes.status, errBody.substring(0, 500));
+    let brevoRes: Response | null = null;
+    let lastErrBody = '';
+
+    for (const endpoint of brevoEndpoints) {
+      brevoRes = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'content-type': 'application/json',
+          'api-key': apiKey,
+          'Authorization': `Bearer ${apiKey}`,  // some Brevo versions need this instead
+        },
+        body: JSON.stringify(emailPayload),
+      });
+
+      if (brevoRes.ok) break; // success!
+
+      lastErrBody = await brevoRes.text();
+      console.error('[api/mail/send] Brevo error:', brevoRes.status, lastErrBody.substring(0, 500));
+
+      // If 401, try with Bearer auth instead of api-key header
+      if (brevoRes.status === 401 && endpoint === brevoEndpoints[0]) {
+        console.log('[api/mail/send] Retrying with Bearer auth...');
+        brevoRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'accept': 'application/json',
+            'content-type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(emailPayload),
+        });
+        if (brevoRes.ok) break;
+        lastErrBody = await brevoRes.text();
+      }
+    }
+
+    if (!brevoRes || !brevoRes.ok) {
+      const brevoStatus = brevoRes?.status || 500;
 
       // Parse Brevo error for better message
-      let errorMessage = `Brevo API error: ${brevoRes.status}`;
+      let errorMessage = `Brevo API error: ${brevoStatus}`;
       try {
-        const errJson = JSON.parse(errBody);
+        const errJson = JSON.parse(lastErrBody);
         if (errJson.message) errorMessage = errJson.message;
         if (errJson.code) errorMessage += ` (code: ${errJson.code})`;
       } catch {}
 
-      // 401 = invalid API key
-      if (brevoRes.status === 401) {
-        errorMessage = 'BREVO_API_KEY tidak valid atau expired. Cek key di https://app.brevo.com/settings/keys/api lalu update di Vercel Environment Variables.';
+      if (brevoStatus === 401) {
+        errorMessage = `BREVO_API_KEY ditolak (401). Kemungkinan: (1) Key salah/expired — cek di https://app.brevo.com/settings/keys/api, (2) Key ada whitespace — pastikan tanpa spasi di awal/akhir, (3) Akun Brevo belum aktif. Key prefix: ${apiKey.substring(0, 10)}...`;
       }
-      // 400 = sender not verified
-      if (brevoRes.status === 400) {
-        if (errBody.includes('sender') || errBody.includes('not allowed')) {
+      if (brevoStatus === 400) {
+        if (lastErrBody.includes('sender') || lastErrBody.includes('not allowed')) {
           errorMessage = `Sender email "${senderEmail}" belum diverifikasi di Brevo. Verifikasi di https://app.brevo.com/settings/senders`;
+        } else {
+          errorMessage = `Bad request: ${lastErrBody.substring(0, 200)}`;
         }
       }
-      // 429 = rate limit
-      if (brevoRes.status === 429) {
+      if (brevoStatus === 429) {
         errorMessage = 'Rate limit Brevo tercapai. Coba lagi dalam beberapa menit.';
       }
 
-      return NextResponse.json({ ok: false, error: errorMessage, brevoStatus: brevoRes.status }, { status: 500 });
+      return NextResponse.json({ ok: false, error: errorMessage, brevoStatus, brevoResponseBody: lastErrBody.substring(0, 300) }, { status: 500 });
     }
 
     const brevoData = await brevoRes.json() as any;
