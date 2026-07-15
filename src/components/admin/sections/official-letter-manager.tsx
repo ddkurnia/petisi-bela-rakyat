@@ -116,12 +116,14 @@ export function OfficialLetterManager() {
     if (!fbUser) return;
     try {
       const token = await fbUser.getIdToken();
+      const ts = Date.now(); // cache buster
       const [lettersRes, instRes] = await Promise.all([
-        fetch(`/api/official-letters?search=${search}&status=${statusFilter}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }),
-        fetch('/api/institutions', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }),
+        fetch(`/api/official-letters?search=${search}&status=${statusFilter}&_t=${ts}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }),
+        fetch(`/api/institutions?_t=${ts}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }),
       ]);
       const lettersData = await lettersRes.json();
       const instData = await instRes.json();
+      console.log('[OfficialLetter] fetchData letters:', lettersData.ok, lettersData.letters?.length, 'institutions:', instData.ok, instData.institutions?.length);
       if (lettersData.ok) setLetters(lettersData.letters || []);
       if (instData.ok) setInstitutions(instData.institutions || []);
     } catch (e) { console.error('fetch error', e); }
