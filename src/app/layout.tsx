@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorkerRegister } from "@/components/pwa/install-prompt";
 import { LanguageProvider } from "@/lib/i18n/context";
 import { TypographyApplier } from "@/components/typography-applier";
+import { SplashScreen } from "@/components/splash-screen";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -214,6 +215,7 @@ export default function RootLayout({
           disableTransitionOnChange={false}
         >
           <LanguageProvider>
+            <SplashScreen />
             <TypographyApplier />
             {children}
           <ServiceWorkerRegister />
