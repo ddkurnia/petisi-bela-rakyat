@@ -61,7 +61,7 @@ export const rolePermissions: Record<Role, string[]> = {
   super_admin: ["*"],
   admin: [
     "dashboard", "homepage", "team", "pengurus", "orgstructure", "penasehat", "relawan",
-    "blog", "news", "campaigns", "supporters", "media", "transparency", "proposals", "typography", "settings",
+    "blog", "news", "campaigns", "supporters", "media", "transparency", "proposals", "typography", "maintenance", "settings",
   ],
   editor: ["dashboard", "blog", "news"],
 };
@@ -101,6 +101,13 @@ const DEFAULT_SETTINGS: SiteSettings = {
     articleLineHeight: 1.8,
     cardTitleWeight: 700,
     cardTextSize: 14,
+  },
+  maintenance: {
+    enabled: false,
+    title: "Sedang Pemeliharaan",
+    message: "Website Petisi Bela Rakyat saat ini sedang dalam pemeliharaan untuk meningkatkan layanan. Kami akan kembali secepatnya.",
+    estimatedTime: "",
+    allowAdminAccess: true,
   },
 };
 

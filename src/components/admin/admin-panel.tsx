@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, Newspaper, Megaphone, ImageIcon,
   Wallet, Settings, LogOut, Menu, X, Lock, Mail, Plus, Pencil, Trash2,
   Save, BarChart3, HeartHandshake, ExternalLink, Crown, Building2,
-  ShieldCheck, Briefcase, UserCog, Smartphone, HandHeart, Type,
+  ShieldCheck, Briefcase, UserCog, Smartphone, HandHeart, Type, Wrench,
 } from "lucide-react";
 import { useStore, canAccess, type Role } from "@/lib/store";
 import { useRouter } from "next/navigation";
@@ -40,11 +40,12 @@ import { SettingsManager } from "./sections/settings-manager";
 import { MobileAppManager } from "./sections/mobile-app-manager";
 import { ProposalManager } from "./sections/proposal-manager";
 import { TypographyManager } from "./sections/typography-manager";
+import { MaintenanceManager } from "./sections/maintenance-manager";
 
 export type AdminSection =
   | "dashboard" | "homepage" | "pengurus" | "penasehat" | "relawan"
   | "blog" | "news" | "campaigns" | "supporters" | "media"
-  | "transparency" | "settings" | "mobileapp" | "proposals" | "typography";
+  | "transparency" | "settings" | "mobileapp" | "proposals" | "typography" | "maintenance";
 
 const menuItems: { id: AdminSection; label: string; icon: React.ElementType; roles: Role[] }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["super_admin", "admin", "editor"] },
@@ -61,6 +62,7 @@ const menuItems: { id: AdminSection; label: string; icon: React.ElementType; rol
   { id: "proposals", label: "Proposal & Donasi", icon: HandHeart, roles: ["super_admin", "admin"] },
   { id: "mobileapp", label: "Mobile App", icon: Smartphone, roles: ["super_admin", "admin"] },
   { id: "typography", label: "Tipografi", icon: Type, roles: ["super_admin", "admin"] },
+  { id: "maintenance", label: "Maintenance", icon: Wrench, roles: ["super_admin"] },
   { id: "settings", label: "Pengaturan Situs", icon: ShieldCheck, roles: ["super_admin"] },
 ];
 
@@ -317,6 +319,7 @@ export function AdminPanel() {
               {section === "transparency" && <TransparencyManager />}
               {section === "mobileapp" && <MobileAppManager />}
               {section === "typography" && <TypographyManager />}
+              {section === "maintenance" && <MaintenanceManager />}
               {section === "proposals" && <ProposalManager />}
               {section === "settings" && <SettingsManager />}
             </motion.div>

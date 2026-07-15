@@ -217,6 +217,16 @@ export interface SiteSettings {
   socials: SocialLink[];
   footer: FooterSettings;
   typography?: TypographySettings;
+  maintenance?: MaintenanceSettings;
+}
+
+export interface MaintenanceSettings {
+  enabled: boolean;
+  title: string;
+  message: string;
+  estimatedTime: string;
+  allowAdminAccess: boolean;
+  updatedAt?: string;
 }
 
 export interface Message {
