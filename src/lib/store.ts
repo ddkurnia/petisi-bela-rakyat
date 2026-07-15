@@ -61,9 +61,9 @@ export const rolePermissions: Record<Role, string[]> = {
   super_admin: ["*"],
   admin: [
     "dashboard", "homepage", "team", "pengurus", "orgstructure", "penasehat", "relawan",
-    "blog", "news", "campaigns", "supporters", "media", "transparency", "proposals", "typography", "maintenance", "settings",
+    "blog", "news", "campaigns", "supporters", "media", "transparency", "proposals", "typography", "maintenance", "letters", "settings",
   ],
-  editor: ["dashboard", "blog", "news"],
+  editor: ["dashboard", "blog", "news", "letters"],
 };
 
 export function canAccess(role: Role, section: string): boolean {

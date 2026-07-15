@@ -56,6 +56,8 @@ export const COLLECTIONS = {
   USERS: 'users',
   PROPOSALS: 'proposals',
   PETITION_SIGNATURES: 'petition_signatures',
+  OFFICIAL_LETTERS: 'official_letters',
+  INSTITUTIONS: 'institutions',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

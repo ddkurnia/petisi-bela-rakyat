@@ -229,6 +229,53 @@ export interface MaintenanceSettings {
   updatedAt?: string;
 }
 
+// ============================================================
+// Surat Resmi (Official Letters)
+// ============================================================
+export type LetterStatus = 'draft' | 'sent' | 'failed' | 'opened' | 'replied';
+export type LetterPriority = 'normal' | 'important' | 'urgent';
+export type LetterTemplateType = 'permohonan' | 'pengaduan' | 'audiensi' | 'petisi' | 'keberatan' | 'klarifikasi' | 'permintaan_informasi' | 'lainnya';
+
+export interface OfficialLetter {
+  id?: string;
+  letterNumber: string;
+  institution: string;
+  recipientName: string;
+  recipientEmail: string;
+  cc?: string[];
+  bcc?: string[];
+  subject: string;
+  content: string;          // HTML from Rich Text Editor
+  attachments: LetterAttachment[];
+  priority: LetterPriority;
+  templateType: LetterTemplateType;
+  status: LetterStatus;
+  opened: boolean;
+  replied: boolean;
+  createdAt?: string;
+  sentAt?: string;
+  openedAt?: string;
+  replyAt?: string;
+  createdBy?: string;
+}
+
+export interface LetterAttachment {
+  name: string;
+  url: string;
+  size: number;
+  type: string;
+}
+
+export interface Institution {
+  id?: string;
+  name: string;
+  email: string;
+  website?: string;
+  phone?: string;
+  address?: string;
+  category: string;  // dpr, presiden, kementerian, gubernur, bupati, ombudsman, komnas, lainnya
+}
+
 export interface Message {
   id?: string;
   name: string;

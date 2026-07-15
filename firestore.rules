@@ -113,6 +113,13 @@ service cloud.firestore {
       allow read: if true;
       allow update, delete: if isAdmin();
     }
+    match /official_letters/{id} {
+      allow read, write: if isAdmin();
+    }
+    match /institutions/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
     match /messages/{id} {
       allow create: if true;
       allow read, update, delete: if isAdmin();

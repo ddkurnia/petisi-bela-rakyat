@@ -4,9 +4,9 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Users, FileText, Newspaper, Megaphone, ImageIcon,
-  Wallet, Settings, LogOut, Menu, X, Lock, Mail, Plus, Pencil, Trash2,
+  Wallet, Settings, LogOut, Menu, X, Lock, Mail as MailIcon, Plus, Pencil, Trash2,
   Save, BarChart3, HeartHandshake, ExternalLink, Crown, Building2,
-  ShieldCheck, Briefcase, UserCog, Smartphone, HandHeart, Type, Wrench,
+  ShieldCheck, Briefcase, UserCog, Smartphone, HandHeart, Type, Wrench, Mail,
 } from "lucide-react";
 import { useStore, canAccess, type Role } from "@/lib/store";
 import { useRouter } from "next/navigation";
@@ -41,11 +41,12 @@ import { MobileAppManager } from "./sections/mobile-app-manager";
 import { ProposalManager } from "./sections/proposal-manager";
 import { TypographyManager } from "./sections/typography-manager";
 import { MaintenanceManager } from "./sections/maintenance-manager";
+import { OfficialLetterManager } from "./sections/official-letter-manager";
 
 export type AdminSection =
   | "dashboard" | "homepage" | "pengurus" | "penasehat" | "relawan"
   | "blog" | "news" | "campaigns" | "supporters" | "media"
-  | "transparency" | "settings" | "mobileapp" | "proposals" | "typography" | "maintenance";
+  | "transparency" | "settings" | "mobileapp" | "proposals" | "typography" | "maintenance" | "letters";
 
 const menuItems: { id: AdminSection; label: string; icon: React.ElementType; roles: Role[] }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["super_admin", "admin", "editor"] },
@@ -60,6 +61,7 @@ const menuItems: { id: AdminSection; label: string; icon: React.ElementType; rol
   { id: "media", label: "Kelola Media", icon: ImageIcon, roles: ["super_admin", "admin"] },
   { id: "transparency", label: "Kelola Transparansi", icon: Wallet, roles: ["super_admin", "admin"] },
   { id: "proposals", label: "Proposal & Donasi", icon: HandHeart, roles: ["super_admin", "admin"] },
+  { id: "letters", label: "Surat Resmi", icon: Mail, roles: ["super_admin", "admin", "editor"] },
   { id: "mobileapp", label: "Mobile App", icon: Smartphone, roles: ["super_admin", "admin"] },
   { id: "typography", label: "Tipografi", icon: Type, roles: ["super_admin", "admin"] },
   { id: "maintenance", label: "Maintenance", icon: Wrench, roles: ["super_admin"] },
@@ -320,6 +322,7 @@ export function AdminPanel() {
               {section === "mobileapp" && <MobileAppManager />}
               {section === "typography" && <TypographyManager />}
               {section === "maintenance" && <MaintenanceManager />}
+              {section === "letters" && <OfficialLetterManager />}
               {section === "proposals" && <ProposalManager />}
               {section === "settings" && <SettingsManager />}
             </motion.div>
