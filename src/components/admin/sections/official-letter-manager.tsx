@@ -154,12 +154,17 @@ export function OfficialLetterManager() {
         body: JSON.stringify({ action, letterData }),
       });
       const data = await res.json();
-      console.log('[OfficialLetter] send response:', data);
+      console.log('[OfficialLetter] send response:', JSON.stringify(data));
       if (data.ok) {
         if (action === 'send' && data.status === 'sent') {
-          toast.success(`Surat ${data.letterNumber} berhasil dikirim ke ${letterData.recipientEmail}!`);
+          toast.success(`Surat ${data.letterNumber} berhasil dikirim ke ${letterData.recipientEmail}!`, {
+            description: data.brevoMessageId ? `Brevo ID: ${data.brevoMessageId}` : undefined,
+            duration: 8000,
+          });
         } else if (action === 'send' && data.status === 'failed') {
-          toast.error(`Surat ${data.letterNumber} tersimpan tapi GAGAL dikirim: ${data.error || 'Unknown error'}`);
+          toast.error(`Surat ${data.letterNumber} GAGAL dikirim: ${data.error || 'Unknown error'}`, {
+            duration: 15000,
+          });
         } else {
           toast.success(`Draft ${data.letterNumber} tersimpan`);
         }

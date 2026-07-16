@@ -204,6 +204,7 @@ export async function POST(req: NextRequest) {
     const letterId = result.name?.split('/').pop();
 
     // If action is 'send', send email DIRECTLY via Brevo API (no internal fetch)
+    let brevoMessageId = '';
     if (action === 'send') {
       try {
         const apiKey = (process.env.BREVO_API_KEY || '').trim();
@@ -211,7 +212,6 @@ export async function POST(req: NextRequest) {
         const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'official@belarakyat.org').trim();
 
         if (!apiKey) {
-          // Update status to failed
           await updateLetterStatus(sa, tokenResult.token, letterId!, 'failed', now);
           return NextResponse.json({ ok: false, error: 'BREVO_API_KEY belum dikonfigurasi', letterId }, { status: 500 });
         }
@@ -246,6 +246,14 @@ export async function POST(req: NextRequest) {
           if (attachmentData.length > 0) emailPayload.attachment = attachmentData as any;
         }
 
+        console.log('[official-letters] Sending to Brevo:', {
+          to: letterData.recipientEmail,
+          subject: emailPayload.subject,
+          sender: emailPayload.sender,
+          hasContent: !!letterData.content,
+          contentLength: (letterData.content || '').length,
+        });
+
         // Send directly to Brevo API
         const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
@@ -257,20 +265,20 @@ export async function POST(req: NextRequest) {
           body: JSON.stringify(emailPayload),
         });
 
+        const brevoResBody = await brevoRes.text();
+        console.log('[official-letters] Brevo response:', brevoRes.status, brevoResBody.substring(0, 300));
+
         if (!brevoRes.ok) {
-          const errBody = await brevoRes.text();
-          console.error('[official-letters] Brevo error:', brevoRes.status, errBody.substring(0, 300));
-
           let errorMsg = `Brevo error ${brevoRes.status}`;
-          try { const e = JSON.parse(errBody); if (e.message) errorMsg = e.message; } catch {}
+          try { const e = JSON.parse(brevoResBody); if (e.message) errorMsg = e.message; } catch {}
 
-          // Update status to failed
           await updateLetterStatus(sa, tokenResult.token, letterId!, 'failed', now);
-          return NextResponse.json({ ok: false, error: `Gagal kirim email: ${errorMsg}`, letterId }, { status: 500 });
+          return NextResponse.json({ ok: false, error: `Gagal kirim email: ${errorMsg}`, letterId, brevoResponse: brevoResBody.substring(0, 200) }, { status: 500 });
         }
 
-        const brevoData = await brevoRes.json() as any;
-        console.log('[official-letters] Email sent successfully:', brevoData.messageId);
+        const brevoData = JSON.parse(brevoResBody);
+        brevoMessageId = brevoData.messageId || '';
+        console.log('[official-letters] Email sent! messageId:', brevoMessageId);
 
       } catch (emailErr: any) {
         console.error('[official-letters] email send error:', emailErr?.message);
@@ -279,7 +287,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok: true, letterId, letterNumber, status: newLetter.status });
+    return NextResponse.json({ ok: true, letterId, letterNumber, status: newLetter.status, brevoMessageId });
   } catch (err: any) {
     console.error('[api/official-letters POST] error:', err?.message);
     return NextResponse.json({ ok: false, error: 'Server error' }, { status: 500 });
