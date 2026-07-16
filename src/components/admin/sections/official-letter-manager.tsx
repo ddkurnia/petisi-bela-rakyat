@@ -154,15 +154,25 @@ export function OfficialLetterManager() {
         body: JSON.stringify({ action, letterData }),
       });
       const data = await res.json();
+      console.log('[OfficialLetter] send response:', data);
       if (data.ok) {
-        toast.success(action === 'send' ? `Surat ${data.letterNumber} berhasil dikirim!` : `Draft ${data.letterNumber} tersimpan`);
+        if (action === 'send' && data.status === 'sent') {
+          toast.success(`Surat ${data.letterNumber} berhasil dikirim ke ${letterData.recipientEmail}!`);
+        } else if (action === 'send' && data.status === 'failed') {
+          toast.error(`Surat ${data.letterNumber} tersimpan tapi GAGAL dikirim: ${data.error || 'Unknown error'}`);
+        } else {
+          toast.success(`Draft ${data.letterNumber} tersimpan`);
+        }
         setShowCompose(false);
         setEditingLetter(null);
         fetchData();
       } else {
-        toast.error(data.error || 'Gagal');
+        toast.error(data.error || 'Gagal menyimpan surat');
       }
-    } catch { toast.error('Gagal'); }
+    } catch (e: any) {
+      console.error('[OfficialLetter] send error:', e);
+      toast.error('Gagal: ' + (e?.message || 'Network error'));
+    }
   };
 
   const handleDelete = async (id: string) => {
