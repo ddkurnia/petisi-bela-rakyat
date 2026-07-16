@@ -217,11 +217,19 @@ export async function POST(req: NextRequest) {
         }
 
         // Build Brevo email payload directly
+        // replyTo: balasan dari penerima akan masuk ke email admin
+        const replyToEmail = process.env.BREVO_REPLY_TO_EMAIL || senderEmail;
         const emailPayload: any = {
           sender: { name: senderName, email: senderEmail },
+          replyTo: { name: senderName, email: replyToEmail },
           to: [{ email: letterData.recipientEmail }],
           subject: `${letterNumber} — ${letterData.subject}`,
-          htmlContent: `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;color:#111827;"><div style="border-bottom:3px solid #D62828;padding-bottom:15px;margin-bottom:20px;"><img src="https://belarakyat.org/pbr.png" alt="PBR" style="height:50px;"></div>${letterData.content || ''}<div style="border-top:2px solid #e5e7eb;margin-top:30px;padding-top:15px;font-size:12px;color:#6b7280;"><p><strong>Petisi Bela Rakyat</strong><br>Menyatukan Suara Rakyat Menjadi Perubahan<br>Email: ${senderEmail} | Web: https://belarakyat.org</p></div></body></html>`,
+          htmlContent: `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;color:#111827;"><div style="border-bottom:3px solid #D62828;padding-bottom:15px;margin-bottom:20px;"><img src="https://belarakyat.org/pbr.png" alt="PBR" style="height:50px;"></div>${letterData.content || ''}<div style="border-top:2px solid #e5e7eb;margin-top:30px;padding-top:15px;font-size:12px;color:#6b7280;"><p><strong>Petisi Bela Rakyat</strong><br>Menyatukan Suara Rakyat Menjadi Perubahan<br>Email: ${senderEmail} | Web: https://belarakyat.org<br><br>Balas email ini untuk merespons surat resmi.</p></div></body></html>`,
+          tags: ['surat-resmi', letterNumber],
+          headers: {
+            'X-Letter-Number': letterNumber,
+            'X-PBR-Letter': 'official',
+          },
         };
 
         if (letterData.cc && letterData.cc.length > 0) {

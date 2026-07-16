@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail, Send, FileText, Plus, Trash2, Edit, Eye, Search,
-  Building2, Users, Clock, CheckCircle2, XCircle, AlertCircle,
+  Building2, Users, Clock, CheckCircle2, XCircle, AlertCircle, ExternalLink,
   Save, Upload, X, ChevronLeft, Filter, Download, Star,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
@@ -97,7 +97,7 @@ const INSTITUTION_CATEGORIES = [
 // ============================================================
 // Main Component
 // ============================================================
-type Tab = 'dashboard' | 'compose' | 'history' | 'contacts';
+type Tab = 'dashboard' | 'compose' | 'history' | 'contacts' | 'replies';
 
 export function OfficialLetterManager() {
   const currentUser = useStore((s) => s.currentUser);
@@ -250,6 +250,7 @@ export function OfficialLetterManager() {
           { id: 'dashboard', label: 'Dashboard', icon: FileText },
           { id: 'history', label: 'Riwayat', icon: Clock },
           { id: 'contacts', label: 'Kontak Instansi', icon: Building2 },
+          { id: 'replies', label: 'Balasan', icon: Mail },
         ] as { id: Tab; label: string; icon: any }[]).map((t) => {
           const Icon = t.icon;
           return (
@@ -414,6 +415,99 @@ export function OfficialLetterManager() {
           onAdd={handleAddInstitution}
           onDelete={handleDeleteInstitution}
         />
+      )}
+
+      {/* Replies tab */}
+      {tab === 'replies' && (
+        <Card className="p-6 border-0 shadow-lg space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Mail className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-heading font-bold">Balasan Surat</h3>
+              <p className="text-xs text-muted-foreground">Cek balasan dari instansi penerima</p>
+            </div>
+          </div>
+
+          {/* Info card */}
+          <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-start gap-3">
+              <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-900 dark:text-blue-200 space-y-2">
+                <p className="font-semibold">Cara melihat balasan surat:</p>
+                <ol className="list-decimal pl-4 space-y-1 text-xs">
+                  <li>Balasan dari penerima akan masuk ke email: <strong>official@belarakyat.org</strong></li>
+                  <li>Atau cek langsung di <strong>Brevo Dashboard</strong> → Transactional → Logs</li>
+                  <li>Email balasan juga otomatis di-forward ke reply-to email (jika dikonfigurasi)</li>
+                </ol>
+                <div className="flex gap-2 mt-3">
+                  <a href="https://app.brevo.com/transactional-logs" target="_blank" rel="noopener noreferrer">
+                    <Button size="sm" className="bg-primary hover:bg-primary/90 text-white rounded-full text-xs">
+                      <ExternalLink className="h-3 w-3 mr-1" /> Buka Brevo Logs
+                    </Button>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Status legend */}
+          <div className="flex flex-wrap gap-3 text-xs">
+            <div className="flex items-center gap-1.5">
+              <div className="h-2.5 w-2.5 rounded-full bg-blue-500"></div>
+              <span>Terkirim — email berhasil dikirim, menunggu balasan</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-2.5 w-2.5 rounded-full bg-green-500"></div>
+              <span>Dibuka — penerima sudah membuka email</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-2.5 w-2.5 rounded-full bg-purple-500"></div>
+              <span>Dibalas — penerima sudah membalas (cek email)</span>
+            </div>
+          </div>
+
+          {/* Surat yang menunggu balasan */}
+          <div className="space-y-2">
+            <h4 className="font-heading font-bold text-sm">Surat Menunggu Balasan</h4>
+            {letters.filter((l) => l.status === 'sent' || l.status === 'opened').length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">Belum ada surat yang menunggu balasan.</p>
+            ) : (
+              <div className="space-y-2">
+                {letters.filter((l) => l.status === 'sent' || l.status === 'opened').map((l) => (
+                  <div key={l.id} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/40">
+                    <div className="h-9 w-9 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                      <Mail className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-primary">{l.letterNumber}</span>
+                        <Badge variant="outline" className="text-[10px]">{STATUS_MAP[l.status]?.label}</Badge>
+                      </div>
+                      <div className="text-sm font-semibold truncate">{l.subject}</div>
+                      <div className="text-xs text-muted-foreground truncate">{l.institution} → {l.recipientEmail}</div>
+                    </div>
+                    <div className="text-xs text-muted-foreground text-right shrink-0">
+                      {l.sentAt ? new Date(l.sentAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '-'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Setup reply-to info */}
+          <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-900 dark:text-amber-200">
+                <p className="font-semibold mb-1">Setup Email Reply-To (Opsional)</p>
+                <p>Tambahkan env var <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">BREVO_REPLY_TO_EMAIL</code> di Vercel untuk mengarahkan balasan ke email lain (mis. admin@belarakyat.org). Jika tidak di-set, balasan masuk ke sender email.</p>
+              </div>
+            </div>
+          </div>
+        </Card>
       )}
 
       {/* Compose dialog */}
