@@ -54,6 +54,16 @@ async function getAuth(req: NextRequest) {
   try { return await verifyIdToken(token); } catch { return null; }
 }
 
+// Helper: update letter status in Firestore
+async function updateLetterStatus(sa: any, token: string, letterId: string, status: string, now: string) {
+  const patchUrl = `${FIRESTORE_BASE}/projects/${sa.projectId}/databases/(default)/documents/official_letters/${letterId}?updateMask.fieldPaths=status&updateMask.fieldPaths=updatedAt`;
+  await fetch(patchUrl, {
+    method: 'PATCH',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: { status: { stringValue: status }, updatedAt: { timestampValue: now } } }),
+  });
+}
+
 async function firestoreQuery(sa: any, token: string, collection: string, filters: any[] = [], limitN = 100) {
   const url = `${FIRESTORE_BASE}/projects/${sa.projectId}/databases/(default)/documents:runQuery`;
   const body: any = { structuredQuery: { from: [{ collectionId: collection }], limit: limitN } };
@@ -177,35 +187,79 @@ export async function POST(req: NextRequest) {
     const result = await createRes.json() as any;
     const letterId = result.name?.split('/').pop();
 
-    // If action is 'send', trigger email via Brevo
+    // If action is 'send', send email DIRECTLY via Brevo API (no internal fetch)
     if (action === 'send') {
       try {
-        const emailRes = await fetch(new URL('/api/mail/send', req.url).toString(), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': req.headers.get('authorization') || '' },
-          body: JSON.stringify({
-            to: letterData.recipientEmail,
-            cc: letterData.cc,
-            bcc: letterData.bcc,
-            subject: `${letterNumber} — ${letterData.subject}`,
-            htmlContent: letterData.content,
-            attachments: letterData.attachments,
-            letterId,
-          }),
-        });
-        const emailData = await emailRes.json();
-        if (!emailData.ok) {
+        const apiKey = (process.env.BREVO_API_KEY || '').trim();
+        const senderName = (process.env.BREVO_SENDER_NAME || 'Petisi Bela Rakyat').trim();
+        const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'official@belarakyat.org').trim();
+
+        if (!apiKey) {
           // Update status to failed
-          const patchUrl = `${FIRESTORE_BASE}/projects/${sa.projectId}/databases/(default)/documents/official_letters/${letterId}?updateMask.fieldPaths=status&updateMask.fieldPaths=updatedAt`;
-          await fetch(patchUrl, {
-            method: 'PATCH',
-            headers: { 'Authorization': `Bearer ${tokenResult.token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fields: { status: { stringValue: 'failed' }, updatedAt: { timestampValue: now } } }),
-          });
-          return NextResponse.json({ ok: false, error: 'Surat tersimpan tapi gagal dikirim: ' + (emailData.error || 'Email error'), letterId }, { status: 500 });
+          await updateLetterStatus(sa, tokenResult.token, letterId!, 'failed', now);
+          return NextResponse.json({ ok: false, error: 'BREVO_API_KEY belum dikonfigurasi', letterId }, { status: 500 });
         }
+
+        // Build Brevo email payload directly
+        const emailPayload: any = {
+          sender: { name: senderName, email: senderEmail },
+          to: [{ email: letterData.recipientEmail }],
+          subject: `${letterNumber} — ${letterData.subject}`,
+          htmlContent: `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;color:#111827;"><div style="border-bottom:3px solid #D62828;padding-bottom:15px;margin-bottom:20px;"><img src="https://belarakyat.org/pbr.png" alt="PBR" style="height:50px;"></div>${letterData.content || ''}<div style="border-top:2px solid #e5e7eb;margin-top:30px;padding-top:15px;font-size:12px;color:#6b7280;"><p><strong>Petisi Bela Rakyat</strong><br>Menyatukan Suara Rakyat Menjadi Perubahan<br>Email: ${senderEmail} | Web: https://belarakyat.org</p></div></body></html>`,
+        };
+
+        if (letterData.cc && letterData.cc.length > 0) {
+          emailPayload.cc = letterData.cc.map((e: string) => ({ email: e }));
+        }
+        if (letterData.bcc && letterData.bcc.length > 0) {
+          emailPayload.bcc = letterData.bcc.map((e: string) => ({ email: e }));
+        }
+
+        // Handle attachments
+        if (letterData.attachments && letterData.attachments.length > 0) {
+          const attachmentData: { name: string; content: string }[] = [];
+          for (const att of letterData.attachments) {
+            try {
+              const attRes = await fetch(att.url);
+              if (attRes.ok) {
+                const buffer = Buffer.from(await attRes.arrayBuffer());
+                attachmentData.push({ name: att.name, content: buffer.toString('base64') });
+              }
+            } catch (e) { console.error('[official-letters] attachment error:', e); }
+          }
+          if (attachmentData.length > 0) emailPayload.attachment = attachmentData as any;
+        }
+
+        // Send directly to Brevo API
+        const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'accept': 'application/json',
+            'content-type': 'application/json',
+            'api-key': apiKey,
+          },
+          body: JSON.stringify(emailPayload),
+        });
+
+        if (!brevoRes.ok) {
+          const errBody = await brevoRes.text();
+          console.error('[official-letters] Brevo error:', brevoRes.status, errBody.substring(0, 300));
+
+          let errorMsg = `Brevo error ${brevoRes.status}`;
+          try { const e = JSON.parse(errBody); if (e.message) errorMsg = e.message; } catch {}
+
+          // Update status to failed
+          await updateLetterStatus(sa, tokenResult.token, letterId!, 'failed', now);
+          return NextResponse.json({ ok: false, error: `Gagal kirim email: ${errorMsg}`, letterId }, { status: 500 });
+        }
+
+        const brevoData = await brevoRes.json() as any;
+        console.log('[official-letters] Email sent successfully:', brevoData.messageId);
+
       } catch (emailErr: any) {
-        console.error('[api/official-letters POST] email send error:', emailErr?.message);
+        console.error('[official-letters] email send error:', emailErr?.message);
+        await updateLetterStatus(sa, tokenResult.token, letterId!, 'failed', now);
+        return NextResponse.json({ ok: false, error: 'Gagal kirim email: ' + emailErr?.message, letterId }, { status: 500 });
       }
     }
 
