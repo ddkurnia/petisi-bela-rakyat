@@ -24,10 +24,9 @@ const manrope = Manrope({
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://belarakyat.org";
 const siteName = "Petisi Bela Rakyat";
-// Default OG image — served from our own domain as static file.
-// WhatsApp rejects cross-domain images (Cloudinary ≠ belarakyat.org).
-// /og-default.png is a 1200x630, 353KB optimized image in public/ folder.
-const defaultOgImage = "/og-default.png";
+// Default OG image — ABSOLUTE URL required by WhatsApp.
+// Static file served from our own domain (1200x630, 353KB).
+const defaultOgImage = `${siteUrl}/og-default.png`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
